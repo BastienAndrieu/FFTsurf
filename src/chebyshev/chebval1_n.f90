@@ -11,7 +11,7 @@ subroutine chebval1_n( &
 
   call clenshaw( &
        f, &
-       c%coef, &
+       c%coef(1:c%degr+1,:), &
        x, &
        n, &
        c%degr, &

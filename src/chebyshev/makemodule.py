@@ -4,7 +4,7 @@ VERBOSE = False
 
 
 nom_module = 'chebyshev'
-src = '/home/bandrieu/FFTsurf/src/'
+src = '/home/bandrieu/GitHub/FFTsurf/src/'
 #src = '/home/bastien/FFTsurf/src/'
 
 f = open( src + 'modules/mod_' + nom_module + '.f90', 'w' )

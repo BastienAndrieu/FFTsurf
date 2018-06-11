@@ -17,7 +17,7 @@ subroutine find_collineal_points( &
   !         'stat' = 0 else (pair of non-coincident collineal points);
   ! as well as the uv-coordniates of those potential points.
   implicit none
-  logical,                      parameter     :: VERBOSE = .false.
+  logical,                      parameter     :: VERBOSE = .true.
   integer,                      parameter     :: nitmax = 10
   type(ptr_parametric_surface), intent(in)    :: surf(2)
   real(kind=MATHpr),            intent(inout) :: uv(2,2)

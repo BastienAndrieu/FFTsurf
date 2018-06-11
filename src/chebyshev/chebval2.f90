@@ -10,8 +10,20 @@ subroutine chebval2( &
   integer                                   :: k
 
   do k = 1,c%dim
-     call clenshaw( b(:,k), c%coef(:,:,k), [xy(1)], 1, c%degr(1), c%degr(2)+1 )
+     call clenshaw( &
+          b(:,k), &
+          c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
+          [xy(1)], &
+          1, &
+          c%degr(1), &
+          c%degr(2)+1 )
   end do
-  call clenshaw( f, b, [xy(2)], 1, c%degr(2), c%dim )
+  call clenshaw( &
+       f, &
+       b, &
+       [xy(2)], &
+       1, &
+       c%degr(2), &
+       c%dim )
 
 end subroutine chebval2

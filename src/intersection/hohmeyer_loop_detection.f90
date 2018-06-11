@@ -60,7 +60,7 @@ subroutine hohmeyer_loop_detection( &
           -xyzsep(9:16,:), &
           vec2, &
           separable )
-     PRINT *,separable
+     !PRINT *,separable
 
   end if
   

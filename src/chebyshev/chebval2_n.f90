@@ -11,7 +11,10 @@ subroutine chebval2_n( &
   integer                                   :: i
 
   do i = 1,n
-     call chebval2( f(:,i), c, xy(:,i) )
+     call chebval2( &
+          f(:,i), &
+          c, &
+          xy(:,i) )
   end do
 
 end subroutine chebval2_n

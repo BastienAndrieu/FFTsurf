@@ -127,6 +127,7 @@ recursive subroutine intersect_surface_surface_bezier( &
 
   end if
 
+  IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
 if ( stat_collineal > 0 ) then
      ! if no pair of collineal points has been found, subdivide the surface
@@ -177,13 +178,13 @@ if ( stat_collineal > 0 ) then
 
      SELECT CASE (stat_singularpoint)
      CASE (0)
-        PRINT *,'tangential intersection curve'
+        PRINT *,'>>> tangential intersection curve <<<'
      CASE (1)
-        PRINT *,'branch point'
+        PRINT *,'>>> branch point <<<'
      CASE (2)
-        PRINT *,'isolated tangential contact point'
+        PRINT *,'>>> isolated tangential contact point <<<'
      CASE (3)
-        PRINT *,'higher-order contact point'
+        PRINT *,'>>> higher-order contact point <<<'
      END SELECT
 
      !call add_intersection_point( &
@@ -237,21 +238,42 @@ if ( stat_collineal > 0 ) then
      !     ( uv_collineal(:,isurf) - region(isurf)%ptr%uvbox(1,:) ) / &
      !     ( region(isurf)%ptr%uvbox(2,:) - region(isurf)%ptr%uvbox(1,:) ) )
      if ( nchild(isurf) > 1 ) then
-        IF ( NCHILD(ISURF) < 4 ) STOP 'DEGENERATE SUBDIVISION (NOT YET IMPLEMENTED FOR BEZIER)'
-        call subdiv2( &
-             bs(isurf)%ptr, &
-             st_subdiv, &
-             bsw=childbs(1,isurf), &
-             bse=childbs(2,isurf), &
-             bnw=childbs(3,isurf), &
-             bne=childbs(4,isurf) )
-        call subdiv2( &
-             bpn(isurf)%ptr, &
-             st_subdiv, &
-             bsw=childbpn(1,isurf), &
-             bse=childbpn(2,isurf), &
-             bnw=childbpn(3,isurf), &
-             bne=childbpn(4,isurf) )
+        !IF ( NCHILD(ISURF) < 4 ) STOP 'DEGENERATE SUBDIVISION (NOT YET IMPLEMENTED FOR BEZIER)'
+        if ( nchild(isurf) == 2 ) then
+           ! 2 children
+           if ( abs( region(isurf)%ptr%child(1)%uvbox(2,1) - &
+                region(isurf)%ptr%child(2)%uvbox(2,1) ) < EPSregion ) then
+              ! subdivide along v
+              call subdiv2_along_v( &
+                   bs(isurf)%ptr, &
+                   st_subdiv(2), &
+                   childbs(1,isurf), &
+                   childbs(2,isurf) )
+           else
+              ! subdivide along u
+              call subdiv2_along_u( &
+                   bs(isurf)%ptr, &
+                   st_subdiv(1), &
+                   childbs(1,isurf), &
+                   childbs(2,isurf) )
+           end if
+        else
+           ! 4 children
+           call subdiv2( &
+                bs(isurf)%ptr, &
+                st_subdiv, &
+                bsw=childbs(1,isurf), &
+                bse=childbs(2,isurf), &
+                bnw=childbs(3,isurf), &
+                bne=childbs(4,isurf) )
+           call subdiv2( &
+                bpn(isurf)%ptr, &
+                st_subdiv, &
+                bsw=childbpn(1,isurf), &
+                bse=childbpn(2,isurf), &
+                bnw=childbpn(3,isurf), &
+                bne=childbpn(4,isurf) )
+        end if
      end if
   end do
 

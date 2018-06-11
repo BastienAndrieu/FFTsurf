@@ -51,7 +51,7 @@ recursive subroutine intersect_surface_surface( &
        region(2)%ptr%xyzbox, &
        overlap )
 
-  if ( .not.overlap ) return ! disjoint OBBs means empty intersection
+  if ( .not.overlap ) return ! disjoint OBBs => empty intersection
 
 
   ! use Hohmeyer's loop detection technique
@@ -122,7 +122,7 @@ recursive subroutine intersect_surface_surface( &
 
   end if
 
-
+  IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
   if ( stat_collineal > 0 ) then
      ! if no pair of collineal points has been found, subdivide the surface
@@ -173,13 +173,13 @@ recursive subroutine intersect_surface_surface( &
 
      SELECT CASE (stat_singularpoint)
      CASE (0)
-        PRINT *,'tangential intersection curve'
+        PRINT *,'>>> tangential intersection curve <<<'
      CASE (1)
-        PRINT *,'branch point'
+        PRINT *,'>>> branch point <<<'
      CASE (2)
-        PRINT *,'isolated tangential contact point'
+        PRINT *,'>>> isolated tangential contact point <<<'
      CASE (3)
-        PRINT *,'higher-order contact point'
+        PRINT *,'>>> higher-order contact point <<<'
      END SELECT
 
      !call add_intersection_point( &

@@ -9,7 +9,7 @@ subroutine chebval1( &
 
   call clenshaw( &
        f, &
-       c%coef, &
+       c%coef(1:c%degr+1,:), &
        [x], &
        1, &
        c%degr, &
