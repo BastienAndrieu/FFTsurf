@@ -1,0 +1,42 @@
+  use mod_math
+
+  implicit none
+
+
+  type type_chebyshev_series1
+     integer                        :: degr = 0
+     integer                        :: dim = 0
+     real(kind=MATHpr), allocatable :: coef(:,:)
+  end type type_chebyshev_series1
+
+  type type_chebyshev_series2
+     integer                        :: degr(2) = 0
+     integer                        :: dim = 0
+     real(kind=MATHpr), allocatable :: coef(:,:,:)
+  end type type_chebyshev_series2
+
+
+  type ptr_chebyshev_series1
+     type(type_chebyshev_series1), pointer :: ptr => null()
+  end type ptr_chebyshev_series1
+
+  type ptr_chebyshev_series2
+     type(type_chebyshev_series2), pointer :: ptr => null()
+  end type ptr_chebyshev_series2
+
+
+  interface read_cs
+     module procedure read_chebyshev_series1, read_chebyshev_series2
+  end interface read_cs
+
+  interface reset_cs
+     module procedure reset_chebyshev_series1, reset_chebyshev_series2
+  end interface reset_cs
+
+  interface delete_cs
+     module procedure delete_chebyshev_series1, delete_chebyshev_series2
+  end interface delete_cs
+
+  interface chebval
+     module procedure chebval1, chebval1_n, chebval2, chebval2_n, chebval2_mn
+  end interface chebval
