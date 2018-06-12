@@ -34,7 +34,7 @@ module mod_diffgeom
   end interface compute_first_derivatives
 
   interface compute_second_derivatives
-     module procedure surf_compute_second_derivatives
+     module procedure curv_compute_second_derivative, surf_compute_second_derivatives
   end interface compute_second_derivatives
 
 contains
@@ -46,6 +46,15 @@ contains
     call chebdiff1( curv%c, curv%ct )
     
   end subroutine curv_compute_first_derivative
+
+
+  subroutine curv_compute_second_derivative( curv )
+    implicit none
+    type(type_parametric_curve), intent(inout) :: curv
+
+    call chebdiff1( curv%ct, curv%ctt )
+
+  end subroutine curv_compute_second_derivative
 
 
   subroutine surf_compute_first_derivatives( surf )
