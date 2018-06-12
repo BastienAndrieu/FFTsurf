@@ -361,6 +361,71 @@ contains
     ! ==================================================================
   
 
+  
+  ! ==================================================================
+  subroutine bernOBB1( &
+       b, &
+       degr, &
+       box )
+    implicit none
+    integer,           intent(in)   :: degr
+    real(kind=MATHpr), intent(in)   :: b(degr+1,3)
+    type(type_obb),    intent(out)  :: box
+    real(kind=MATHpr)               :: vec(3), mag
+    integer                         :: i
+    real(kind=MATHpr)               :: X(degr+1,3)
+    real(kind=MATHpr), dimension(3) :: mx, mn
+
+    if ( degr < 0 ) STOP 'bernOBB1 : degr < 0'
+
+    vec = b(degr+1,:) - b(1,:)
+    mag = norm2( vec )
+
+    if ( mag < OBBeps ) then
+       if ( degr > 1 ) then
+          vec = b(2,:) - b(1,:) + b(degr+1,:) - b(degr,:)
+          mag = norm2( vec )
+       end if
+    end if
+
+    if ( mag < OBBeps ) then
+       box%axe = identity_matrix( 3 )
+       X = b
+    else
+       box%axe(:,1) = vec / mag
+
+       X(1:degr,:) = b(2:degr+1,:) - spread( b(1,:), dim=1, ncopies=degr )
+       X(1:degr,:) = X(1:degr,:) - &
+            matmul( X(1:degr,:), outer_product( box%axe(:,1), box%axe(:,1) ) )
+       i = maxloc( sum( X(1:degr,:)**2, dim=2 ), 1 )
+       mag = norm2( X(i,:) )
+       if ( mag < OBBeps ) then
+          i = minloc( abs(box%axe(:,1)), 1 )
+          box%axe(:,2) = 0._MATHpr
+          box%axe(i,2) = 1._MATHpr
+          box%axe(:,2) = box%axe(:,2) - &
+               dot_product(box%axe(:,1),box%axe(:,2)) * box%axe(:,1)
+          box%axe(:,2) = box%axe(:,2) / norm2( box%axe(:,2) )
+       else
+          box%axe(:,2) = X(i,:) / mag
+       end if
+       box%axe(:,3) = cross( box%axe(:,1), box%axe(:,2) )
+       
+       X = matmul( b, box%axe )
+    end if
+
+    ! ranges
+    mn = minval( X, DIM=1 )
+    mx = maxval( X, DIM=1 )
+    box%rng = 0.5_MATHpr * ( mx - mn )
+    box%rng = box%rng + OBBmrg
+
+    ! center
+    box%ctr = 0.5_MATHpr * matmul( box%axe, mx + mn )
+
+  end subroutine bernOBB1
+  ! ==================================================================
+  
 
 
 subroutine print_obb( box )

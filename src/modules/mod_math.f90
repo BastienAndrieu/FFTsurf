@@ -102,7 +102,7 @@ contains
   ! -----------------------------------------
   ! linsolve_QR
   ! Résolution de système linéaire avec factorisation QR
-  subroutine linsolve_QR(x, A, b, m, n, singular)
+  subroutine linsolve_QR( x, A, b, m, n, singular, rank_opt )
 
     implicit none
 
@@ -112,6 +112,7 @@ contains
 
     real*8, dimension(n) :: x
     logical, intent(out) :: singular
+    integer, optional, intent(out) :: rank_opt
 
     real*8, dimension(size(A,1),size(A,1)) :: Q
     real*8, dimension(size(A,1),size(A,2)) :: R
@@ -129,6 +130,7 @@ contains
 
     ! Factorisation QR
     call QR_colpiv(A, Q, R, P, rank)
+    if ( present(rank_opt) ) rank_opt = rank
 
     c = matmul(transpose(Q),b)
 
@@ -749,6 +751,7 @@ contains
 
 
 
+
   function ab2n1p1( x, a, b )
     ! Applies to a scalar x the linear change of variable that 
     ! maps the interval [a,b] to [-1,1]
@@ -759,6 +762,9 @@ contains
   end function ab2n1p1
 
 
+
+
+
   function n1p12ab( x, a, b )
     ! Applies to a scalar x the linear change of variable that 
     ! maps the interval [-1,1] to [a,b]
@@ -767,6 +773,9 @@ contains
     real(kind=MATHpr)             :: n1p12ab
     n1p12ab = a + 0.5_MATHpr * (b-a) * (x + 1._MATHpr)
   end function n1p12ab
+
+
+
 
   
   function linspace( a, b, n )
@@ -783,6 +792,9 @@ contains
   end function linspace
 
 
+
+
+
   function is_in_interval( x, a, b )
     ! Returns .true. if a <= x <= b, .false. if x < a or x > b
     implicit none
@@ -792,7 +804,22 @@ contains
     is_in_interval = ( x >= a .and. x <= b )
 
   end function is_in_interval
+
+
+
+
+  function is_in_interval_strict( x, a, b )
+    ! Returns .true. if a < x < b, .false. if x <= a or x >= b
+    implicit none
+    real(kind=MATHpr), intent(in) :: x, a, b
+    logical                       :: is_in_interval_strict
+
+    is_in_interval_strict = ( x > a .and. x < b )
+
+  end function is_in_interval_strict
+
   
+
 
   function identity_matrix( n )
     implicit none

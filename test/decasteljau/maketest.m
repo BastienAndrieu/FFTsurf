@@ -3,8 +3,9 @@ clc; clear; close all
 n = 7;
 x = linspace(0,1,n)';
 y = rand(n,1);
+z = rand(n,1);
 
-b = [x,y];
+b = [x,y,z],
 
 fid = fopen( 'b.dat', 'w' );
 fprintf( fid, '%d %d\n', size(b,1), size(b,2) );

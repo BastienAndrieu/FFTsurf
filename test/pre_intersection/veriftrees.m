@@ -11,8 +11,8 @@ cl = colorcet( 'I2', 'N', 4 );
 
 for isurf = 1:2
     s(isurf).c = readCoeffs2(sprintf('c_%d.cheb',isurf));
-    s(isurf).tree = importdata(sprintf('tree_%d.dat',isurf));
-%     s(isurf).tree = importdata(sprintf('tree_%d_bezier.dat',isurf));
+%     s(isurf).tree = importdata(sprintf('tree_%d.dat',isurf));
+    s(isurf).tree = importdata(sprintf('tree_%d_bezier.dat',isurf));
 end
 
 

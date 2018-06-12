@@ -285,6 +285,19 @@ recursive subroutine intersect_surface_surface( &
 
 
 
+  ! if a branch point has been found, perform a specific separability test 
+  if ( stat_collineal < 0 .and. stat_singularpoint == 1 ) then
+     ! common normal direction at that point
+     isurf = minloc( [ (surfroot(1)%ptr%pn%degr(1)+1)*(surfroot(1)%ptr%pn%degr(2)+1) , &
+          (surfroot(2)%ptr%pn%degr(1)+1)*(surfroot(1)%ptr%pn%degr(2)+1) ], 1 )
+     call chebval( &
+          n(:,1), &
+          surfroot(isurf)%ptr%pn, &
+          uv_collineal(:,isurf) )
+
+     !call 
+  end if
+
 
 
 

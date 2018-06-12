@@ -69,6 +69,7 @@ recursive subroutine intersect_surface_surface_bezier( &
   ! use Hohmeyer's loop detection technique
   do isurf = 1,2
      nbpn(isurf) = ( bpn(isurf)%ptr%degr(1) + 1 )*( bpn(isurf)%ptr%degr(2) + 1 )
+     !PRINT *,"NBPN =",NBPN(ISURF)
   end do
   call hohmeyer_loop_detection_bezier( &
        reshape( bpn(1)%ptr%coef(1:bpn(1)%ptr%degr(1)+1,1:bpn(1)%ptr%degr(2)+1,:), [nbpn(1),3] ) , &
@@ -249,6 +250,11 @@ if ( stat_collineal > 0 ) then
                    st_subdiv(2), &
                    childbs(1,isurf), &
                    childbs(2,isurf) )
+              call subdiv2_along_v( &
+                   bpn(isurf)%ptr, &
+                   st_subdiv(2), &
+                   childbpn(1,isurf), &
+                   childbpn(2,isurf) )
            else
               ! subdivide along u
               call subdiv2_along_u( &
@@ -256,6 +262,11 @@ if ( stat_collineal > 0 ) then
                    st_subdiv(1), &
                    childbs(1,isurf), &
                    childbs(2,isurf) )
+              call subdiv2_along_u( &
+                   bpn(isurf)%ptr, &
+                   st_subdiv(1), &
+                   childbpn(1,isurf), &
+                   childbpn(2,isurf) )
            end if
         else
            ! 4 children

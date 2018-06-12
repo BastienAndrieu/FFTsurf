@@ -3,8 +3,6 @@ recursive subroutine intersect_surface_surface( &
      surfc, &
      surfpn, &
      region, &
-     !stat_collineal_parents, &
-     !uv_collineal_parents, &
      interdat ) 
   use mod_math
   use mod_chebyshev
@@ -16,8 +14,6 @@ recursive subroutine intersect_surface_surface( &
   type(ptr_parametric_surface),  intent(in)    :: surfroot(2)
   type(ptr_chebyshev_series2),   intent(in)    :: surfc(2)
   type(ptr_chebyshev_series2),   intent(in)    :: surfpn(2)
-  !integer,                       intent(in)    :: stat_collineal_parents
-  !real(kind=MATHpr),             intent(in)    :: uv_collineal_parents(2,2)
   type(ptr_surface_region),      intent(inout) :: region(2)
   type(type_intersection_data),  intent(inout) :: interdat
   logical                                      :: overlap
@@ -31,26 +27,17 @@ recursive subroutine intersect_surface_surface( &
   integer                                      :: stat_subdiv
   integer                                      :: nchild(2), nchildtotal
   type(ptr_surface_region)                     :: newregion(2)
-  type(type_chebyshev_series2), allocatable    :: childsurfc(:), childsurfpn(:)
-  type(ptr_chebyshev_series2)                  :: newsurfc(2), newsurfpn(2)
-  !type(type_chebyshev_series2), allocatable    :: newsurfc(:), newsurfpn(:)
-  !type(ptr_chebyshev_series2), allocatable     :: newsurfc(:), newsurfpn(:)
+  type(type_chebyshev_series2), dimension(4,2), target :: childsurfc, childsurfpn
+  type(ptr_chebyshev_series2), dimension(2)    :: newsurfc, newsurfpn
   integer                                      :: isurf, ichild, jchild, ivar
 
   CHARACTER                                    :: STR1, STR2
-
   ! ...
 
   ! compute OBBs
   do isurf = 1,2
      if ( .not.associated(region(isurf)%ptr%xyzbox) ) then
         allocate( region(isurf)%ptr%xyzbox )
-        !PRINT *,'ASSOCIATED?',ASSOCIATED(SURFC(ISURF)%PTR)
-        !IF ( ASSOCIATED(SURFC(ISURF)%PTR) ) THEN
-        !   PRINT *,SURFC(ISURF)%PTR
-        !   PRINT *,'   COEF ALLOCATED?', ALLOCATED( SURFC(ISURF)%PTR%COEF )
-        !   PRINT *,'SIZE=',SIZE( SURFC(ISURF)%PTR%COEF )
-        !END IF
         call chebOBB2( &
              surfc(isurf)%ptr%coef(1:surfc(isurf)%ptr%degr(1)+1, 1:surfc(isurf)%ptr%degr(2)+1,:), &
              surfc(isurf)%ptr%degr, &
@@ -60,14 +47,14 @@ recursive subroutine intersect_surface_surface( &
 
   ! test OBBs for overlap
   call overlap_OBBs( &
-       [ region(1)%ptr%xyzbox , region(2)%ptr%xyzbox ], &
+       region(1)%ptr%xyzbox , &![ region(1)%ptr%xyzbox , region(2)%ptr%xyzbox ], &
+       region(2)%ptr%xyzbox, &
        overlap )
 
-  if ( .not.overlap ) return ! disjoint OBBs means empty intersection
+  if ( .not.overlap ) return ! disjoint OBBs => empty intersection
 
 
   ! use Hohmeyer's loop detection technique
-  !if ( stat_collineal_parents > 0 ) then
   do isurf = 1,2
      if ( .not.associated(region(isurf)%ptr%pnbox) ) then
         allocate( region(isurf)%ptr%pnbox )
@@ -77,16 +64,12 @@ recursive subroutine intersect_surface_surface( &
              region(isurf)%ptr%pnbox )
      end if
   end do
+
   call hohmeyer_loop_detection( &
        [ region(1)%ptr%pnbox , region(2)%ptr%pnbox ], &
        param_vector, &
        stat_loopdetection ) 
-  !else
-  !   ! the Gauss maps of the two regions are known to intersect at the point 'uv_collineal_parents',
-  !   ! check if they can intersect at other points
      
-
-  !end if ! ( stat_collineal_parents > 0 )
 
   !PRINT *,'stat_loopdetection =', stat_loopdetection
 
@@ -139,7 +122,7 @@ recursive subroutine intersect_surface_surface( &
 
   end if
 
-
+  IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
   if ( stat_collineal > 0 ) then
      ! if no pair of collineal points has been found, subdivide the surface
@@ -190,13 +173,13 @@ recursive subroutine intersect_surface_surface( &
 
      SELECT CASE (stat_singularpoint)
      CASE (0)
-        PRINT *,'tangential intersection curve'
+        PRINT *,'>>> tangential intersection curve <<<'
      CASE (1)
-        PRINT *,'branch point'
+        PRINT *,'>>> branch point <<<'
      CASE (2)
-        PRINT *,'isolated tangential contact point'
+        PRINT *,'>>> isolated tangential contact point <<<'
      CASE (3)
-        PRINT *,'higher-order contact point'
+        PRINT *,'>>> higher-order contact point <<<'
      END SELECT
 
      !call add_intersection_point( &
@@ -221,7 +204,6 @@ recursive subroutine intersect_surface_surface( &
 
 
   ! >>>>> block repeated three times, put in a separate subroutine or use GOTO -----------
-  ! .... special cases where one or obth surfaces is not subdivided NEEDS to be implemented
   nchild(:) = 0
   do isurf = 1,2
      if ( stat_loopdetection == isurf .or. stat_loopdetection == 3 ) then
@@ -244,61 +226,52 @@ recursive subroutine intersect_surface_surface( &
      return
   end if
 
-  ! compute changes of variables for position vector and pseudo-normal patch
-  allocate( newsurfc(nchildtotal), newsurfpn(nchildtotal) )
-  do isurf = 1,2
-     if ( nchild(isurf) == 1 ) then
-        !newsurfc( (isurf-1)*nchild(1) + 1 )%ptr => surfc(isurf)%ptr
-        !newsurfpn( (isurf-1)*nchild(1) + 1 )%ptr => surfpn(isurf)%ptr
-        !newsurfc( (isurf-1)*nchild(1) + 1 ) = surfc(isurf)
-        !newsurfpn( (isurf-1)*nchild(1) + 1 ) = surfpn(isurf)
-        childsurfc( (isurf-1)*nchild(1) + 1 ) = surfc(isurf)
-        childsurfpn( (isurf-1)*nchild(1) + 1 ) = surfpn(isurf)
-     else
-        do ichild = 1,nchild(isurf)
-           !allocate( newsurfc( (isurf-1)*nchild(1) + ichild )%ptr, &
-           !     newsurfpn( (isurf-1)*nchild(1) + ichild )%ptr )
 
-           !PRINT *,' AVANT, ASSOCIATED?', ASSOCIATED(newsurfc( (isurf-1)*nchild(1) + ichild )%ptr)
+
+  ! compute changes of variables for position vector and pseudo-normal patch
+  do isurf = 1,2
+     if ( nchild(isurf) > 1 ) then
+        do ichild = 1,nchild(isurf)
            call chgvar2( &
                 surfroot(isurf)%ptr%s, &                      ! surfc(isurf), & (WRONG)
-                childsurfc( (isurf-1)*nchild(1) + ichild ), &
-                !newsurfc( (isurf-1)*nchild(1) + ichild )%ptr, &
+                childsurfc(ichild,isurf), &
                 region(isurf)%ptr%child(ichild)%uvbox(1,:), &
                 region(isurf)%ptr%child(ichild)%uvbox(2,:) )
-           !PRINT *,' APRES, ASSOCIATED?', ASSOCIATED(newsurfc( (isurf-1)*nchild(1) + ichild )%ptr)
 
            call chgvar2( &
-                surfroot(isurf)%ptr%pn, &                     ! surfpn(isurf), & (WRONG) 
-                childsurfpn( (isurf-1)*nchild(1) + ichild ), &
-                !newsurfpn( (isurf-1)*nchild(1) + ichild )%ptr, &
+                surfroot(isurf)%ptr%pn, &                      ! surfpn(isurf), & (WRONG)
+                childsurfpn(ichild,isurf), &
                 region(isurf)%ptr%child(ichild)%uvbox(1,:), &
                 region(isurf)%ptr%child(ichild)%uvbox(2,:) )
         end do
      end if
   end do
 
+  
 
+  
   ! *** DEBUG *******************************
-  IF ( .FALSE. ) THEN
+  IF ( .false. ) THEN
      IF ( ASSOCIATED(REGION(1)%PTR%PARENT) .OR. ASSOCIATED(REGION(2)%PTR%PARENT) ) THEN
         DO ISURF = 1,2
            WRITE (STR1,'(I1)') ISURF
            CALL WRITE_CHEBYSHEV_SERIES2( &
-                SURFROOT(ISURF)%PTR%S, &
+                SURFROOT(ISURF)%PTR%PN, &
                 'pre_intersection/debug_subdivision/surf_' // STR1 // '_root.cheb' )
+           
 
            CALL WRITE_CHEBYSHEV_SERIES2( &
-                SURFC( ISURF )%ptr, &
+                SURFPN( ISURF )%PTR, &
                 'pre_intersection/debug_subdivision/surf_' // STR1 // '_parent.cheb' )
 
-           DO ICHILD = 1,NCHILD(ISURF)
-              WRITE (STR2,'(I1)') ICHILD
-              CALL WRITE_CHEBYSHEV_SERIES2( &
-                   !NEWSURFC( (ISURF-1)*NCHILD(1) + ICHILD )%ptr, &
-                   childSURFC( (ISURF-1)*NCHILD(1) + ICHILD ), &
-                   'pre_intersection/debug_subdivision/surf_' // STR1 // '_child_' // STR2 // '.cheb' )
-           END DO
+           IF ( NCHILD(ISURF) > 1 ) THEN
+              DO ICHILD = 1,NCHILD(ISURF)
+                 WRITE (STR2,'(I1)') ICHILD
+                 CALL WRITE_CHEBYSHEV_SERIES2( &
+                      CHILDSURFPN(ICHILD,ISURF), &
+                      'pre_intersection/debug_subdivision/surf_' // STR1 // '_child_' // STR2 // '.cheb' )
+              END DO
+           END IF
 
            CALL EXPORT_SURFACE_REGION_TREE( &
                 REGION(ISURF)%PTR, &
@@ -310,45 +283,58 @@ recursive subroutine intersect_surface_surface( &
   ! *****************************************
 
 
+
+
+  ! if a branch point has been found, perform a specific separability test 
+  if ( stat_collineal < 0 .and. stat_singularpoint == 1 ) then
+     ! common normal direction at that point
+     isurf = minloc( [ (surfroot(1)%ptr%pn%degr(1)+1)*(surfroot(1)%ptr%pn%degr(2)+1) , &
+          (surfroot(2)%ptr%pn%degr(1)+1)*(surfroot(1)%ptr%pn%degr(2)+1) ], 1 )
+     call chebval( &
+          n(:,1), &
+          surfroot(isurf)%ptr%pn, &
+          uv_collineal(:,isurf) )
+
+     !call 
+  end if
+
+
+
+
   ! call intersect_surface_surface on pairs of child surface region
   do jchild = 1,nchild(2)
 
      if ( nchild(2) == 1 ) then
         newregion(2)%ptr => region(2)%ptr
-        newsurfc(2)%ptr => surfc(2)%ptr
+        newsurfc(2)%ptr  => surfc(2)%ptr
+        newsurfpn(2)%ptr => surfpn(2)%ptr
      else
         newregion(2)%ptr => region(2)%ptr%child(jchild)
-        newsurfc(2)%ptr => childsurfc(jchild,2)%ptr
+        newsurfc(2)%ptr  => childsurfc(jchild,2)
+        newsurfpn(2)%ptr => childsurfpn(jchild,2)
      end if
 
      do ichild = 1,nchild(1)
 
         if ( nchild(1) == 1 ) then
            newregion(1)%ptr => region(1)%ptr
+           newsurfc(1)%ptr  => surfc(1)%ptr
+           newsurfpn(1)%ptr => surfpn(1)%ptr
         else
            newregion(1)%ptr => region(1)%ptr%child(ichild)
+           newsurfc(1)%ptr  => childsurfc(ichild,1)
+           newsurfpn(1)%ptr => childsurfpn(ichild,1)
         end if
-
+        
         call intersect_surface_surface( &
              surfroot, &
-             ![ newsurfc( ichild ), newsurfc( nchild(1) + jchild ) ], &
-             newsurfc( [ichild, nchild(1) + jchild] ), &
-             ![ newsurfpn( ichild ), newsurfpn( nchild(1) + jchild ) ], &
-             newsurfpn( [ichild, nchild(1) + jchild] ), &
+             newsurfc, &
+             newsurfpn, &
              newregion, &
-             !stat_collineal, &
-             !uv_collineal, &
              interdat )
 
      end do
   end do
-
-  deallocate( newsurfc, newsurfpn )
-
   ! -------------------------------------------------------------------------------- <<<<<
-
-
-
-
 
 end subroutine intersect_surface_surface

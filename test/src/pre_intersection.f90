@@ -27,7 +27,7 @@ program pre_intersection
      write (strnum,'(I1)') isurf
      call read_chebyshev_series2( &
           surf(isurf)%s, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test16.txt' )
+          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test18.txt' )
           !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test07.txt' )
           !'../Bureau/coeffstest/C' // strnum // '_test01.txt' )
 

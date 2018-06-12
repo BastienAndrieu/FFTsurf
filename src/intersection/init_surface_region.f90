@@ -11,7 +11,7 @@ subroutine init_surface_region( &
   region%uvbox = uvbox
   if ( associated(region%xyzbox) ) deallocate( region%xyzbox )
   if ( associated(region%pnbox) ) deallocate( region%pnbox )
-  if ( associated(region%child) ) deallocate( region%parent )
+  if ( associated(region%parent) ) deallocate( region%parent )
   if ( associated(region%child) ) deallocate( region%child )
   nullify( region%xyzbox, region%pnbox, region%parent, region%child )
 

@@ -3,6 +3,7 @@ program decasteljau
   use mod_util
   use mod_math
   use mod_bernstein
+  use mod_obb
 
   implicit none
   
@@ -11,6 +12,7 @@ program decasteljau
   real(kind=MATHpr), dimension(:,:), allocatable :: b, bl, br
   real(kind=MATHpr), dimension(:), allocatable   :: f
   real(kind=MATHpr)                              :: t
+  type(type_obb)                                 :: box
   integer                                        :: i, j, file_unit
 
   call get_free_unit( file_unit )
@@ -62,5 +64,19 @@ program decasteljau
   open( unit=file_unit, file='decasteljau/f.dat', action='write' )
   write ( file_unit, * ) f
   close ( file_unit )
+
+
+
+  if ( dim == 3 ) then
+     call bernOBB1( b(1:degr+1,1:dim), degr, box )
+     call write_obb( box, 'decasteljau/xyzbox_b.dat' )
+
+     call bernOBB1( bl(1:degr+1,1:dim), degr, box )
+     call write_obb( box, 'decasteljau/xyzbox_bl.dat' )
+
+     call bernOBB1( br(1:degr+1,1:dim), degr, box )
+     call write_obb( box, 'decasteljau/xyzbox_br.dat' )
+  end if
+
 
 end program decasteljau

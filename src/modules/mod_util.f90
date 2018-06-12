@@ -134,26 +134,48 @@ contains
   
   subroutine append_integer( &
        array, &
-       element )
+       element, &
+       noduplicates, &
+       newlength )
     ! Appends an integer element to a rank-1, dynamic array
     implicit none
     integer,              intent(in)    :: element
     integer, allocatable, intent(inout) :: array(:)
+    logical, optional,    intent(in)    :: noduplicates
+    integer, optional,    intent(out)   :: newlength
     integer, allocatable                :: tmp(:)
-    integer                             :: length
+    integer                             :: length, i
 
     if ( allocated(array) ) then
+
        length = size(array)
+
+       if ( present(noduplicates) ) then
+          if ( noduplicates ) then
+             do i = 1,length
+                if ( array(i) == element ) then
+                   if ( present(newlength) ) newlength = length
+                   return
+                end if
+             end do
+          end if
+       end if
+
        allocate( tmp(length+1) )
        tmp(1:length) = array(1:length)
        tmp(length+1) = element
 
        deallocate( array )
        call move_alloc( FROM=tmp, TO=array )
+
     else
+
        allocate( array(1) )
        array(1) = element
+
     end if
+
+    if ( present(newlength) ) newlength = size(array)
 
   end subroutine append_integer
 
