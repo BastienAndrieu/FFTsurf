@@ -176,6 +176,13 @@ program dev_intersection_simple_surface
      end do
   end if
   close(13)
+  
+  DO ISURF = 1,2
+     DEALLOCATE( REGION(ISURF)%PTR%BEZIER%COEF )
+     DEALLOCATE( REGION(ISURF)%PTR%BEZIER )
+  END DO
+
+  
 
 contains
 
@@ -251,8 +258,8 @@ contains
     real(kind=MATHpr)                             :: uv(2,2)
     integer                                       :: isurf, ipt, jpt
 
-    PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
-    PRINT *,'ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
+    !PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
+    !PRINT *,'ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
 
     isurf = 1 + mod(icurv,2)
 
@@ -287,8 +294,8 @@ contains
     region_s%bezier => region(isurf)%ptr%bezier
 
     
-    CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/root_c_bezier.bern' )
-    CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/root_s_bezier.bern' )
+    !CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/root_c_bezier.bern' )
+    !CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/root_s_bezier.bern' )
 
 
     allocate( tuvxyz(6,npts_init) )
@@ -303,23 +310,23 @@ contains
          ntuvxyz, &
          stat_degeneracy )
     
-    open( unit=13, file='dev_intersection_simple_surface/tuv_xyz.dat', action='write' )
-    if ( ntuvxyz < 1 ) then
-       write (13,*) ''
-    else
-       do ipt = 1,ntuvxyz
-          write (13,*) tuvxyz(:,ipt)
-       end do
-    end if
-    close(13)
+    !open( unit=13, file='dev_intersection_simple_surface/tuv_xyz.dat', action='write' )
+    !if ( ntuvxyz < 1 ) then
+    !   write (13,*) ''
+    !else
+    !   do ipt = 1,ntuvxyz
+    !      write (13,*) tuvxyz(:,ipt)
+    !   end do
+    !end if
+    !close(13)
 
     
-    call export_surface_region_tree( &
-         region_s, &
-         'dev_intersection_simple_surface/tree_s.dat' )
-    call export_curve_region_tree( &
-         region_c, &
-         'dev_intersection_simple_surface/tree_c.dat' )
+    !call export_surface_region_tree( &
+    !     region_s, &
+    !     'dev_intersection_simple_surface/tree_s.dat' )
+    !call export_curve_region_tree( &
+    !     region_c, &
+    !     'dev_intersection_simple_surface/tree_c.dat' )
     IF ( STAT_DEGENERACY > 10 ) THEN
        PRINT *,'STAT_DEGENERACY =',STAT_DEGENERACY
        RETURN
@@ -338,7 +345,7 @@ contains
             region(icurv)%ptr%uvbox(1,1+mod(ivar,2)), &
             region(icurv)%ptr%uvbox(2,1+mod(ivar,2)) )
        uv(:,isurf) = tuvxyz(2:3,ipt)
-       PRINT *,uv,tuvxyz(4:6,ipt)
+       !PRINT *,uv,tuvxyz(4:6,ipt)
 
        call append_vector( &
             [ uv(:,1), uv(:,2), tuvxyz(4:6,ipt) ], &
@@ -350,7 +357,6 @@ contains
 
     call free_surface_region_tree( region_s, no_dealloc_bezier=.true. )
     call free_curve_region_tree( region_c )
-
 
   end subroutine intersect_border_surface
 
@@ -718,9 +724,9 @@ contains
           !PRINT *,'MIDPOINT =',REAL(TUV)
        end if ! <---------------------------------------------------------------------------------------------------------+     !
        !PRINT *,'NEWTON <--- TUV0 =',REAL(TUV)
-       PRINT *,'------- NEWTON -------'
-       PRINT *,'N_SHAREDPTS =',N_SHAREDPTS
-       PRINT *,'INTERIOR?    ',INTERIOR
+       !PRINT *,'------- NEWTON -------'
+       !PRINT *,'N_SHAREDPTS =',N_SHAREDPTS
+       !PRINT *,'INTERIOR?    ',INTERIOR
        !IF ( N_SHAREDPTS < 1 ) THEN
        !   CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
        !   CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
@@ -736,7 +742,7 @@ contains
             tuv, &                                                                                                              !
             stat_newpoint, &                                                                                                    !
             xyz )      
-       PRINT *,'----------------------'                                                                                      !
+       !PRINT *,'----------------------'                                                                                      !
        !PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT                                                                                 !
        !
        ! if we just found a degenerate point, return and report degeneracy                                                      !
@@ -1897,12 +1903,12 @@ contains
        r = xyz_s - xyz_c ! residual vector
        res = sum( r**2 ) ! squared norm of residual vector
        !PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R))
-       PRINT *,NORM2(R)
+       !PRINT *,NORM2(R)
        
        ! check signs of convergence
        if ( it == 1 ) rescheck = THRESHOLD * res
        if ( it > nitcheck .and. res > rescheck ) then
-          PRINT *,'NO SIGN OF CONVERGENCE, STOP NEWTON ITERATION'
+       !   PRINT *,'NO SIGN OF CONVERGENCE, STOP NEWTON ITERATION'
           return
        end if
 
@@ -1964,7 +1970,7 @@ contains
        dtuv = lambda * dtuv
        if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
           ! damped Newton step is too small
-          PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
+          !PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
           return
        end if
 
