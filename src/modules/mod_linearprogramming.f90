@@ -135,6 +135,7 @@ contains
        if ( c > 0._MATHpr ) stat = -1 ! unbounded, feasible problem
     else
        if ( L > R ) then
+          !PRINT *,'LP1D UNFEASIBLE : L, R =',L,R
           stat = 1 ! unfeasible problem
        else
           ! bounded, feasible problem

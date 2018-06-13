@@ -7,15 +7,17 @@ module mod_separation
   logical,           parameter   :: OPTcartsp  = .true.  ! cartesian separating plane
   logical,           parameter   :: OPTsphbbsp = .true.  ! spherical bounding box separation
   logical,           parameter   :: OPTlpsp    = .true.  ! linear programming separation
-  real(kind=MATHpr), parameter   :: EPSlpsep = real( 1.e-3, kind=MATHpr )  
+  real(kind=MATHpr), parameter   :: EPSlpsep = real( 1.e-6, kind=MATHpr )  
 
   type(type_matrix), allocatable :: ch2be_matrices(:)
 
 contains
-  
+
   subroutine separating_plane( &
        xyz1, &
        xyz2, &
+       n1, &
+       n2, &
        vec, &
        separable )
     ! Searches for a plane that strictly sepatates two sets of points 
@@ -24,8 +26,9 @@ contains
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
     logical, parameter              :: VERBOSE = .false.
-    real(kind=MATHpr), intent(in)   :: xyz1(:,:)
-    real(kind=MATHpr), intent(in)   :: xyz2(:,:)
+    integer,           intent(in)   :: n1, n2
+    real(kind=MATHpr), intent(in)   :: xyz1(n1,3)
+    real(kind=MATHpr), intent(in)   :: xyz2(n2,3)
     real(kind=MATHpr), intent(out)  :: vec(3)
     logical,           intent(out)  :: separable
 
@@ -34,6 +37,8 @@ contains
        call separating_cartesian_plane( &
             xyz1, &
             xyz2, &
+            n1, &
+            n2, &
             vec, &
             separable )
 
@@ -50,6 +55,8 @@ contains
        call separate_spherical_bounding_boxes( &
             xyz1, &
             xyz2, &
+            n1, &
+            n2, &
             vec, &
             separable )
 
@@ -66,6 +73,8 @@ contains
        call separation_linearprogramming( &
             xyz1, &
             xyz2, &
+            n1, &
+            n2, &
             vec, &
             separable )
 
@@ -89,18 +98,21 @@ contains
 
 
 
- 
+
   subroutine separating_cartesian_plane( &
        xyz1, &
        xyz2, &
+       n1, &
+       n2, &
        vec, &
        separable )
     ! Tests if one of the "cartesian" planes (x=0), (y=0), (z=0) 
     ! strictly sepatates two sets of points of coords. 'xyz1' and 'xyz2'. 
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    real(kind=MATHpr), intent(in)  :: xyz1(:,:)
-    real(kind=MATHpr), intent(in)  :: xyz2(:,:)
+    integer,           intent(in)  :: n1, n2
+    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
+    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
     real(kind=MATHpr), intent(out) :: vec(3)
     logical,           intent(out) :: separable
     real(kind=MATHpr)              :: m(2)
@@ -127,11 +139,13 @@ contains
 
   end subroutine separating_cartesian_plane
 
-  
-  
+
+
   subroutine separate_spherical_bounding_boxes( &
        xyz1, &
        xyz2, &
+       n1, &
+       n2, &
        vec, &
        separable, &
        mask_axes )
@@ -139,12 +153,14 @@ contains
     ! strictly sepatates two sets of points of coords. 'xyz1' and 'xyz2'. 
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    real(kind=MATHpr), intent(in)  :: xyz1(:,:)
-    real(kind=MATHpr), intent(in)  :: xyz2(:,:)
+    integer,           intent(in)  :: n1, n2
+    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
+    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
     real(kind=MATHpr), intent(out) :: vec(3)
     logical,           intent(out) :: separable
     logical, optional, intent(in)  :: mask_axes(3)
     real(kind=MATHpr)              :: wedge(2,2), d, alpha, angv
+    logical                        :: bounded
     integer                        :: iaxe, iset
 
     separable = .false.
@@ -154,24 +170,42 @@ contains
           if ( .not.mask_axes(iaxe) ) cycle
        end if
 
-       call minimal_2d_wedge( &
-            xyz1(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-            wedge(:,1) )
-       call minimal_2d_wedge( &
-            xyz2(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-            wedge(:,2) )
+       IF (.false.) THEN
+          call minimal_2d_wedge( &
+               xyz1(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+               n1, &
+               wedge(:,1) )
+          call minimal_2d_wedge( &
+               xyz2(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+               n2, &
+               wedge(:,2) )
+          do iset = 1,2
+             if ( wedge(2,iset) >= 0.5_MATHpr * MATHpi ) then
+                !PRINT *,'WEDGE',ISET,' WIDER THAN PI'
+                cycle loop_axes
+             end if
+          end do
+       ELSE
+          call minimal_bounding_sector( &
+               xyz1(1:n1,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+               n1, &
+               wedge(:,1), &
+               bounded )
+          if ( .not.bounded ) cycle loop_axes
 
-       do iset = 1,2
-          if ( wedge(2,iset) >= 0.5_MATHpr * MATHpi ) then
-             !PRINT *,'WEDGE',ISET,' WIDER THAN PI'
-             cycle loop_axes
-          end if
-       end do
+          call minimal_bounding_sector( &
+               xyz2(1:n2,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+               n2, &
+               wedge(:,2), &
+               bounded )
+          if ( .not.bounded ) cycle loop_axes
+       END IF
+
 
        d = diff_angle( wedge(1,1), wedge(1,2) )
        alpha = 0.5_MATHpr * ( abs(d) - sum(wedge(2,:)) )
        !PRINT *,'ALPHA',REAL(ALPHA)
-       if ( alpha > 0._MATHpr ) then
+       if ( alpha > MATHeps ) then
           if ( alpha + 2._MATHpr*wedge(2,1) > MATHpi ) then
              angv = wedge(1,1) + 0.5_MATHpr * MATHpi
           elseif ( alpha + 2._MATHpr*wedge(2,2) > MATHpi ) then
@@ -205,6 +239,7 @@ contains
 
   subroutine minimal_2d_wedge( &
        xy, &
+       n, &
        wedge )
     ! Computes a minimal wedge bounding a two-dimensional set of points 'xy'.
     ! The wedge is the set of points between two rays originating from (0,0)
@@ -212,7 +247,8 @@ contains
     ! wedge(2) = half angle spanned by the wedge.
     ! (all angles are measured in radians)
     implicit none
-    real(kind=MATHpr), intent(in)  :: xy(:,:)
+    integer,           intent(in)  :: n
+    real(kind=MATHpr), intent(in)  :: xy(n,2)
     real(kind=MATHpr), intent(out) :: wedge(2)
     real(kind=MATHpr)              :: ang(size(xy,1)), meanang, e(2), d
     integer                        :: i
@@ -221,7 +257,7 @@ contains
     meanang = mean_angle( ang )
 
     e(:) = 0._MATHpr
-    do i = 1,size(xy,1)
+    do i = 1,n
        d = diff_angle( ang(i), meanang )
        e(1) = min( e(1), d )
        e(2) = max( e(2), d )
@@ -243,11 +279,77 @@ contains
 
 
 
+  subroutine minimal_bounding_sector( &
+       xy, &
+       n, &
+       wedge, &
+       bounded )
+    use mod_geometry
+    implicit none
+    integer,           intent(in)   :: n
+    real(kind=MATHpr), intent(in)   :: xy(n,2)
+    real(kind=MATHpr), intent(out)  :: wedge(2)
+    logical,           intent(out)  :: bounded
+    integer                         :: hull(n), nhull
+    real(kind=MATHpr), dimension(2) :: xy1, xy2
+    real(kind=MATHpr)               :: ang(n), mnmx(2), mnpmxn(2)
+    integer                         :: i
 
-  
+    call convex_hull_2d( &
+         transpose(xy), &
+         n, &
+         hull, &
+         nhull )
+    
+    bounded = .false.
+    check_boundedness : do i = 1,nhull
+       xy1 = xy(hull(i),:)
+       xy2 = xy(hull(1+mod(i,nhull)),:)
+       if ( xy1(1) * ( xy2(2) - xy1(2) ) + &
+            xy1(2) * ( xy1(1) - xy2(1) ) < -MATHeps ) then
+          bounded = .true.
+          exit check_boundedness
+       end if
+    end do check_boundedness
+
+    if ( .not.bounded ) return
+
+    ang(1:nhull) = atan2( xy(hull(1:nhull),2), xy(hull(1:nhull),1) )
+    
+    !if ( maxval( xy(hull(1:nhull),1) ) < 0._MATHpr .and. &
+    !     maxval( xy(hull(1:nhull),2) ) * minval( xy(hull(1:nhull),2) ) < 0._MATHpr ) then
+    !   mnmx(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
+    !   mnmx(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
+    !else
+    !   mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
+    !end if
+    mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
+    if ( mnmx(1) < 0._MATHpr .and. mnmx(2) > 0._MATHpr ) then
+       mnpmxn(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
+       mnpmxn(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
+       if ( diff_angle( mnpmxn(2), mnpmxn(1) ) > 0._MATHpr ) mnmx = mnpmxn
+    end if
+
+    wedge(1) = mean_angle( mnmx )
+    wedge(2) = diff_angle( mnmx(2), wedge(1) )
+
+  end subroutine minimal_bounding_sector
+
+
+
+
+
+
+
+
+
+
+
   subroutine separation_linearprogramming( &
        xyz1, &
        xyz2, &
+       n1, &
+       n2, &
        vec, &
        separable )
     use mod_linearprogramming
@@ -255,17 +357,18 @@ contains
     ! of coords. 'xyz1' and 'xyz2' by solving a linear programming problem.
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    real(kind=MATHpr), intent(in)  :: xyz1(:,:)
-    real(kind=MATHpr), intent(in)  :: xyz2(:,:)
+    integer,           intent(in)  :: n1, n2
+    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
+    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
     real(kind=MATHpr), intent(out) :: vec(3)
     logical,           intent(out) :: separable
     integer                        :: stat
-    real(kind=MATHpr)              :: LPmat( 3 + size(xyz1,1) + size(xyz2,1), 4 )
+    real(kind=MATHpr)              :: LPmat( 3 + n1 + n2, 4 )
     integer                        :: i
 
     ! assemble the matrix of linear constraints
     LPmat(:,:) = 0._MATHpr
-    
+
     ! secondary constraints
     do i = 1,3
        LPmat(i,i) = 1._MATHpr
@@ -273,8 +376,8 @@ contains
     LPmat(1:3,4) = -1._MATHpr
 
     ! primary constraints
-    LPmat(4:3+size(xyz1,1),1:3) = -xyz1
-    LPmat(4+size(xyz1,1):3+size(xyz1,1)+size(xyz2,1),1:3) = xyz2
+    LPmat(4:3+n1,1:3) = -xyz1
+    LPmat(4+n1:3+n1+n2,1:3) = xyz2
 
     LPmat(4:,4) = EPSlpsep
 

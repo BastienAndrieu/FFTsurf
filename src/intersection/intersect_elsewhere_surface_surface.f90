@@ -42,6 +42,8 @@ subroutine intersect_elsewhere_surface_surface( &
   call separating_plane( &
        xyzsep1(1:n1,:), &
        xyzsep2(1:n2,:), &
+       n1, &
+       n2, &
        separation_vector, &
        separable )
 

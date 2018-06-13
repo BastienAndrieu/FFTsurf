@@ -7,7 +7,7 @@ program dev_intersection_simple_surface
 
   implicit none
 
-  real(kind=MATHpr), parameter             :: EPSregion = real( 1.e-6, kind=MATHpr )
+  real(kind=MATHpr), parameter             :: EPSregion = real( 1.e-8, kind=MATHpr )
 
   type type_curve_region
      real(kind=MATHpr)                     ::  tbox(2)
@@ -38,24 +38,32 @@ program dev_intersection_simple_surface
 
   ! =============================================================================
 
-  logical, parameter             :: ECONOMIZE = .true.
+  logical, parameter             :: ECONOMIZE = .false.
 
   integer                        :: narg, numtest, icurv, ivar, ival
   character(100)                 :: arg
   character                      :: strnum
   character(2)                   :: strnum2
 
-  type(type_parametric_surface)  :: surf(2)
-  type(type_parametric_curve)    :: curv
-  type(type_curve_region)        :: region_c
-  type(type_surface_region)      :: region_s
-  real(kind=MATHpr), allocatable :: coords(:,:)
-  integer                        :: npts
+  type(type_parametric_surface), target :: surf(2)
+  type(type_surface_region), target     :: root(2)
+  type(ptr_surface_region)              :: region(2)
+  type(ptr_parametric_surface)          :: surfroot(2)
+
+  !type(type_parametric_curve)    :: curv
+  !type(type_curve_region)        :: region_c
+  !type(type_surface_region)      :: region_s
+  real(kind=MATHpr), allocatable :: uvxyz(:,:)
+  integer                        :: nuvxyz
   integer                        :: stat_degeneracy
   integer                        :: isurf, ipt
   integer*8                      :: tic, toc, count_rate
 
+  !PRINT *,MAX(5,CEILING(-LOG10( 1.D-9 )))
+  !STOP
 
+
+  ! =================================================================================
   ! Lecture argument (nom du fichier configuration)
   narg = command_argument_count()
   if (narg < 1) then
@@ -88,14 +96,16 @@ program dev_intersection_simple_surface
 
   PRINT *,'**********************************************'
   PRINT *,'NUMTEST =',NUMTEST
-  PRINT *,'  ICURV =',ICURV
-  PRINT *,'   IVAR =',IVAR
-  PRINT *,'   IVAL =',IVAL
+  !PRINT *,'  ICURV =',ICURV
+  !PRINT *,'   IVAR =',IVAR
+  !PRINT *,'   IVAL =',IVAL
   PRINT *,'**********************************************'
 
   write (strnum2,'(I2.2)') numtest
+  ! =================================================================================
 
 
+  ! =================================================================================
   do isurf = 1,2
      write (strnum,'(I1)') isurf
      call read_chebyshev_series2( &
@@ -108,89 +118,63 @@ program dev_intersection_simple_surface
         call economization2( surf(isurf)%s, MATHeps )
         !PRINT *,' S_eco DEGR =',SURF(ISURF)%S%DEGR
      end if
+     call write_chebyshev_series2( surf(isurf)%s, 'dev_intersection_simple_surface/c_'//strnum//'.cheb' )
 
      call compute_first_derivatives( surf(isurf) )
+     call compute_second_derivatives( surf(isurf) )
+
+     call init_surface_region( &
+          root(isurf), &
+          spread( real( [-1,1], kind=MATHpr ), 2, 2 ) )
+  end do
+  ! =================================================================================
+
+
+
+  do isurf = 1,2
+     region(isurf)%ptr => root(isurf)
+     surfroot(isurf)%ptr => surf(isurf)
+
+     allocate( region(isurf)%ptr%bezier )
+     call cs2bs2( &
+          surf(isurf)%s, &
+          region(isurf)%ptr%bezier )
   end do
 
 
 
-  ! convert surface border to parametric curve
-  call cs2edge2cs1( &
-       surf(icurv)%s, &
-       ivar, &
-       ival, &
-       curv%c )
-  call compute_first_derivatives( curv )
 
-
-  ! initialize regions
-  call init_curve_region( &
-       region_c, &
-       real( [-1,1], kind=MATHpr ) )
-  call init_surface_region( &
-       region_s, &
-       spread( real( [-1,1], kind=MATHpr ), 2, 2 ) )
-
-  ! compute bezier control points
-  allocate( region_c%bezier, region_s%bezier )
-  call cs2bs1( &
-       curv%c, &
-       region_c%bezier )
-  call cs2bs2( &
-       surf(1+mod(icurv,2))%s, &
-       region_s%bezier )
-
-
-  CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/root_c_bezier.bern' )
-  CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/root_s_bezier.bern' )
-
-
-
-  allocate( coords(6,10) )
-  npts = 0
+  allocate( uvxyz(7,10) )
+  nuvxyz = 0
   stat_degeneracy = 0
   call system_clock( tic, count_rate )
-  call intersect_curve_surface( &
-       curv, &
-       surf(1+mod(icurv,2)), &
-       region_c, &
-       region_s, &
-       coords, &
-       npts, &
-       stat_degeneracy )
+  outer : do icurv = 1,2
+     do ivar = 1,2
+        do ival = 1,2
+           call intersect_border_surface( &
+                surfroot, &
+                region, &
+                icurv, &
+                ivar, &
+                ival, &
+                uvxyz, &
+                nuvxyz, &
+                stat_degeneracy )
+           if ( stat_degeneracy > 1 ) exit outer
+        end do
+     end do
+  end do outer
   call system_clock( toc )
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  if ( stat_degeneracy > 1 ) then
-     PRINT *,'DEGENERACY', stat_degeneracy
+  open( unit=13, file='dev_intersection_simple_surface/uv_xyz.dat', action='write' )
+  if ( nuvxyz < 1 ) then
+     write (13,*) ''
+  else
+     do ipt = 1,nuvxyz
+        write (13,*) uvxyz(:,ipt)
+     end do
   end if
-
-
-  !if ( npts > 0 ) then
-  !   CALL PRINT_MAT( REAL( COORDS(:,1:NPTS) ) )
-  !end if
-  do ipt = 1,npts
-     PRINT *,REAL(COORDS(:,IPT))
-  end do
-
-
-
-  call export_surface_region_tree( &
-       region_s, &
-       'dev_intersection_simple_surface/tree_s.dat' )
-  call export_curve_region_tree( &
-       region_c, &
-       'dev_intersection_simple_surface/tree_c.dat' )
-
-  call free_surface_region_tree( region_s )
-  call free_curve_region_tree( region_c )
-  !deallocate( region_c%bezier, region_s%bezier )
-
-
-  open( unit=13, file='dev_intersection_simple_surface/tuv_xyz.dat', action='write' )
-  do ipt = 1,npts
-     write (13,*) coords(:,ipt)
-  end do
   close(13)
 
 contains
@@ -242,15 +226,35 @@ contains
        region, &
        icurv, &
        ivar, &
-       ival )
+       ival, &
+       uvxyz, &
+       nuvxyz, &
+       stat_degeneracy )
+    use mod_math
+    use mod_chebyshev
+    use mod_bernstein
+    use mod_diffgeom
+    use mod_tolerances
     implicit none
-    type(ptr_parametric_surface), intent(in)    :: root_s(2)
-    type(ptr_surface_region),     intent(inout) :: region(2)
-    integer,                      intent(in)    :: icurv, ivar, ival
-    type(type_parametric_curve)                 :: root_c
-    type(type_curve_region)                     :: region_c
-    type(type_surface_region)                   :: region_s
+    integer, parameter                            :: npts_init = 10
+    type(ptr_parametric_surface),   intent(in)    :: root_s(2)
+    type(ptr_surface_region),       intent(inout) :: region(2)
+    integer,                        intent(in)    :: icurv, ivar, ival
+    real(kind=MATHpr), allocatable, intent(inout) :: uvxyz(:,:)
+    integer,                        intent(inout) :: nuvxyz
+    integer,                        intent(inout) :: stat_degeneracy
+    type(type_parametric_curve)                   :: root_c
+    type(type_curve_region)                       :: region_c
+    type(type_surface_region)                     :: region_s
+    real(kind=MATHpr), allocatable                :: tuvxyz(:,:)
+    integer                                       :: ntuvxyz
+    real(kind=MATHpr)                             :: uv(2,2)
+    integer                                       :: isurf, ipt, jpt
 
+    PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
+    PRINT *,'ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
+
+    isurf = 1 + mod(icurv,2)
 
     ! convert surface border to parametric curve
     call cs2edge2cs1( &
@@ -258,8 +262,9 @@ contains
          ivar, &
          ival, &
          root_c%c )
-    call compute_first_derivatives( curv )
-    call compute_second_derivatives( curv )
+    call economization1( root_c%c, MATHeps )
+    call compute_first_derivatives( root_c )
+    call compute_second_derivatives( root_c )
 
 
     ! initialize curve region tree
@@ -273,13 +278,173 @@ contains
          spread( real( [-1,1], kind=MATHpr ), 2, 2 ) )
 
     ! compute curve Bezier control points
+    allocate( region_c%bezier )
     call cs2bs1( &
          root_c%c, &
          region_c%bezier )
 
     ! copy surface Bezier control points
+    region_s%bezier => region(isurf)%ptr%bezier
+
+    
+    CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/root_c_bezier.bern' )
+    CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/root_s_bezier.bern' )
+
+
+    allocate( tuvxyz(6,npts_init) )
+    ntuvxyz = 0
+    stat_degeneracy = 0
+    call intersect_curve_surface( &
+         root_c, &
+         root_s(isurf)%ptr, &
+         region_c, &
+         region_s, &
+         tuvxyz, &
+         ntuvxyz, &
+         stat_degeneracy )
+    
+    open( unit=13, file='dev_intersection_simple_surface/tuv_xyz.dat', action='write' )
+    if ( ntuvxyz < 1 ) then
+       write (13,*) ''
+    else
+       do ipt = 1,ntuvxyz
+          write (13,*) tuvxyz(:,ipt)
+       end do
+    end if
+    close(13)
+
+    
+    call export_surface_region_tree( &
+         region_s, &
+         'dev_intersection_simple_surface/tree_s.dat' )
+    call export_curve_region_tree( &
+         region_c, &
+         'dev_intersection_simple_surface/tree_c.dat' )
+    IF ( STAT_DEGENERACY > 10 ) THEN
+       PRINT *,'STAT_DEGENERACY =',STAT_DEGENERACY
+       RETURN
+       !STOP '********************'
+    END IF
+
+    !PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';
+    outer : do ipt = 1,ntuvxyz
+       do jpt = 1,nuvxyz
+          if ( sum( ( tuvxyz(4:6,ipt) - uvxyz(5:7,jpt) )**2 ) < EPSxyzsqr ) cycle outer
+       end do
+
+       uv(ivar,icurv) = region(icurv)%ptr%uvbox(ival,ivar)
+       uv(1+mod(ivar,2),icurv) = n1p12ab( &
+            tuvxyz(1,ipt), &
+            region(icurv)%ptr%uvbox(1,1+mod(ivar,2)), &
+            region(icurv)%ptr%uvbox(2,1+mod(ivar,2)) )
+       uv(:,isurf) = tuvxyz(2:3,ipt)
+       PRINT *,uv,tuvxyz(4:6,ipt)
+
+       call append_vector( &
+            [ uv(:,1), uv(:,2), tuvxyz(4:6,ipt) ], &
+            7, &
+            uvxyz, &
+            nuvxyz )
+
+    end do outer
+
+    call free_surface_region_tree( region_s, no_dealloc_bezier=.true. )
+    call free_curve_region_tree( region_c )
+
 
   end subroutine intersect_border_surface
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -316,7 +481,7 @@ contains
        region_s, &
        coords, &   ! 1d, 2b
        npts, &
-       stat_newpoint )!stat_degeneracy )
+       stat_newpoint )
     use mod_util    
     use mod_math
     use mod_diffgeom
@@ -329,7 +494,7 @@ contains
     type(type_surface_region),      intent(inout), target :: region_s
     real(kind=MATHpr), allocatable, intent(inout)         :: coords(:,:) ! t,u,v,x,y,z
     integer,                        intent(inout)         :: npts
-    integer,                        intent(inout)         :: stat_newpoint!stat_degeneracy
+    integer,                        intent(inout)         :: stat_newpoint
     integer, allocatable                                  :: sharedpts(:)
     integer                                               :: n_sharedpts
     logical                                               :: separable, overlap
@@ -337,29 +502,27 @@ contains
     logical                                               :: interior(2)
     real(kind=MATHpr)                                     :: dist, dist_ijk
     integer                                               :: ijkm(3)
-    !integer                                               :: stat_newpoint
     real(kind=MATHpr)                                     :: tuv(3), xyz(3)
     integer                                               :: stat_subdiv, nchild(2)
     type(type_curve_region), pointer                      :: newregion_c
     type(type_surface_region), pointer                    :: newregion_s
     integer                                               :: ipt, jpt, i, j, k, ichild, jchild
 
+    if ( stat_degeneracy > 1 ) return
+
     !PRINT *,''
     !PRINT *,''
-    !PRINT *,' TBOX =',REAL(REGION_C%TBOX)
-    !PRINT *,'UVBOX =',REAL(REGION_S%UVBOX)
-    !IF (REGION_C%NPTS > 0 ) THEN
-    !   PRINT *,'    REGION_C%IPTS =',REGION_C%IPTS
-    !   !IF ( REGION_C%NPTS > 3 ) STOP '?!'
-    !ELSE
-    !   PRINT *,'    REGION_C%IPTS = []'
-    !END IF
-    !
-    !IF (REGION_S%NPTS > 0 ) THEN
-    !   PRINT *,'    REGION_S%IPTS =',REGION_S%IPTS
-    !   !IF ( REGION_S%NPTS > 3 ) STOP '?!'
-    !ELSE
-    !   PRINT *,'    REGION_S%IPTS = []'
+    !PRINT *,' TBOX =',REGION_C%TBOX
+    !PRINT *,'UVBOX =',REGION_S%UVBOX
+    !IF ( REGION_C%TBOX(1) < -0.99D0 .AND. REGION_C%TBOX(2) > 0.02D0 .AND. &
+    !     REGION_S%UVBOX(1,1) > 0.50D0 .AND. REGION_S%UVBOX(2,1) > 0.99D0 .AND. &
+    !     REGION_S%UVBOX(1,2) < -0.99D0 .AND. REGION_S%UVBOX(2,2) > 0.55D0 ) THEN
+    !   PRINT *,''
+    !   PRINT *,''
+    !   PRINT *,''
+    !   PRINT *,''
+    !   PRINT *,' TBOX =',REGION_C%TBOX
+    !   PRINT *,'UVBOX =',REGION_S%UVBOX
     !END IF
 
     !!IF ( REGION_C%TBOX(2) - REGION_C%TBOX(1) < 1.D-3 ) RETURN !EPSREGION ) RETURN
@@ -367,8 +530,39 @@ contains
     !!IF ( REGION_S%UVBOX(2,2) - REGION_S%UVBOX(1,2) < 1.D-3 ) RETURN !EPSREGION ) RETURN
 
 
+    !
+    if ( associated(region_c%parent) ) then
+       do jpt = 1,region_c%parent%npts
+          ipt = region_c%parent%ipts(jpt)
+          if ( is_in_interval( coords(1,ipt), region_c%tbox(1), region_c%tbox(2) ) ) then
+             call append( &
+                  region_c%ipts, &
+                  ipt, &
+                  noduplicates=.true., &
+                  newlength=region_c%npts )
+          end if
+       end do
+    end if
 
-    if ( stat_degeneracy > 1 ) return
+
+    if ( associated(region_s%parent) ) then
+       do jpt = 1,region_c%parent%npts
+          ipt = region_c%parent%ipts(jpt)
+          if ( &
+               is_in_interval( coords(2,ipt), region_s%uvbox(1,1), region_s%uvbox(2,1) ) .and. &
+               is_in_interval( coords(3,ipt), region_s%uvbox(1,2), region_s%uvbox(2,2) ) ) then
+             call append( &
+                  region_s%ipts, &
+                  ipt, &
+                  noduplicates=.true., &
+                  newlength=region_s%npts )
+          end if
+       end do
+    end if
+  
+
+
+
 
     ! get list of already discovered points common to both the current curve and surface regions
     n_sharedpts = 0
@@ -379,8 +573,18 @@ contains
             sharedpts )
        if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)
     end if
-
-    !PRINT *,N_SHAREDPTS,' SHARED POINTS'
+    
+    !IF ( NPTS >= 2 .AND. N_SHAREDPTS > 0 ) THEN
+    !   PRINT *,'';PRINT *,'';PRINT *,''
+    !   PRINT *,' TBOX =',REGION_C%TBOX
+    !   PRINT *,'UVBOX =',REGION_S%UVBOX
+    !   PRINT *,N_SHAREDPTS,' SHARED POINT(S)'
+    !   IF ( N_SHAREDPTS > 0 ) THEN
+    !      DO IPT = 1,N_SHAREDPTS
+    !         PRINT *,COORDS(:,SHAREDPTS(IPT))
+    !      END DO
+    !   END IF
+    !END IF
 
     if ( n_sharedpts == 1 ) then
        ! check if the curve and surface regions can intersect at other (not yet discovered) points
@@ -388,9 +592,44 @@ contains
             region_c%bezier, &
             region_s%bezier, &
             coords(4:6,sharedpts(1)), &
-            separable )
+            separable, &
+            randomize=.true. )
        !PRINT *,'MAY INTERSECT AT OTHER POINTS?', .NOT.SEPARABLE
+       
+       !IF ( REGION_C%TBOX(1) > 0._MATHPR .AND. &
+       !     REGION_S%UVBOX(1,1) < 0._MATHPR .AND. &
+       !     REGION_S%UVBOX(2,1) < 0._MATHPR .AND. &
+       !     REGION_S%UVBOX(1,2) > 0._MATHPR .AND. &
+       !     .NOT.SEPARABLE ) THEN
+       !IF (.FALSE.) THEN!( .NOT.SEPARABLE .AND. NPTS == 2 ) THEN
+       !   PRINT *,' TBOX =',REGION_C%TBOX
+       !   PRINT *,'UVBOX =',REGION_S%UVBOX
+       !   CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/region_c_bezier.bern' )
+       !   CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/region_s_bezier.bern' )
+       !   OPEN(13,FILE='dev_intersection_simple_surface/debug_separation_xyz.dat', ACTION='WRITE')
+       !   WRITE(13,*) COORDS(4:6,SHAREDPTS(1))
+       !   CLOSE(13)
+       !   PRINT *,'---> DEBUG SEPARATION'
+       !   !if ( separable ) STOP
+       !   !STOP
+       !   STAT_NEWPOINT = 66
+       !   RETURN
+       !END IF
+
+
+       !IF ( REGION_C%TBOX(1) < -0.99D0 .AND. REGION_C%TBOX(2) > 0.02D0 .AND. &
+       !     REGION_S%UVBOX(1,1) > 0.50D0 .AND. REGION_S%UVBOX(2,1) > 0.99D0 .AND. &
+       !     REGION_S%UVBOX(1,2) < -0.99D0 .AND. REGION_S%UVBOX(2,2) > 0.55D0 ) THEN
+       !   PRINT *,'MAY INTERSECT AT OTHER POINTS?', .NOT.SEPARABLE
+       !   PRINT *,''
+       !   PRINT *,''
+       !   PRINT *,''
+       !END IF
+
        if ( separable ) return
+       !PRINT *,'*** MAY INTERSECT AT OTHER POINTS ***'
+       
+       
     end if
 
     if ( n_sharedpts > 0 ) then
@@ -433,7 +672,10 @@ contains
             region_s%xyzbox, &
             overlap )
 
-       if ( .not.overlap ) return
+       if ( .not.overlap ) then
+          !PRINT *,'DISJOINT OBBs'
+          return
+       end if
 
     end if
 
@@ -441,7 +683,7 @@ contains
     !PRINT *,'ALL(.NOT.INTERIOR) =',ALL(.NOT.INTERIOR)
     if ( all(.not.interior) ) then ! <------------------------------------------------------------------------------------------+
        !! Search for a new intersection point                                                                                   !
-       if ( n_sharedpts == 0 ) then ! <-----------------------------------------------------------------------------------+     !
+       if ( .FALSE. ) THEN !( n_sharedpts == 0 ) then ! <-----------------------------------------------------------------------------------+     !
           ! start from the tuv point corresponding to the closest pair of control points                                  !     !
           dist = huge(1._MATHpr)                                                                                          !     !
           do k = 1,region_s%bezier%degr(2)+1 ! <-----------------------------------------------------------+              !     !
@@ -465,10 +707,27 @@ contains
           tuv(1) = n1p12ab( tuv(1), region_c%tbox(1), region_c%tbox(2) )                                                  !     !
           tuv(2) = n1p12ab( tuv(2), region_s%uvbox(1,1), region_s%uvbox(2,1) )                                            !     !
           tuv(3) = n1p12ab( tuv(3), region_s%uvbox(1,2), region_s%uvbox(2,2) )                                            !     !
+          !PRINT *,':::::::::: SHOULD NOT BE HERE ::::::::::'
        else ! ------------------------------------------------------------------------------------------------------------+     !
-          tuv = 0.5*MATHpr * [ sum( region_c%tbox ), sum( region_s%uvbox, dim=1 ) ]                                       !     !
+          tuv = 0.5_MATHpr * [ sum( region_c%tbox ), sum( region_s%uvbox, dim=1 ) ]                                       !     !
+          !PRINT *,''; PRINT *,''
+          !PRINT *,' TBOX=',REAL(REGION_C%TBOX)
+          !PRINT *,'UVBOX=',REAL(REGION_S%UVBOX)
+          !tuv(1) = 0.5_MATHpr * sum( region_c%tbox )
+          !tuv(2:3) = 0.5_MATHpr * sum( region_s%uvbox, dim=1 )
+          !PRINT *,'MIDPOINT =',REAL(TUV)
        end if ! <---------------------------------------------------------------------------------------------------------+     !
-       !
+       !PRINT *,'NEWTON <--- TUV0 =',REAL(TUV)
+       PRINT *,'------- NEWTON -------'
+       PRINT *,'N_SHAREDPTS =',N_SHAREDPTS
+       PRINT *,'INTERIOR?    ',INTERIOR
+       !IF ( N_SHAREDPTS < 1 ) THEN
+       !   CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
+       !   CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
+       !   CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/region_c_bezier.bern' )
+       !   CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/region_s_bezier.bern' )
+       !   STOP '--> VERIF OBBs'
+       !END IF
        call newton_curve_surface( &                                                                                             !
             root_c, &                                                                                                           !
             root_s, &                                                                                                           !
@@ -476,7 +735,8 @@ contains
             region_s%uvbox, &                                                                                                   !
             tuv, &                                                                                                              !
             stat_newpoint, &                                                                                                    !
-            xyz )                                                                                                               !
+            xyz )      
+       PRINT *,'----------------------'                                                                                      !
        !PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT                                                                                 !
        !
        ! if we just found a degenerate point, return and report degeneracy                                                      !
@@ -497,10 +757,22 @@ contains
        ! 
        if ( stat_newpoint == 0 ) then ! <--------------------------------------------------------------------------------+      !
           ! if we just found a new intersection point, add it to the lists, and subdivide at that point                  !      !
-          call append_tuvxyz_point( &                                                                                    !      !
+          !PRINT *,'NEW POINT =',TUV, XYZ
+          !PRINT *,'IN   TBOX =',REGION_C%TBOX
+          !PRINT *,'IN  UVBOX =',REGION_S%UVBOX
+          !PRINT *,'';PRINT *,'';PRINT *,'';
+          
+          !call append_tuvxyz_point( &                                                                                   !      !
+          !     coords, &                                                                                                !      !
+          !     npts, &                                                                                                  !      !
+          !     [tuv,xyz] )                                                                                              !      !
+          call append_vector( &                                                                                          !      !
+               [tuv,xyz], &                                                                                              !      !
+               6, &                                                                                                      !      !
                coords, &                                                                                                 !      !
-               npts, &                                                                                                   !      !
-               [tuv,xyz] )                                                                                               !      !
+               npts )                                                                                                    !      !
+          !PRINT *,'COORDS ='
+          !CALL PRINT_MAT( TRANSPOSE(COORDS(:,1:NPTS)) )
           call add_to_parent_curve( region_c, npts )                                                                     !      !
           call add_to_parent_surface( region_s, npts )                                                                   !      !
           !      !
@@ -508,6 +780,10 @@ contains
           !PRINT *,'    REGION_S%IPTS =',REGION_S%IPTS                                                                   !      !
           !      !
           tuv_subdiv = tuv                                                                                               !      !
+          !IF (NPTS > 2) THEN
+          !   STAT_NEWPOINT = 77
+          !   RETURN
+          !END IF
        else ! -----------------------------------------------------------------------------------------------------------+      !
           ! else, subdivide at parametric midpoint                                                                       !      !
           tuv_subdiv(1) = 0.5_MATHpr * sum( region_c%tbox )                                                              !      !
@@ -542,21 +818,20 @@ contains
           PRINT *,'ERROR : NCHILD(1) =',NCHILD(1)
           STOP
        END IF
-       
-       do ichild = 1,nchild(1)
-          do jpt = 1,region_c%npts
-             ipt = region_c%ipts(jpt)
-             !PRINT *,REAL(COORDS(1,IPT)), ' IN ',REAL(REGION_C%CHILD(ICHILD)%TBOX), ' ? ', &
-             !     is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) )
 
-             if ( is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) ) ) then
-                !IF ( REGION_C%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_C%CHILD(ICHILD)%IPTS
-                call append( region_c%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_c%child(ichild)%npts )
-                !region_c%child(ichild)%npts = region_c%child(ichild)%npts + 1
-             end if
-          end do
-          !PRINT *,'CHILD #',ICHILD,', NPTS =', REGION_C%CHILD(ICHILD)%NPTS
-       end do
+       !do ichild = 1,nchild(1)
+       !   do jpt = 1,region_c%npts
+       !      ipt = region_c%ipts(jpt)
+       !      !PRINT *,REAL(COORDS(1,IPT)), ' IN ',REAL(REGION_C%CHILD(ICHILD)%TBOX), ' ? ', &
+       !      !     is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) )
+       !      if ( is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) ) ) then
+       !         !IF ( REGION_C%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_C%CHILD(ICHILD)%IPTS
+       !         call append( region_c%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_c%child(ichild)%npts )
+       !         !region_c%child(ichild)%npts = region_c%child(ichild)%npts + 1
+       !      end if
+       !   end do
+       !   !PRINT *,'CHILD #',ICHILD,', NPTS =', REGION_C%CHILD(ICHILD)%NPTS
+       !end do
 
        if ( stat_subdiv == 0 ) then
           allocate( region_c%child(1)%bezier, region_c%child(2)%bezier )
@@ -587,18 +862,18 @@ contains
     else
        !PRINT *,'NCHILD_S =',NCHILD(2)
        nchild(2) = size(region_s%child)
-       do ichild = 1,nchild(2)
-          do jpt = 1,region_s%npts
-             ipt = region_s%ipts(jpt)
-             if ( &
-                  is_in_interval( coords(2,ipt), region_s%child(ichild)%uvbox(1,1), region_s%child(ichild)%uvbox(2,1) ) .and. &
-                  is_in_interval( coords(3,ipt), region_s%child(ichild)%uvbox(1,2), region_s%child(ichild)%uvbox(2,2) ) ) then
-                !IF ( REGION_S%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_S%CHILD(ICHILD)%IPTS
-                call append( region_s%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_s%child(ichild)%npts )
-                !region_s%child(ichild)%npts = region_s%child(ichild)%npts + 1
-             end if
-          end do
-       end do
+       !do ichild = 1,nchild(2)
+       !   do jpt = 1,region_s%npts
+       !      ipt = region_s%ipts(jpt)
+       !      if ( &
+       !           is_in_interval( coords(2,ipt), region_s%child(ichild)%uvbox(1,1), region_s%child(ichild)%uvbox(2,1) ) .and. &
+       !           is_in_interval( coords(3,ipt), region_s%child(ichild)%uvbox(1,2), region_s%child(ichild)%uvbox(2,2) ) ) then
+       !         !IF ( REGION_S%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_S%CHILD(ICHILD)%IPTS
+       !         call append( region_s%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_s%child(ichild)%npts )
+       !         !region_s%child(ichild)%npts = region_s%child(ichild)%npts + 1
+       !      end if
+       !   end do
+       !end do
     end if
 
     if ( stat_subdiv == 0 ) then
@@ -634,17 +909,25 @@ contains
 
     !! Carry on the recursion with the children
     if ( all(nchild < 2) ) then  
-       PRINT *,' TBOX =',REAL(REGION_C%TBOX)
-       PRINT *,'UVBOX =',REAL(REGION_S%UVBOX)
+       PRINT *,' TBOX =',REGION_C%TBOX
+       PRINT *,'UVBOX =',REGION_S%UVBOX
        PRINT *,N_SHAREDPTS,' SHARED POINTS'
        IF ( N_SHAREDPTS > 0) THEN
           DO I = 1,N_SHAREDPTS
-             PRINT *,REAL( COORDS(1:3,SHAREDPTS(I)) )
+             PRINT *,COORDS(:,SHAREDPTS(I))
           END DO
        END IF
        PRINT *,'INTERIOR?',INTERIOR
        PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT
-       STOP 'NO MORE SUBDIVISION !!!!!'
+       STAT_NEWPOINT = 99
+       PRINT *,'NO MORE SUBDIVISION !!!!!'
+       CALL WRITE_BERNSTEIN_SERIES1( REGION_C%BEZIER, 'dev_intersection_simple_surface/region_c_bezier.bern' )
+       CALL WRITE_BERNSTEIN_SERIES2( REGION_S%BEZIER, 'dev_intersection_simple_surface/region_s_bezier.bern' )
+              
+       !CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
+       !CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
+       RETURN
+       !STOP 'NO MORE SUBDIVISION !!!!!'
     end if
 
     !PRINT *,'NCHILD =',NCHILD
@@ -702,22 +985,87 @@ contains
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   subroutine intersect_curve_surface_elsewhere( &
        b_c, &
        b_s, &
        xyzinter, &
-       separable )
+       separable, &
+       randomize )
     use mod_math
     use mod_bernstein
+    use mod_geometry
     use mod_separation
     implicit none
     type(type_bernstein_series1), intent(in)  :: b_c
     type(type_bernstein_series2), intent(in)  :: b_s
     real(kind=MATHpr),            intent(in)  :: xyzinter(3)
     logical,                      intent(out) :: separable
+    logical, optional,            intent(in)  :: randomize
     real(kind=MATHpr)                         :: sep_c(b_c%degr+1,3)
     real(kind=MATHpr)                         :: sep_s((b_s%degr(1)+1)*(b_s%degr(2)+1),3)
-    real(kind=MATHpr)                         :: vec(3)
+    real(kind=MATHpr)                         :: vec(3), rot(3,3)
     integer                                   :: nbcps, nc, ns
 
     call rearrange_for_separability_test( &
@@ -738,11 +1086,34 @@ contains
     if ( nc < 1 .or. ns < 1 ) then
        separable = .true.
     else
+       if ( present(randomize) ) then
+          if ( randomize ) then
+             call random_rotation_matrix3d( rot )
+             IF ( .false. ) THEN
+                PRINT *,'';PRINT *,'';PRINT *,''
+                PRINT *,'RANDOM ROTATION MATRIX ='
+                CALL PRINT_MAT( ROT )
+             END IF
+             sep_c(1:nc,:) = matmul( sep_c(1:nc,:), rot )
+             sep_s(1:ns,:) = matmul( sep_s(1:ns,:), rot )
+          end if
+       end if
+
        call separating_plane( &
             sep_c(1:nc,1:3), &
             sep_s(1:ns,1:3), &
+            nc, &
+            ns, &
             vec, &
             separable )
+
+       IF ( .FALSE. ) THEN!.NOT.SEPARABLE ) THEN
+          PRINT *,'';PRINT *,'';PRINT *,''
+          PRINT *,'XYZ_SEP (C) ='
+          CALL PRINT_MAT( SEP_C(1:NC,:) )
+          PRINT *,'XYZ_SEP (S) ='
+          CALL PRINT_MAT( SEP_S(1:NS,:) )     
+       END IF
     end if
 
   end subroutine intersect_curve_surface_elsewhere
@@ -871,6 +1242,35 @@ contains
   end subroutine append_tuvxyz_point
 
 
+
+
+
+  subroutine append_vector( &
+       vec, &
+       dim, &
+       array, &
+       n )
+    use mod_math
+    implicit none
+    integer,                        intent(in)    :: dim
+    real(kind=MATHpr),              intent(in)    :: vec(dim)
+    real(kind=MATHpr), allocatable, intent(inout) :: array(:,:)
+    integer,                        intent(inout) :: n
+    real(kind=MATHpr), allocatable                :: tmp(:,:)
+
+    if ( .not.allocated(array) ) allocate( array(dim,1) )
+    if ( dim > size(array,1) ) STOP 'append_vector : dim > size(array,1)'
+    if ( n + 1 > size(array,2) ) then
+       call move_alloc( from=array, to=tmp )
+       allocate( array(dim,n+1) )
+       array(:,1:n) = tmp(:,1:n)
+       deallocate(tmp)
+    end if
+    !PRINT *,'APPENDING VEC=',REAL(VEC)
+    n = n + 1
+    array(1:dim,n) = vec(1:dim)
+
+  end subroutine append_vector
 
 
 
@@ -1093,7 +1493,7 @@ contains
 
 
 
-  subroutine newton_curve_surface( &
+  subroutine newton_curve_surface_old( &
        curv, &
        surf, &
        tbox, &
@@ -1108,7 +1508,7 @@ contains
     !        1 : not converged
     !        2 : degeneracy
     implicit none
-    integer, parameter                           :: nitmax = 10
+    integer, parameter                           :: nitmax = 1 + max( 5, ceiling(-log10(EPSxyz)) )  !10
     type(type_parametric_curve),   intent(in)    :: curv
     type(type_parametric_surface), intent(in)    :: surf
     real(kind=MATHpr),             intent(in)    :: tbox(2)
@@ -1118,7 +1518,7 @@ contains
     real(kind=MATHpr),             intent(out)   :: xyz(3)
     real(kind=MATHpr), dimension(3)              :: lowerb, upperb, rng
     real(kind=MATHpr), dimension(3)              :: xyz_c, xyz_s, r, dtuv
-    real(kind=MATHpr)                            :: jac(3,3), lambda
+    real(kind=MATHpr)                            :: jac(3,3), lambda, ressqr
     logical                                      :: singular
     integer                                      :: rank
     integer                                      :: it
@@ -1128,6 +1528,11 @@ contains
     rng = upperb - lowerb
     lowerb = lowerb - EPsuv*rng
     upperb = upperb + EPsuv*rng
+    !PRINT *,'NEWTON :'
+    !PRINT *,'TBOX =',REAL(TBOX)
+    !PRINT *,'UVBOX =',REAL(UVBOX)
+    !PRINT *,'LOWERB =',REAL(LOWERB)
+    !PRINT *,'UPPERB =',REAL(UPPERB)
 
     stat = 1
 
@@ -1135,13 +1540,29 @@ contains
        call eval( xyz_c, curv, tuv(1) )
        call eval( xyz_s, surf, tuv(2:3) )
 
-       r = xyz_s - xyz_c ! residual
+       r = xyz_s - xyz_c ! residual vector
+       ressqr = sum( r**2 ) ! squared residual 
+       !PRINT *,'NEWTON, IT#',IT,', TUV =',REAL(TUV),', RES =',REAL(NORM2(R))
+       !PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R))
+       if ( stat == 0 ) then
+          PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R))
+       end if
 
        ! convergence criterion
-       if ( sum( r**2 ) < EPSxyzsqr ) then
+       if ( ressqr < EPSxyzsqr ) then
+          !if ( ressqr < MATHeps**2 ) stat = 0
+
+          if ( stat == 0 ) then
+             PRINT *,'NEWTON CONVERGED, RES=',SQRT(RESSQR)
+             PRINT *,'TUVXYZ =',TUV,XYZ
+             xyz = 0.5_MATHpr * ( xyz_s + xyz_c )
+             return
+          end if
+
           stat = 0
-          xyz = 0.5_MATHpr * ( xyz_s + xyz_c )
           !PRINT *,'NEWTON => XYZ =',REAL(XYZ)
+          PRINT *,'+++++++ NEWTON CONVERGE #IT',IT,' RES=',SQRT(RESSQR)
+          xyz = 0.5_MATHpr * ( xyz_s + xyz_c )
           return
        end if
 
@@ -1161,15 +1582,23 @@ contains
             singular, &
             rank )
 
+       !PRINT *,'JAC='
+       !CALL PRINT_MAT( JAC )
+
        !if ( singular ) then ! degeneracy
        if ( rank < 3 ) then ! degeneracy
           PRINT *,''
           PRINT *,'IT #',IT
+          PRINT *,'TUV =',TUV
+          PRINT *,'RES =',SQRT(RESSQR)
           PRINT *,'JACOBIAN ='
           CALL PRINT_MAT( JAC )
           PRINT *,'RANK =',RANK
-          stat = 2
-          return
+          PRINT *,'DTUV=',DTUV
+          if ( stat == 0 ) then
+             stat = 2
+             return
+          end if
        end if
 
        ! scale down Newton step to keep the solution inside feasible region
@@ -1181,7 +1610,14 @@ contains
             lambda )
 
        if ( lambda < -MATHeps ) then
+          ! negative damped factor
+          return
+       end if
+
+       dtuv = lambda * dtuv
+       if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
           ! damped Newton step is too small
+          PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
           return
        end if
 
@@ -1191,7 +1627,7 @@ contains
     end do
 
 
-  end subroutine newton_curve_surface
+  end subroutine newton_curve_surface_old
 
 
 
@@ -1233,12 +1669,13 @@ contains
 
 
   recursive subroutine free_surface_region_tree( &
-       region )!, &       no_dealloc_bezier )
+       region, &
+       no_dealloc_bezier )
     ! Recursively frees all the surface_regions in the subtree
     ! rooted at the node 'region'
     implicit none
     type(type_surface_region), intent(inout) :: region
-    !logical, optional,         intent(in)    :: no_dealloc_bezier
+    logical, optional,         intent(in)    :: no_dealloc_bezier
     integer                                  :: ichild
 
     if ( associated(region%child) ) then
@@ -1251,11 +1688,11 @@ contains
     if ( associated(region%xyzbox) )     deallocate( region%xyzbox )
     if ( allocated(region%ipts) )        deallocate( region%ipts )
 
-    !if ( present(no_dealloc_bezier) ) then
-    !   if ( no_dealloc_bezier ) then
-    !      if ( .not.associated(region%parent) ) return
-    !   end if
-    !end if
+    if ( present(no_dealloc_bezier) ) then
+       if ( no_dealloc_bezier ) then
+          if ( .not.associated(region%parent) ) return
+       end if
+    end if
 
     if ( associated(region%bezier) ) then
        if ( allocated(region%bezier%coef) ) deallocate( region%bezier%coef )
@@ -1389,5 +1826,158 @@ contains
     end if
 
   end subroutine write_surface_region
+
+
+
+
+
+
+
+
+
+
+  
+  
+  
+  subroutine newton_curve_surface( &
+       curv, &
+       surf, &
+       tbox, &
+       uvbox, &
+       tuv, &
+       stat, &
+       xyz )
+    use mod_math
+    use mod_diffgeom
+    use mod_tolerances    
+    ! stat = 0 : converged
+    !        1 : not converged
+    !        2 : degeneracy
+    implicit none
+    real(kind=MATHpr), parameter                 :: THRESHOLD = real(1.e-2, kind=MATHpr)
+    real(kind=MATHpr), parameter                 :: EPS = real(1.e-12, kind=MATHpr)
+    real(kind=MATHpr), parameter                 :: TOL = EPSxyz
+    real(kind=MATHpr), parameter                 :: EPSsqr = EPS**2
+    real(kind=MATHpr), parameter                 :: TOLsqr = TOL**2
+    integer, parameter                           :: nitmax = ceiling(-log10(EPS))
+    integer, parameter                           :: nitcheck = 5
+
+    type(type_parametric_curve),   intent(in)    :: curv
+    type(type_parametric_surface), intent(in)    :: surf
+    real(kind=MATHpr),             intent(in)    :: tbox(2)
+    real(kind=MATHpr),             intent(in)    :: uvbox(2,2)
+    real(kind=MATHpr),             intent(inout) :: tuv(3)
+    integer,                       intent(out)   :: stat
+    real(kind=MATHpr),             intent(out)   :: xyz(3)
+    real(kind=MATHpr), dimension(3)              :: lowerb, upperb, rng
+    real(kind=MATHpr), dimension(3)              :: xyz_c, xyz_s, r
+    real(kind=MATHpr), dimension(3)              :: tuvtmp, dtuv
+    real(kind=MATHpr)                            :: rescheck, res, restmp
+    real(kind=MATHpr)                            :: jac(3,3), lambda
+    logical                                      :: singular
+    integer                                      :: rank
+    integer                                      :: it
+
+    ! Feasible t,u,v-domain
+    lowerb = [ tbox(1), uvbox(1,:) ]
+    upperb = [ tbox(2), uvbox(2,:) ]
+    rng = upperb - lowerb
+    lowerb = lowerb - EPsuv*rng
+    upperb = upperb + EPsuv*rng
+
+
+    stat = 1
+    restmp = huge(1._MATHpr)
+    newton_iteration : do it = 1,nitmax
+
+       ! position vector
+       call eval( xyz_c, curv, tuv(1) )   ! curve
+       call eval( xyz_s, surf, tuv(2:3) ) ! surface
+
+       r = xyz_s - xyz_c ! residual vector
+       res = sum( r**2 ) ! squared norm of residual vector
+       !PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R))
+       PRINT *,NORM2(R)
+       
+       ! check signs of convergence
+       if ( it == 1 ) rescheck = THRESHOLD * res
+       if ( it > nitcheck .and. res > rescheck ) then
+          PRINT *,'NO SIGN OF CONVERGENCE, STOP NEWTON ITERATION'
+          return
+       end if
+
+       ! convergence criterion
+       if ( res < TOLsqr ) then
+          stat = 0
+          if ( res < restmp ) then
+             restmp = res
+             tuvtmp = tuv
+             xyz = 0.5_MATHpr * ( xyz_s + xyz_c )
+          end if
+          if ( restmp < EPSsqr ) then
+             tuv = tuvtmp
+             return
+          end if
+       end if
+
+       ! Jacobian matrix
+       call evald( jac(:,1), curv, tuv(1) )
+       jac(:,1) = -jac(:,1)
+       call evald( jac(:,2), surf, tuv(2:3), 1 )
+       call evald( jac(:,3), surf, tuv(2:3), 2 )
+
+       ! solve for Newton step
+       call linsolve_QR( &
+            dtuv, &
+            jac, &
+            -r, &
+            3, &
+            3, &
+            singular, &
+            rank )
+
+       if ( rank < 3 ) then ! degeneracy
+          PRINT *,''
+          PRINT *,'IT #',IT
+          PRINT *,'TUV =',TUV
+          PRINT *,'RES =',SQRT(RES)
+          PRINT *,'JACOBIAN ='
+          CALL PRINT_MAT( JAC )
+          PRINT *,'RANK =',RANK
+          PRINT *,'DTUV=',DTUV
+          if ( stat == 0 ) then
+             stat = 2
+             return
+          end if
+       end if
+
+       ! scale down Newton step to keep the solution inside feasible region
+       call nd_box_constraint( &
+            tuv, &
+            lowerb, &
+            upperb, &
+            dtuv, &
+            lambda )
+
+       if ( lambda < -MATHeps ) return ! negative damped factor
+
+       dtuv = lambda * dtuv
+       if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
+          ! damped Newton step is too small
+          PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
+          return
+       end if
+
+       ! update solution
+       tuv = tuv + lambda * dtuv
+
+    end do newton_iteration
+
+  end subroutine newton_curve_surface
+
+
+
+
+
 
 end program dev_intersection_simple_surface

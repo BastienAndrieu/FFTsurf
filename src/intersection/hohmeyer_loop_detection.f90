@@ -48,6 +48,8 @@ subroutine hohmeyer_loop_detection( &
   call separating_plane( &
        xyzsep(1:8,:), &
        xyzsep(9:16,:), &
+       8, &
+       8, &
        vec1, &
        separable )
   IF (VERBOSE) PRINT *,separable
@@ -58,6 +60,8 @@ subroutine hohmeyer_loop_detection( &
      call separating_plane( &
           xyzsep(1:8,:), &
           -xyzsep(9:16,:), &
+          8, &
+          8, &
           vec2, &
           separable )
      !PRINT *,separable

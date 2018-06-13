@@ -32,6 +32,8 @@ subroutine hohmeyer_loop_detection_bezier( &
   call separating_plane( &
        bpn1, &
        bpn2, &
+       n1, &
+       n2, &
        vec1, &
        separable )
   IF (VERBOSE) PRINT *,separable
@@ -42,6 +44,8 @@ subroutine hohmeyer_loop_detection_bezier( &
      call separating_plane( &
           bpn1, &
           -bpn2, &
+          n1, &
+          n2, &
           vec2, &
           separable )
      PRINT *,separable
