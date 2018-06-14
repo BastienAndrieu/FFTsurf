@@ -94,6 +94,7 @@ contains
     integer                            :: n, i
     type(type_linkedlist), pointer     :: current
 
+    n = 0
     if ( present(n_opt) ) then
        n = n_opt
     else

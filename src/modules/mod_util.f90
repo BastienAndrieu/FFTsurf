@@ -316,4 +316,30 @@ contains
 
 
 
+ 
+ subroutine bubblesort_double( a )
+   implicit none
+   real*8, intent(inout) :: a(:)
+   real*8                :: tmp
+   integer               :: i, j
+   logical               :: swapped
+
+   do j = size(a)-1,1,-1
+      swapped = .false.
+      do i = 1, j
+         if ( a(i) > a(i+1) ) then
+            tmp = a(i)
+            a(i) = a(i+1)
+            a(i+1) = tmp
+            swapped = .true.
+         end if
+      end do
+      if (.not. swapped) return
+   end do
+
+ end subroutine bubblesort_double
+
+
+
+
 end module mod_util

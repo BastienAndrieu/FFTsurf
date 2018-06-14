@@ -10,7 +10,7 @@ program dev_intersection_simple_surface
   real(kind=MATHpr), parameter             :: EPSregion = real( 1.e-8, kind=MATHpr )
 
   type type_curve_region
-     real(kind=MATHpr)                     ::  tbox(2)
+     real(kind=MATHpr)                     :: tbox(2)
      type(type_obb), pointer               :: xyzbox => null()
      integer                               :: npts = 0
      integer, allocatable                  :: ipts(:)
@@ -36,9 +36,18 @@ program dev_intersection_simple_surface
   end type ptr_surface_region
 
 
+
+  !type type_intersection_data                                                                                                   !
+  !   integer                                    :: np = 0    ! actual nb. of intersection_points                                !
+  !   integer                                    :: nc = 0    ! actual nb. of intersection_curves                                !
+  !   type(type_intersection_point), allocatable :: points(:) ! list of intersection_points                                      !
+  !   type(type_intersection_curve), allocatable :: curves(:) ! list of intersection_curves                                      !
+  !end type type_intersection_data                                                                                               !
+
+
   ! =============================================================================
 
-  logical, parameter             :: ECONOMIZE = .false.
+  logical, parameter             :: ECONOMIZE = .true.
 
   integer                        :: narg, numtest, icurv, ivar, ival
   character(100)                 :: arg
@@ -223,6 +232,112 @@ contains
     end do
 
   end subroutine cs2bs2
+
+
+
+
+
+
+
+
+
+  subroutine intersect_simple_surfaces( &
+      surfroot, &
+      region, &
+      param_vector, &
+      interdat )
+    implicit none
+    integer, parameter                          :: nuvxyz_init = 10
+    type(ptr_parametric_surface), intent(in)    :: surfroot(2)
+    type(ptr_surface_region),     intent(inout) :: region(2)
+    real(kind=MATHpr),            intent(in)    :: param_vector(3)
+    integer,                      intent(inout) :: interdat ! *********
+    real(kind=MATHpr), allocatable              :: uvxyz(:,:)
+    integer                                     :: nuvxyz
+    integer, allocatable                        :: sharedpts(:)
+    integer                                     :: isurf, icurv, ivar, ival, jpt, ipt
+    
+    do isurf = 1,2
+       if ( .not.associated(region(isurf)%ptr%parent) ) cycle
+       do jpt = 1,region(isurf)%ptr%parent%npts
+          ipt = region(isurf)%ptr%parent%ipts(jpt)
+          if ( &
+               is_in_interval( uvxyz(2*isurf-1,ipt), region(isurf)%ptr%uvbox(1,1), region(isurf)%ptr%uvbox(2,1) ) .and. &
+               is_in_interval( uvxyz(2*isurf,ipt), region(isurf)%ptr%uvbox(1,2), region(isurf)%ptr%uvbox(2,2) ) ) then
+             !call append( &
+             !     region(isurf)%ptr%ipts, &
+             !     ipt, &
+             !     noduplicates=.true., &
+             !     newlength=region(isurf)%ptr%npts )
+          end if
+       end do
+    end do
+
+    allocate( uvxyz(7,nuvxyz_init) )
+    nuvxyz = 0
+    if ( region(1)%ptr%npts > 0 .and. region(2)%ptr%npts > 0 ) then
+       call intersection_arrays( &
+            region(1)%ptr%ipts(1:region(1)%ptr%npts), &
+            region(2)%ptr%ipts(1:region(2)%ptr%npts), &
+            sharedpts )
+       if ( allocated(sharedpts) ) then
+          nuvxyz = size(sharedpts)
+          ! ***** 
+       end if
+    end if
+    
+    
+    ! intersect the 4 borders of each surface with the other surface
+    do icurv = 1,2
+       do ivar = 1,2
+          do ival = 1,2
+
+             call intersect_border_surface( &
+                  surfroot, &
+                  region, &
+                  icurv, &
+                  ivar, &
+                  ival, &
+                  uvxyz, &
+                  nuvxyz, &
+                  stat_degeneracy )
+             if ( stat_degeneracy > 1 ) then
+                ! propagation erreur vers routine appelante ...
+                return
+             end if
+
+          end do
+       end do
+    end do
+
+
+    if ( nuvxyz < 1 ) return
+
+
+
+  end subroutine intersect_simple_surfaces
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

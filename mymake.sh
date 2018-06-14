@@ -7,7 +7,7 @@ python src/bernstein/makemodule.py
 # modules
 for f in src/modules/*.f90
 do
-    gfortran -Wall -Wextra -fbounds-check -g -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
+    gfortran -O3 -Wall -Wextra -fbounds-check -g -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
     if $verbose; then
 	echo "Compiling $(basename $f)"
     fi
@@ -64,6 +64,13 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/subdiv2_bezier.out 
 
 
 
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection_simple_surface.f90 -o test/obj/dev_intersection_simple_surface.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection_simple_surface.out test/obj/dev_intersection_simple_surface.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_diffgeom.o obj/mod_linearprogramming.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
+gfortran -pg -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection_simple_surface.f90 -o test/obj/dev_intersection_simple_surface.o
+gfortran -pg -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection_simple_surface.out test/obj/dev_intersection_simple_surface.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_diffgeom.o obj/mod_linearprogramming.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
 
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/perfo_subdivision.f90 -o test/obj/perfo_subdivision.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/perfo_subdivision.out test/obj/perfo_subdivision.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o -Lsrc/dfftpack -ldfftpack
+
+
+
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/tree.f90 -o test/obj/tree.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/tree.out test/obj/tree.o obj/mod_util.o obj/mod_math.o obj/mod_obb.o
