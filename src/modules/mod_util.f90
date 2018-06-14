@@ -131,6 +131,102 @@ contains
   !end subroutine intersection_lists
 
 
+
+  subroutine append_n( &
+       list, &
+       nlist, &
+       elem, &
+       nelem, &
+       unique )
+    implicit none
+    integer, allocatable, intent(inout) :: list(:)
+    integer,              intent(inout) :: nlist
+    integer,              intent(in)    :: nelem
+    integer,              intent(in)    :: elem(nelem)
+    logical, optional,    intent(in)    :: unique
+    logical                             :: mask(nelem)
+    integer, allocatable                :: tmp(:)
+    integer                             :: i, nnew
+    
+    if ( .not.allocated(list) ) then
+
+       allocate( list(nelem) )
+       list = elem
+       nlist = nelem
+
+    else
+       
+       mask(1:nelem) = .true.
+       if ( present(unique) ) then
+          if ( unique ) then
+             do i = 1,nelem
+                if ( any(list(1:nlist) == elem(i)) ) then
+                   mask(i) = .false.
+                   cycle
+                end if
+             end do
+          end if
+       end if
+       
+       nnew = count(mask)
+       if ( nlist + nnew > size(list) ) call move_alloc( from=list, to=tmp )
+       allocate( list(nlist + nnew) )
+       list(1:size(tmp)) = tmp
+       do i = 1,nelem
+          if ( mask(i) ) then
+             nlist = nlist + 1
+             list(nlist) = elem(i)
+          end if
+       end do
+
+    end if
+
+  end subroutine append_n
+
+
+
+
+
+  subroutine append_list( &
+       array, &
+       length, &
+       element, &
+       unique )
+    implicit none
+    integer, allocatable, intent(inout) :: array(:)
+    integer,              intent(inout) :: length
+    integer,              intent(in)    :: element
+    logical, optional,    intent(in)    :: unique
+    integer, allocatable                :: tmp(:)
+
+    if ( .not.allocated(array) ) then
+
+       allocate( array(1) )
+       array = element
+       length = 1
+
+    else
+
+       if ( present(unique) ) then
+          if ( unique ) then
+             if ( any(array(1:length) == element) ) return
+          end if
+       end if
+
+       length = length + 1
+       if ( length > size(array) ) call move_alloc( from=array, to=tmp )
+       allocate( array(length) )
+       array(1:size(tmp)) = tmp
+       array(length) = element
+       deallocate(tmp)
+
+    end if
+
+  end subroutine append_list
+
+
+
+
   
   subroutine append_integer( &
        array, &

@@ -7,7 +7,7 @@ python src/bernstein/makemodule.py
 # modules
 for f in src/modules/*.f90
 do
-    gfortran -O3 -Wall -Wextra -fbounds-check -g -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
+    gfortran -Wall -Wextra -fbounds-check -g -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
     if $verbose; then
 	echo "Compiling $(basename $f)"
     fi

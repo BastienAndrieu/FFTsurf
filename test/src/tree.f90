@@ -69,9 +69,11 @@ program tree
        uvboxroot )
   deallocate( uvboxroot )
   
-  root%npts = npts
-  allocate( root%ipts(npts) )
-  root%ipts = [ (ipt,ipt=1,npts) ]
+  call append_n( &
+       root%ipts, &
+       root%npts, &
+       [ (ipt,ipt=1,npts) ], &
+       npts )
 
   call system_clock( tic, countrate )
   call test_tree( &
@@ -100,30 +102,42 @@ contains
        npts, &
        dim, &
        region )
+    ! Test subroutine : given a set of points in R^dim, constructs a region tree
+    ! such that each leaf region contains no more than one point
     use mod_util
     implicit none
     integer,           intent(in)    :: npts, dim
     real(kind=fp),     intent(in)    :: points(npts,dim)
     type(type_region), intent(inout) :: region
+    logical, allocatable             :: mask(:)
     real(kind=fp), allocatable       :: x(:)
     real(kind=fp)                    :: uvm(dim)
     integer                          :: stat
     integer                          :: jpt, ipt, idim, ichild
 
-    !RETURN
     if ( associated(region%parent) ) then
-       outer : do jpt = 1,region%parent%npts
-          ipt = region%parent%ipts(jpt)
-          do idim = 1,dim
-             if ( points(ipt,idim) < region%uvbox(2*idim-1) .or. &
-                  points(ipt,idim) > region%uvbox(2*idim) ) cycle outer
-          end do
-          call append( &
+       if ( region%parent%npts > 0 ) then
+          allocate( mask(region%parent%npts) )
+          mask(1:region%parent%npts) = .true.
+          outer : do jpt = 1,region%parent%npts
+             ipt = region%parent%ipts(jpt)
+             do idim = 1,dim
+                if ( points(ipt,idim) < region%uvbox(2*idim-1) .or. &
+                     points(ipt,idim) > region%uvbox(2*idim) ) then
+                   mask(jpt) = .false.
+                   cycle outer
+                end if
+             end do
+          end do outer
+
+          call append_n( &
                region%ipts, &
-               ipt, &
-               noduplicates=.true., &
-               newlength=region%npts )
-       end do outer
+               region%npts, &
+               pack( region%parent%ipts(1:region%parent%npts), mask ), &
+               count(mask), &
+               unique=.true. )
+
+       end if
     end if
 
     if ( region%npts < 2 ) return
@@ -376,6 +390,28 @@ contains
     end if
 
   end subroutine write_region
+
+
+
+
+
+
+
+  recursive subroutine add_points_bottom_up( &
+       region, &
+       ipt )
+    use mod_util
+    implicit none
+    type(type_region), intent(inout) :: region
+    integer,           intent(in)    :: ipt
+    
+    call append_list( &
+       region%ipts, &
+       region%npts, &
+       ipt )
+  end subroutine add_points_bottom_up
+
+
 
 
 
