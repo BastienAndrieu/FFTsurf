@@ -73,4 +73,4 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/perfo_subdivision.o
 
 
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/tree.f90 -o test/obj/tree.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/tree.out test/obj/tree.o obj/mod_util.o obj/mod_math.o obj/mod_obb.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/tree.out test/obj/tree.o obj/mod_constants.o obj/mod_util.o obj/mod_math.o obj/mod_obb.o obj/mod_polynomial.o obj/mod_regiontree.o
