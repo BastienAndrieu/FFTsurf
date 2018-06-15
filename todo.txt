@@ -1,4 +1,4 @@
 * un seul type de polynome univarié (coef, degr, dim) 
 * un seul type de polynome bivarié
-* un seul type de région (curve/surface) (?)  (/!\ polynomes univariés/bivariés)
 * uniformiser noms des constantes (EPSxxx, ...)
+* module I/O?
