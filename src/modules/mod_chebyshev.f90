@@ -236,7 +236,6 @@ subroutine chebbivar2univar( &
      c1, &
      ivar, &
      ival ) 
-  use mod_constants
   implicit none
   integer,       intent(in)  :: m, n, p
   real(kind=fp), intent(in)  :: c2(m,n,p)

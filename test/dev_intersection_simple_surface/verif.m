@@ -2,11 +2,19 @@ clc; clear; close all
 
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FourierContinuation/Chebyshev/Bezier/');
+addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
 format long
 
-bc = readCoeffs1('root_c_bezier.bern');
-bs = readCoeffs2('root_s_bezier.bern');
+% bc = readCoeffs1('root_c_bezier.bern');
+% bs = readCoeffs2('root_s_bezier.bern');
+
+bc = readCoeffs1('region_c_bezier.bern');
+bs = readCoeffs2('region_s_bezier.bern');
+
+boxc = importdata('xyzbox_c.dat');
+boxs = importdata('xyzbox_s.dat');
+
 
 tuvxyz = importdata('tuv_xyz.dat');
 % tuvxyz = [-0.90000000000000002        1.5005561735261401E-002  -1.0000000000000000        1.6672846372512762E-002
@@ -36,6 +44,16 @@ surf( s(:,:,1), s(:,:,2), s(:,:,3), ...
     'facelighting','gouraud','specularstrength',0.15);
 % surf( bs(:,:,1), bs(:,:,2), bs(:,:,3), ...
 %     'facecolor', 'none', 'edgecolor', 'r', 'linestyle', '--' );
+
+if 1
+    h = plotOBB( boxc(1,:)', boxc(2,:)', boxc(3:5,:)' );
+    set( h, 'facecolor', 'none', 'edgecolor', 'b' );
+    plot3( boxc(1,1), boxc(1,2), boxc(1,3), 'b*' );
+    
+    h = plotOBB( boxs(1,:)', boxs(2,:)', boxs(3:5,:)' );
+    set( h, 'facecolor', 'none', 'edgecolor', 'r' );
+end
+
 
 if 0
     for i = 3%1:size(trees,1)

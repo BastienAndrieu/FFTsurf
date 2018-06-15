@@ -1,6 +1,6 @@
 program bernstein2
 
-  use mod_constants
+  use mod_math
   use mod_bernstein2
   use mod_polynomial
 

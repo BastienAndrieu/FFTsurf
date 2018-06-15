@@ -169,9 +169,12 @@ contains
        end if
        
        nnew = count(mask)
-       if ( nlist + nnew > size(list) ) call move_alloc( from=list, to=tmp )
-       allocate( list(nlist + nnew) )
-       list(1:size(tmp)) = tmp
+       if ( nlist + nnew > size(list) ) then
+          call move_alloc( from=list, to=tmp )
+          allocate( list(nlist + nnew) )
+          list(1:size(tmp)) = tmp
+          deallocate( tmp )
+       end if
        do i = 1,nelem
           if ( mask(i) ) then
              nlist = nlist + 1

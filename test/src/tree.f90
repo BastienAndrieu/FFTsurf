@@ -1,7 +1,7 @@
 program tree
   
   use mod_util
-  use mod_constants
+  use mod_math
   use mod_regiontree
   use mod_obb
 
@@ -107,7 +107,8 @@ contains
                pack( region%parent%ipts(1:region%parent%npts), mask ), &
                count(mask), &
                unique=.true. )
-
+          
+          deallocate( mask )
        end if
     end if
 

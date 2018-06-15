@@ -2,15 +2,23 @@ module mod_math
 
   implicit none
 
-  integer,           parameter :: MATHpr = SELECTED_REAL_KIND(15,307)!kind(1.d0)
+  
+  integer,       parameter :: fp = SELECTED_REAL_KIND(15,307)!kind(1.d0)
+
+  real(kind=fp), parameter :: EPSmath = 10._fp * EPSILON( 1._fp )
+  real(kind=fp), parameter :: CSTpi = real( 3.14159265358979323846, kind=fp )
+
+
+  ! ------- à supprimer -------
+  integer,           parameter :: MATHpr = SELECTED_REAL_KIND(15,307)!kind(1.d0) 
   real(kind=MATHpr), parameter :: MATHeps = 10._MATHpr * epsilon(1._MATHpr)!2.d-15
   real(kind=MATHpr), parameter :: MATHpi = 3.14159265358979323846d0
-
+! ---------------------------
   
   ! --------------------------------------------------------------------------------------------------------------------------- !
   ! Workaround for making arrays of matrices (rank-2 arrays) with different sizes (useful for sequences of matrices)            !
   type type_matrix                                                                                                              !
-     real(kind=MATHpr), allocatable :: mat(:,:)                                                                     !
+     real(kind=fp), allocatable :: mat(:,:)                                                                                     !
   end type type_matrix                                                                                                          !
   ! --------------------------------------------------------------------------------------------------------------------------- !
 
@@ -38,9 +46,9 @@ contains
 
     implicit none
 
-    real(kind=MATHpr) :: u(3)
-    real(kind=MATHpr) :: v(3)
-    real(kind=MATHpr) :: w(3)
+    real(kind=fp) :: u(3)
+    real(kind=fp) :: v(3)
+    real(kind=fp) :: w(3)
     integer             :: i, j, k
 
     do i = 1,3
@@ -59,8 +67,8 @@ contains
 
     implicit none
 
-    real(kind=MATHpr) :: u(:)
-    real(kind=MATHpr) :: m
+    real(kind=fp) :: u(:)
+    real(kind=fp) :: m
 
     m = sqrt(sum(u**2))
 
@@ -73,8 +81,8 @@ contains
 
     implicit none
 
-    real(kind=MATHpr) :: u(:,:)
-    real(kind=MATHpr) :: m(size(u,2))
+    real(kind=fp) :: u(:,:)
+    real(kind=fp) :: m(size(u,2))
 
     m = sqrt(sum(u**2,1))
 
@@ -84,8 +92,8 @@ contains
 
   function triple_product( a, b, c ) result(d)
     implicit none
-    real(kind=MATHpr), dimension(3) :: a, b, c
-    real(kind=MATHpr)               :: d
+    real(kind=fp), dimension(3) :: a, b, c
+    real(kind=fp)               :: d
 
     d = dot_product( a, cross( b, c ) )
 
@@ -107,19 +115,19 @@ contains
     implicit none
 
     integer, intent(in) :: m, n
-    real*8, dimension(m,n) :: A
-    real*8, dimension(m) :: b
+    real(kind=fp), dimension(m,n) :: A
+    real(kind=fp), dimension(m) :: b
 
-    real*8, dimension(n) :: x
+    real(kind=fp), dimension(n) :: x
     logical, intent(out) :: singular
     integer, optional, intent(out) :: rank_opt
 
-    real*8, dimension(size(A,1),size(A,1)) :: Q
-    real*8, dimension(size(A,1),size(A,2)) :: R
-    real*8, dimension(size(A,2),size(A,2)) :: P
-    real*8, dimension(size(A,1)) :: c
-    real*8, dimension(size(A,2)) :: y
-    real*8 :: res
+    real(kind=fp), dimension(size(A,1),size(A,1)) :: Q
+    real(kind=fp), dimension(size(A,1),size(A,2)) :: R
+    real(kind=fp), dimension(size(A,2),size(A,2)) :: P
+    real(kind=fp), dimension(size(A,1)) :: c
+    real(kind=fp), dimension(size(A,2)) :: y
+    real(kind=fp) :: res
     integer :: rank
 
 
@@ -174,15 +182,15 @@ contains
     implicit none
 
     integer, intent(in) :: m, n, rank
-    real*8, dimension(m,n), intent(in) :: R
-    real*8, dimension(rank) :: c
+    real(kind=fp), dimension(m,n), intent(in) :: R
+    real(kind=fp), dimension(rank) :: c
 
-    real*8, dimension(n), intent(out) :: y
+    real(kind=fp), dimension(n), intent(out) :: y
 
-    real*8, dimension(rank) :: y1
-    real*8, dimension(n-rank) :: y2
-    real*8, dimension(n,n-rank) :: S
-    real*8, dimension(n) :: t
+    real(kind=fp), dimension(rank) :: y1
+    real(kind=fp), dimension(n-rank) :: y2
+    real(kind=fp), dimension(n,n-rank) :: S
+    real(kind=fp), dimension(n) :: t
     logical :: singular
     integer :: i
 
@@ -221,19 +229,19 @@ contains
 
     implicit none
 
-    !real*8, parameter :: tol = MATHeps*1.d2
+    !real(kind=fp), parameter :: tol = MATHeps*1.d2
 
-    real*8, dimension(:,:), intent(in) :: A
+    real(kind=fp), dimension(:,:), intent(in) :: A
 
-    real*8, dimension(size(A,1),size(A,1)), intent(out) :: Q
-    real*8, dimension(size(A,1),size(A,2)), intent(out) :: R
-    real*8, dimension(size(A,2), size(A,2)), intent(out) :: P
+    real(kind=fp), dimension(size(A,1),size(A,1)), intent(out) :: Q
+    real(kind=fp), dimension(size(A,1),size(A,2)), intent(out) :: R
+    real(kind=fp), dimension(size(A,2), size(A,2)), intent(out) :: P
     integer, intent(out) :: rank
 
-    real*8 :: tol
-    real*8, dimension(size(A,2)) :: lens
-    real*8, dimension(size(A,1)) :: v
-    real*8, dimension(size(A,1),size(A,1)) :: vvT
+    real(kind=fp) :: tol
+    real(kind=fp), dimension(size(A,2)) :: lens
+    real(kind=fp), dimension(size(A,1)) :: v
+    real(kind=fp), dimension(size(A,1),size(A,1)) :: vvT
     integer :: i, m, n, i_max
 
 
@@ -303,10 +311,10 @@ contains
 
     implicit none
 
-    real*8, dimension(:), intent(in) :: x
+    real(kind=fp), dimension(:), intent(in) :: x
     integer, intent(in) :: i, j
-    real*8, dimension(size(x)), intent(out) :: v
-    real*8 :: s
+    real(kind=fp), dimension(size(x)), intent(out) :: v
+    real(kind=fp) :: s
 
 
     v = 0.0d0
@@ -333,9 +341,9 @@ contains
     implicit none
 
     integer, intent(in) :: M, N
-    real*8, dimension(M,N), intent(in) :: U
-    real*8, dimension(M), intent(in) :: b
-    real*8, dimension(N), intent(out) :: x
+    real(kind=fp), dimension(M,N), intent(in) :: U
+    real(kind=fp), dimension(M), intent(in) :: b
+    real(kind=fp), dimension(N), intent(out) :: x
 
     integer :: i
 
@@ -357,14 +365,14 @@ contains
 
     implicit none
 
-    real*8, dimension(:,:), intent(in) :: A
-    real*8, dimension(:), intent(in) :: b
-    real*8, dimension(size(A,2)), intent(out) :: x
+    real(kind=fp), dimension(:,:), intent(in) :: A
+    real(kind=fp), dimension(:), intent(in) :: b
+    real(kind=fp), dimension(size(A,2)), intent(out) :: x
     logical, intent(out), optional :: singular
 
     integer :: M, N
-    real*8, dimension(size(A,1), size(A,2)+1) :: C
-    REAL*8 :: DET, res
+    real(kind=fp), dimension(size(A,1), size(A,2)+1) :: C
+    REAL(kind=fp) :: DET, res
     INTEGER :: I
 
 
@@ -406,7 +414,7 @@ contains
 
     implicit none
 
-    real*8, dimension(:,:), intent(inout) :: A
+    real(kind=fp), dimension(:,:), intent(inout) :: A
     logical, intent(out), optional :: singular
 
     integer :: m, n, i, k, i_max
@@ -441,10 +449,9 @@ contains
 
     implicit none
 
-    real*8, dimension(:,:), intent(inout) :: A
-    integer, intent(in) :: i, j
-
-    real*8, dimension(size(A,2)) :: r
+    real(kind=fp), intent(inout) :: A(:,:)
+    integer,       intent(in)    :: i, j
+    real(kind=fp)                :: r(size(A,2))
 
     if (i == j) return
 
@@ -468,15 +475,11 @@ contains
        a22, &
        b, &
        singular)
-
     implicit none
-
-    real(kind=MATHpr), intent(in)  :: a11, a12, a21, a22, b(2)
-    
-    real(kind=MATHpr), intent(out) :: x(2)
-    logical,             intent(out) :: singular
-
-    real(kind=MATHpr)              :: det
+    real(kind=fp), intent(in)  :: a11, a12, a21, a22, b(2)
+    real(kind=fp), intent(out) :: x(2)
+    logical,       intent(out) :: singular
+    real(kind=fp)              :: det
 
     det = a11*a22 - a12*a21
 
@@ -499,8 +502,8 @@ contains
 
     implicit none
 
-    real*8, dimension(:) :: u, v
-    real*8, dimension(size(u),size(v)) :: outer_product
+    real(kind=fp), dimension(:) :: u, v
+    real(kind=fp)               :: outer_product(size(u),size(v))
 
     outer_product = spread(u, dim=2, ncopies=size(v)) * spread(v, dim=1, ncopies=size(u))
 
@@ -534,17 +537,17 @@ contains
     !  out  !  out  !    ???    !
     !-------+-------+-----------+
     implicit none
-    real(kind=MATHpr), intent(in)  :: x(:)
-    real(kind=MATHpr), intent(in)  :: lowerb(:)
-    real(kind=MATHpr), intent(in)  :: upperb(:)
-    real(kind=MATHpr), intent(in)  :: dx(:)
-    real(kind=MATHpr), intent(out) :: lambda
-    integer                        :: idim
+    real(kind=fp), intent(in)  :: x(:)
+    real(kind=fp), intent(in)  :: lowerb(:)
+    real(kind=fp), intent(in)  :: upperb(:)
+    real(kind=fp), intent(in)  :: dx(:)
+    real(kind=fp), intent(out) :: lambda
+    integer                    :: idim
   
-    lambda = 1._MATHpr
+    lambda = 1._fp
     do idim = 1,size(x)
        if ( abs(dx(idim)) < MATHeps ) cycle
-       if ( dx(idim) < 0._MATHpr ) then
+       if ( dx(idim) < 0._fp ) then
           lambda = min( lambda, (lowerb(idim) - x(idim)) / dx(idim) )
        else
           lambda = min( lambda, (upperb(idim) - x(idim)) / dx(idim) )
@@ -575,7 +578,7 @@ contains
     implicit none
 
     real*8, dimension(:,:), intent(in) :: A
-    integer :: i
+    integer                            :: i
 
     do i = 1,size(A,1)
        print *,A(i,:)
@@ -588,7 +591,7 @@ contains
     implicit none
 
     real, dimension(:,:), intent(in) :: A
-    integer :: i
+    integer                          :: i
 
     do i = 1,size(A,1)
        print *,A(i,:)
@@ -604,18 +607,12 @@ contains
   function Dnchoosek( &
        n, &
        k )
-
     ! Numerical Recipes in Fortran 77
     implicit none
-
     integer :: n, k
-    real*8  :: Dnchoosek
+    real(kind=fp)  :: Dnchoosek
 
-    !if (max(n,k) < 21) then
-    !   Dnchoosek = dble(myfactorial(n)) / ( dble(myfactorial(k)) * dble(myfactorial(n-k)) )
-    !else
     Dnchoosek = exp( factln(n) - factln(k) - factln(n-k) )
-    !end if
 
   end function Dnchoosek
 
@@ -628,8 +625,8 @@ contains
     implicit none
     
     integer :: n
-    real*8  :: factln
-    real*8  :: a(100)
+    real(kind=fp)  :: factln
+    real(kind=fp)  :: a(100)
 
     save a
     data a /100*-1.d0/
@@ -653,9 +650,9 @@ contains
     ! Numerical Recipes in Fortran 77
     implicit none
     
-    real*8  :: xx
-    real*8  :: gammaln
-    real*8  :: ser, stp, tmp, x, y, cof(6)
+    real(kind=fp)  :: xx
+    real(kind=fp)  :: gammaln
+    real(kind=fp)  :: ser, stp, tmp, x, y, cof(6)
     integer :: j
 
     save cof, stp
@@ -724,9 +721,9 @@ contains
   
   function mean_angle( ang ) 
     implicit none
-    real(kind=MATHpr), intent(in) :: ang(:)
-    real(kind=MATHpr)             :: mean_angle
-    complex(kind=MATHpr)          :: s
+    real(kind=fp), intent(in) :: ang(:)
+    real(kind=fp)             :: mean_angle
+    complex(kind=fp)          :: s
 
     s = sum( dcmplx( cos(ang), sin(ang) ) ) / dble( size(ang) )
 
@@ -737,9 +734,9 @@ contains
 
   function diff_angle( a1, a2 )
     implicit none
-    real(kind=MATHpr), intent(in) :: a1, a2
-    real(kind=MATHpr)             :: diff_angle
-    real(kind=MATHpr)             :: c1, s1, c2, s2
+    real(kind=fp), intent(in) :: a1, a2
+    real(kind=fp)             :: diff_angle
+    real(kind=fp)             :: c1, s1, c2, s2
 
     c1 = cos(a1)
     s1 = sin(a1)
@@ -756,9 +753,9 @@ contains
     ! Applies to a scalar x the linear change of variable that 
     ! maps the interval [a,b] to [-1,1]
     implicit none
-    real(kind=MATHpr), intent(in) :: x, a, b
-    real(kind=MATHpr)             :: ab2n1p1
-    ab2n1p1 = -1._MATHpr + 2._MATHpr * (x - a) / (b - a)
+    real(kind=fp), intent(in) :: x, a, b
+    real(kind=fp)             :: ab2n1p1
+    ab2n1p1 = -1._fp + 2._fp * (x - a) / (b - a)
   end function ab2n1p1
 
 
@@ -769,9 +766,9 @@ contains
     ! Applies to a scalar x the linear change of variable that 
     ! maps the interval [-1,1] to [a,b]
     implicit none
-    real(kind=MATHpr), intent(in) :: x, a, b
-    real(kind=MATHpr)             :: n1p12ab
-    n1p12ab = a + 0.5_MATHpr * (b-a) * (x + 1._MATHpr)
+    real(kind=fp), intent(in) :: x, a, b
+    real(kind=fp)             :: n1p12ab
+    n1p12ab = a + 0.5_fp * (b-a) * (x + 1._fp)
   end function n1p12ab
 
 
@@ -781,13 +778,13 @@ contains
   function linspace( a, b, n )
     ! Returns a vector of n values linearly ranging from a to b
     implicit none
-    real(kind=MATHpr), intent(in) :: a, b
-    integer,           intent(in) :: n
-    real(kind=MATHpr)             :: linspace(n)
-    integer                       :: i = 0
+    real(kind=fp), intent(in) :: a, b
+    integer,       intent(in) :: n
+    real(kind=fp)             :: linspace(n)
+    integer                   :: i = 0
 
     linspace = a + (b-a) * &
-         [( real(i-1, kind=MATHpr) / real(n-1, kind=MATHpr), i=0,n-1 )]
+         [( real(i-1, kind=fp) / real(n-1, kind=fp), i=0,n-1 )]
     
   end function linspace
 
@@ -798,8 +795,8 @@ contains
   function is_in_interval( x, a, b )
     ! Returns .true. if a <= x <= b, .false. if x < a or x > b
     implicit none
-    real(kind=MATHpr), intent(in) :: x, a, b
-    logical                       :: is_in_interval
+    real(kind=fp), intent(in) :: x, a, b
+    logical                   :: is_in_interval
     
     is_in_interval = ( x >= a .and. x <= b )
 
@@ -811,8 +808,8 @@ contains
   function is_in_interval_strict( x, a, b )
     ! Returns .true. if a < x < b, .false. if x <= a or x >= b
     implicit none
-    real(kind=MATHpr), intent(in) :: x, a, b
-    logical                       :: is_in_interval_strict
+    real(kind=fp), intent(in) :: x, a, b
+    logical                   :: is_in_interval_strict
 
     is_in_interval_strict = ( x > a .and. x < b )
 
@@ -824,11 +821,11 @@ contains
   function identity_matrix( n )
     implicit none
     integer, intent(in) :: n
-    real(kind=MATHpr)   :: identity_matrix(n,n)
+    real(kind=fp)       :: identity_matrix(n,n)
     integer             :: i
-    identity_matrix(:,:) = 0._MATHpr
+    identity_matrix(:,:) = 0._fp
     do i = 1,n
-       identity_matrix(i,i) = 1._MATHpr
+       identity_matrix(i,i) = 1._fp
     end do
   end function identity_matrix
 

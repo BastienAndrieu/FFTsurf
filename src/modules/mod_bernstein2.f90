@@ -1,6 +1,6 @@
 module mod_bernstein2
 
-  use mod_constants
+  use mod_math
 
   implicit none
 
@@ -14,7 +14,6 @@ contains
        f, &
        bl, &
        br )
-    use mod_math
     implicit none
     integer,       intent(in)            :: degr, dim
     real(kind=fp), intent(in)            :: b(degr+1,dim)
@@ -86,7 +85,6 @@ contains
        b1, &
        ivar, &
        ival )
-    use mod_constants
     implicit none
     integer,       intent(in)  :: m, n, p
     real(kind=fp), intent(in)  :: b2(m,n,p)

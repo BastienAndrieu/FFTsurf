@@ -1,5 +1,6 @@
 module mod_diffgeom2
   
+  use mod_math
   use mod_polynomial
 
   type type_curve
@@ -155,6 +156,7 @@ contains
        surf, &
        uv, &
        ivar )
+    
     implicit none
     type(type_surface), intent(in)  :: surf
     real(kind=fp),      intent(in)  :: uv(2)

@@ -1,6 +1,6 @@
 module mod_regiontree
 
-  use mod_constants
+  use mod_math
   use mod_obb
   use mod_polynomial
 
@@ -16,6 +16,12 @@ module mod_regiontree
      type(type_region), pointer     :: parent => null()
      type(type_region), pointer     :: child(:) => null()
   end type type_region
+
+  type ptr_region
+     type(type_region), pointer     :: ptr => null()
+  end type ptr_region
+  
+
 
 contains
 
@@ -203,8 +209,8 @@ contains
 
 
 
-
-  recursive subroutine add_points_bottom_up( &
+  
+  recursive subroutine add_point_bottom_up( &
        region, &
        ipt )
     use mod_util
@@ -216,7 +222,7 @@ contains
          region%ipts, &
          region%npts, &
          ipt )
-  end subroutine add_points_bottom_up
+  end subroutine add_point_bottom_up
 
 
 end module mod_regiontree

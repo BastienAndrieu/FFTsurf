@@ -1,6 +1,6 @@
 module mod_polynomial
 
-  use mod_constants
+  use mod_math
   use mod_chebyshev2
   use mod_bernstein2
 
@@ -659,7 +659,6 @@ contains
   subroutine cheb2bern_matrix( A, degr )
     ! Transformation matrix from Chebyshev to Bernstein polynomial basis 
     ! "Transformation of Chebyshev–Bernstein polynomial basis", Rababah (2003) -- p.8 (615)
-    use mod_math
     implicit none
     integer,       intent(in)  :: degr
     real(kind=fp), intent(out) :: A(1:degr+1,1:degr+1)
@@ -705,6 +704,96 @@ contains
     A(n:p+1:-1,1:n:2) = A(1:m+1,1:n:2)
 
   end subroutine cheb2bern_matrix
+
+
+
+
+  
+  subroutine get_cheb2bern_mat_from_collection( &
+       collection, &
+       N, &
+       c2b )
+    implicit none
+    integer,            intent(in)    :: N
+    type(type_matrix),  intent(inout) :: collection(:)
+    real(kind=fp)                     :: c2b(N,N)
+
+    if ( N > size(collection) ) then
+       call cheb2bern_matrix( c2b, N-1 )
+    else
+       if ( .not.allocated(collection(N)%mat) ) then
+          allocate( collection(N)%mat(N,N) )
+          call cheb2bern_matrix( collection(N)%mat, N-1 )
+       end if
+       c2b = collection(N)%mat
+    end if
+
+  end subroutine get_cheb2bern_mat_from_collection
+
+
+
+
+
+
+
+
+  subroutine economize1( &
+     poly, &
+     tol )
+    implicit none
+    type(type_polynomial), intent(inout) :: poly
+    real(kind=fp),         intent(in)    :: tol
+    real(kind=fp)                        :: tolsqr
+    integer                              :: i, m
+
+    if ( poly%base /= 1 ) STOP 'economize1 : polynomial not in Chebyshev basis'
+    if ( poly%nvar /= 1 ) STOP 'economize1 : not a univariate polynomial'
+
+    tolsqr = tol**2
+
+    m = poly%degr(1)+1
+    do i = m,1,-1
+       if ( sum( poly%coef(i:m,1:poly%dim,1)**2 ) > tolsqr ) exit
+    end do
+    poly%degr(1) = i-1
+
+  end subroutine economize1
+
+  
+  
+  
+  subroutine economize2( &
+       poly, &
+       tol )
+    implicit none
+    type(type_polynomial), intent(inout) :: poly
+    real(kind=fp),          intent(in)   :: tol
+    real(kind=fp)                        :: tolsqr
+    real(kind=fp), dimension(poly%dim)   :: s, r
+    integer                              :: i, j
+
+    if ( poly%base /= 1 ) STOP 'economize2 : polynomial not in Chebyshev basis'
+    if ( poly%nvar /= 2 ) STOP 'economize2 : not a bivariate polynomial'
+
+    tolsqr = tol**2
+
+    s = sum( abs( poly%coef(1:poly%degr(1)+1,1:poly%degr(2)+1,1:poly%dim) ) )
+
+    do i = poly%degr(1)+1,1,-1
+       r = sum( abs( poly%coef(1:i-1,1:poly%degr(2)+1,1:poly%dim) ) )
+       if ( sum( (s - r)**2 ) > tolsqr ) exit
+    end do
+    poly%degr(1) = i-1
+
+    do j = poly%degr(2)+1,1,-1
+       r = sum( abs( poly%coef(1:i,1:j-1,1:poly%dim) ) )
+       if ( sum( (s - r)**2 ) > tolsqr ) exit
+    end do
+    poly%degr(2) = j-1
+
+  end subroutine economize2
+
+
 
 
 end module mod_polynomial

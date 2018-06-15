@@ -4,7 +4,7 @@ module mod_linearprogramming
 
   implicit none
 
-  real(kind=MATHpr), parameter :: OMGlp = real( 1.e6, kind=MATHpr )
+  real(kind=fp), parameter :: BIGlp = real( 1.e6, kind=fp )
 
 contains
 
@@ -21,14 +21,14 @@ contains
     !         'stat' = 1 if the problem is not feasible
     !         'stat' = 2 if an unexpected error is encountered
     implicit none
-    real(kind=MATHpr), intent(in)  :: A(:,:)
-    real(kind=MATHpr), intent(in)  :: c(:)
-    real(kind=MATHpr), intent(out) :: x(size(c))
-    integer,           intent(out) :: stat
-    integer                        :: dim, i, j(size(c)-1), k, l
-    logical                        :: singular, mask(size(c))
-    real(kind=MATHpr)              :: Ai(size(A,1),size(c)), ci(size(c)-1), xj(size(c)-1)
-    real(kind=MATHpr)              :: invA_il
+    real(kind=fp), intent(in)  :: A(:,:)
+    real(kind=fp), intent(in)  :: c(:)
+    real(kind=fp), intent(out) :: x(size(c))
+    integer,       intent(out) :: stat
+    integer                    :: dim, i, j(size(c)-1), k, l
+    logical                    :: singular, mask(size(c))
+    real(kind=fp)              :: Ai(size(A,1),size(c)), ci(size(c)-1), xj(size(c)-1)
+    real(kind=fp)              :: invA_il
 
     dim = size( c )
 
@@ -53,7 +53,7 @@ contains
 
     ! deal with primary constraints
     do i = dim+1,size(A,1)
-       if ( dot_product( A(i,1:dim), x ) + A(i,dim+1) <= 0._MATHpr ) cycle
+       if ( dot_product( A(i,1:dim), x ) + A(i,dim+1) <= 0._fp ) cycle
        
        ! the provisional optimum x does not satisfy the i-th constraint
        l = maxloc( abs(A(i,1:dim)), 1 )
@@ -66,7 +66,7 @@ contains
        mask(l) = .false.
        j = pack( [(k,k=1,dim)], mask )
 
-       invA_il = 1._MATHpr / A(i,l)
+       invA_il = 1._fp / A(i,l)
        do k = 1,i-1
           Ai(k,:) = A(k,[j,dim+1]) - A(k,l) * A(i,[j,dim+1]) * invA_il
        end do
@@ -106,22 +106,22 @@ contains
     !         'stat' =-1 if the problem is unbounded, feasible
     !         'stat' = 1 if the problem is not feasible
     implicit none
-    real(kind=MATHpr), intent(in)  :: A(:,:)
-    real(kind=MATHpr), intent(in)  :: c
-    real(kind=MATHpr), intent(out) :: x
-    integer,           intent(out) :: stat
-    real(kind=MATHpr)              :: L, R
-    integer                        :: i, n
+    real(kind=fp), intent(in)  :: A(:,:)
+    real(kind=fp), intent(in)  :: c
+    real(kind=fp), intent(out) :: x
+    integer,       intent(out) :: stat
+    real(kind=fp)              :: L, R
+    integer                    :: i, n
 
-    R = OMGlp
-    L = -OMGlp
+    R = BIGlp
+    L = -BIGlp
 
     n = 0
     do i = 1,size(A,1)
-       if ( A(i,1) > 0._MATHpr ) then
+       if ( A(i,1) > 0._fp ) then
           n = n + 1
           R = min( R, -A(i,2)/A(i,1) )
-       elseif ( A(i,1) < 0._MATHpr ) then
+       elseif ( A(i,1) < 0._fp ) then
           L = max( L, -A(i,2)/A(i,1) )
        end if
     end do
@@ -129,17 +129,17 @@ contains
     stat = 0
     if ( n == size(A,1) ) then
        x = R
-       if ( c < 0._MATHpr ) stat = -1 ! unbounded, feasible problem
+       if ( c < 0._fp ) stat = -1 ! unbounded, feasible problem
     elseif ( n == 0 ) then
        x = L
-       if ( c > 0._MATHpr ) stat = -1 ! unbounded, feasible problem
+       if ( c > 0._fp ) stat = -1 ! unbounded, feasible problem
     else
        if ( L > R ) then
           !PRINT *,'LP1D UNFEASIBLE : L, R =',L,R
           stat = 1 ! unfeasible problem
        else
           ! bounded, feasible problem
-          if ( c < 0._MATHpr ) then
+          if ( c < 0._fp ) then
              x = R
           else
              x = L

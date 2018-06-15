@@ -4,10 +4,10 @@ module mod_separation
 
   implicit none
 
-  logical,           parameter   :: OPTcartsp  = .true.  ! cartesian separating plane
-  logical,           parameter   :: OPTsphbbsp = .true.  ! spherical bounding box separation
-  logical,           parameter   :: OPTlpsp    = .true.  ! linear programming separation
-  real(kind=MATHpr), parameter   :: EPSlpsep = real( 1.e-6, kind=MATHpr )  
+  logical,       parameter       :: OPTcartsp  = .true.  ! cartesian separating plane
+  logical,       parameter       :: OPTsphbbsp = .true.  ! spherical bounding box separation
+  logical,       parameter       :: OPTlpsp    = .true.  ! linear programming separation
+  real(kind=fp), parameter       :: EPSlpsep = real( 1.e-6, kind=fp )  
 
   type(type_matrix), allocatable :: ch2be_matrices(:)
 
@@ -25,12 +25,12 @@ contains
     ! can be switched on/off by the opt_* global parameters.
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    logical, parameter              :: VERBOSE = .false.
-    integer,           intent(in)   :: n1, n2
-    real(kind=MATHpr), intent(in)   :: xyz1(n1,3)
-    real(kind=MATHpr), intent(in)   :: xyz2(n2,3)
-    real(kind=MATHpr), intent(out)  :: vec(3)
-    logical,           intent(out)  :: separable
+    logical, parameter          :: VERBOSE = .false.
+    integer,       intent(in)   :: n1, n2
+    real(kind=fp), intent(in)   :: xyz1(n1,3)
+    real(kind=fp), intent(in)   :: xyz2(n2,3)
+    real(kind=fp), intent(out)  :: vec(3)
+    logical,       intent(out)  :: separable
 
     if ( OPTcartsp ) then
        ! Least expensive, least effective method 
@@ -110,13 +110,13 @@ contains
     ! strictly sepatates two sets of points of coords. 'xyz1' and 'xyz2'. 
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    integer,           intent(in)  :: n1, n2
-    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
-    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
-    real(kind=MATHpr), intent(out) :: vec(3)
-    logical,           intent(out) :: separable
-    real(kind=MATHpr)              :: m(2)
-    integer                        :: iaxe
+    integer,       intent(in)  :: n1, n2
+    real(kind=fp), intent(in)  :: xyz1(n1,3)
+    real(kind=fp), intent(in)  :: xyz2(n2,3)
+    real(kind=fp), intent(out) :: vec(3)
+    logical,       intent(out) :: separable
+    real(kind=fp)              :: m(2)
+    integer                    :: iaxe
 
     separable = .false.
     !PRINT *,'SIZE(XYZ1)=',SIZE(XYZ1,1),SIZE(XYZ1,2)
@@ -128,10 +128,10 @@ contains
        m(2) = min( maxval( xyz1(:,iaxe) ), &
             maxval( xyz2(:,iaxe) ) ) ! min(max)
 
-       if ( ( m(2) < m(1) ) .and. ( m(2)*m(1) < 0._MATHpr ) ) then
+       if ( ( m(2) < m(1) ) .and. ( m(2)*m(1) < 0._fp ) ) then
           ! separating cartesian plane found 
-          vec(:) = 0._MATHpr
-          vec(iaxe) = 1._MATHpr
+          vec(:) = 0._fp
+          vec(iaxe) = 1._fp
           separable = .true.
           return
        end if
@@ -154,12 +154,12 @@ contains
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
     integer,           intent(in)  :: n1, n2
-    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
-    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
-    real(kind=MATHpr), intent(out) :: vec(3)
+    real(kind=fp),     intent(in)  :: xyz1(n1,3)
+    real(kind=fp),     intent(in)  :: xyz2(n2,3)
+    real(kind=fp),     intent(out) :: vec(3)
     logical,           intent(out) :: separable
     logical, optional, intent(in)  :: mask_axes(3)
-    real(kind=MATHpr)              :: wedge(2,2), d, alpha, angv
+    real(kind=fp)                  :: wedge(2,2), d, alpha, angv
     logical                        :: bounded
     integer                        :: iaxe, iset
 
@@ -180,7 +180,7 @@ contains
                n2, &
                wedge(:,2) )
           do iset = 1,2
-             if ( wedge(2,iset) >= 0.5_MATHpr * MATHpi ) then
+             if ( wedge(2,iset) >= 0.5_fp * MATHpi ) then
                 !PRINT *,'WEDGE',ISET,' WIDER THAN PI'
                 cycle loop_axes
              end if
@@ -203,24 +203,24 @@ contains
 
 
        d = diff_angle( wedge(1,1), wedge(1,2) )
-       alpha = 0.5_MATHpr * ( abs(d) - sum(wedge(2,:)) )
+       alpha = 0.5_fp * ( abs(d) - sum(wedge(2,:)) )
        !PRINT *,'ALPHA',REAL(ALPHA)
        if ( alpha > MATHeps ) then
-          if ( alpha + 2._MATHpr*wedge(2,1) > MATHpi ) then
-             angv = wedge(1,1) + 0.5_MATHpr * MATHpi
-          elseif ( alpha + 2._MATHpr*wedge(2,2) > MATHpi ) then
-             angv = wedge(1,2) + 0.5_MATHpr * MATHpi
+          if ( alpha + 2._fp*wedge(2,1) > MATHpi ) then
+             angv = wedge(1,1) + 0.5_fp * MATHpi
+          elseif ( alpha + 2._fp*wedge(2,2) > MATHpi ) then
+             angv = wedge(1,2) + 0.5_fp * MATHpi
           else
-             if ( d > 0._MATHpr ) then
+             if ( d > 0._fp ) then
                 iset = 1
              else
                 iset = 2
              end if
              angv = mean_angle( wedge(1,[iset,1+mod(iset,2)]) + &
-                  [-1._MATHpr, 1._MATHpr]*wedge(2,[iset,1+mod(iset,2)]) )
+                  [-1._fp, 1._fp]*wedge(2,[iset,1+mod(iset,2)]) )
           end if
 
-          vec(:) = 0._MATHpr
+          vec(:) = 0._fp
           vec(1+mod(iaxe,3)) = -sin( angv )
           vec(1+mod(iaxe+1,3)) = cos( angv )
           separable = .true.
@@ -247,26 +247,26 @@ contains
     ! wedge(2) = half angle spanned by the wedge.
     ! (all angles are measured in radians)
     implicit none
-    integer,           intent(in)  :: n
-    real(kind=MATHpr), intent(in)  :: xy(n,2)
-    real(kind=MATHpr), intent(out) :: wedge(2)
-    real(kind=MATHpr)              :: ang(size(xy,1)), meanang, e(2), d
-    integer                        :: i
+    integer,       intent(in)  :: n
+    real(kind=fp), intent(in)  :: xy(n,2)
+    real(kind=fp), intent(out) :: wedge(2)
+    real(kind=fp)              :: ang(size(xy,1)), meanang, e(2), d
+    integer                    :: i
 
     ang = atan2( xy(:,2), xy(:,1) )
     meanang = mean_angle( ang )
 
-    e(:) = 0._MATHpr
+    e(:) = 0._fp
     do i = 1,n
        d = diff_angle( ang(i), meanang )
        e(1) = min( e(1), d )
        e(2) = max( e(2), d )
     end do
 
-    wedge(2) = 0.5_MATHpr * ( e(2) - e(1) )
+    wedge(2) = 0.5_fp * ( e(2) - e(1) )
     wedge(1) = mean_angle( meanang + e )
     if ( e(2) - e(1) > MATHpi ) then
-       if ( wedge(1) > 0._MATHpr ) then
+       if ( wedge(1) > 0._fp ) then
           wedge(1) = wedge(1) + MATHpi
        else
           wedge(1) = wedge(1) - MATHpi
@@ -286,14 +286,14 @@ contains
        bounded )
     use mod_geometry
     implicit none
-    integer,           intent(in)   :: n
-    real(kind=MATHpr), intent(in)   :: xy(n,2)
-    real(kind=MATHpr), intent(out)  :: wedge(2)
-    logical,           intent(out)  :: bounded
-    integer                         :: hull(n), nhull
-    real(kind=MATHpr), dimension(2) :: xy1, xy2
-    real(kind=MATHpr)               :: ang(n), mnmx(2), mnpmxn(2)
-    integer                         :: i
+    integer,       intent(in)   :: n
+    real(kind=fp), intent(in)   :: xy(n,2)
+    real(kind=fp), intent(out)  :: wedge(2)
+    logical,       intent(out)  :: bounded
+    integer                     :: hull(n), nhull
+    real(kind=fp), dimension(2) :: xy1, xy2
+    real(kind=fp)               :: ang(n), mnmx(2), mnpmxn(2)
+    integer                     :: i
 
     call convex_hull_2d( &
          transpose(xy), &
@@ -316,18 +316,18 @@ contains
 
     ang(1:nhull) = atan2( xy(hull(1:nhull),2), xy(hull(1:nhull),1) )
     
-    !if ( maxval( xy(hull(1:nhull),1) ) < 0._MATHpr .and. &
-    !     maxval( xy(hull(1:nhull),2) ) * minval( xy(hull(1:nhull),2) ) < 0._MATHpr ) then
+    !if ( maxval( xy(hull(1:nhull),1) ) < 0._fp .and. &
+    !     maxval( xy(hull(1:nhull),2) ) * minval( xy(hull(1:nhull),2) ) < 0._fp ) then
     !   mnmx(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
     !   mnmx(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
     !else
     !   mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
     !end if
     mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
-    if ( mnmx(1) < 0._MATHpr .and. mnmx(2) > 0._MATHpr ) then
+    if ( mnmx(1) < 0._fp .and. mnmx(2) > 0._fp ) then
        mnpmxn(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
        mnpmxn(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
-       if ( diff_angle( mnpmxn(2), mnpmxn(1) ) > 0._MATHpr ) mnmx = mnpmxn
+       if ( diff_angle( mnpmxn(2), mnpmxn(1) ) > 0._fp ) mnmx = mnpmxn
     end if
 
     wedge(1) = mean_angle( mnmx )
@@ -357,23 +357,23 @@ contains
     ! of coords. 'xyz1' and 'xyz2' by solving a linear programming problem.
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
-    integer,           intent(in)  :: n1, n2
-    real(kind=MATHpr), intent(in)  :: xyz1(n1,3)
-    real(kind=MATHpr), intent(in)  :: xyz2(n2,3)
-    real(kind=MATHpr), intent(out) :: vec(3)
-    logical,           intent(out) :: separable
-    integer                        :: stat
-    real(kind=MATHpr)              :: LPmat( 3 + n1 + n2, 4 )
-    integer                        :: i
+    integer,       intent(in)  :: n1, n2
+    real(kind=fp), intent(in)  :: xyz1(n1,3)
+    real(kind=fp), intent(in)  :: xyz2(n2,3)
+    real(kind=fp), intent(out) :: vec(3)
+    logical,       intent(out) :: separable
+    integer                    :: stat
+    real(kind=fp)              :: LPmat( 3 + n1 + n2, 4 )
+    integer                    :: i
 
     ! assemble the matrix of linear constraints
-    LPmat(:,:) = 0._MATHpr
+    LPmat(:,:) = 0._fp
 
     ! secondary constraints
     do i = 1,3
-       LPmat(i,i) = 1._MATHpr
+       LPmat(i,i) = 1._fp
     end do
-    LPmat(1:3,4) = -1._MATHpr
+    LPmat(1:3,4) = -1._fp
 
     ! primary constraints
     LPmat(4:3+n1,1:3) = -xyz1
@@ -386,7 +386,7 @@ contains
          vec, &
          stat, &
          LPmat, &
-         real( [0, 0, 0], kind=MATHpr ) )
+         real( [0, 0, 0], kind=fp ) )
 
     separable = ( stat == 0 )
 
@@ -408,19 +408,19 @@ contains
        axe, &
        angle )
     implicit none
-    real(kind=MATHpr), intent(in)  :: xyz(:,:)
-    real(kind=MATHpr), intent(out) :: axe(3)
-    real(kind=MATHpr), intent(out) :: angle
-    real(kind=MATHpr)              :: cosi
-    integer                        :: i
+    real(kind=fp), intent(in)  :: xyz(:,:)
+    real(kind=fp), intent(out) :: axe(3)
+    real(kind=fp), intent(out) :: angle
+    real(kind=fp)              :: cosi
+    integer                    :: i
 
-    angle = 0._MATHpr
-    axe = sum( xyz, 1 ) / real( size(xyz,1), kind=MATHpr )
+    angle = 0._fp
+    axe = sum( xyz, 1 ) / real( size(xyz,1), kind=fp )
     axe = axe / norm2( axe )
 
     do i = 1,size(xyz,1)
        cosi = dot_product( axe, xyz(i,:) ) / norm2( xyz(i,:) )
-       angle = max( angle, acos( min( 1._MATHpr, max( -1._MATHpr, cosi ) ) ) )
+       angle = max( angle, acos( min( 1._fp, max( -1._fp, cosi ) ) ) )
     end do
 
   end subroutine bounding_cone

@@ -6,7 +6,6 @@ subroutine bernbivar2univar( &
     b1, &
     ivar, &
     ival )
-  use mod_constants
   implicit none
   integer,       intent(in)  :: m, n, p
   real(kind=fp), intent(in)  :: b2(m,n,p)

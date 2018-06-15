@@ -8,8 +8,8 @@ contains
   function angle_between_vectors_2d( v1, v2 ) result( a )
     ! Angle orienté (radians) entre deux vecteurs du plan
     implicit none
-    real(kind=MATHpr), dimension(2), intent(in) :: v1, v2
-    real(kind=MATHpr)                           :: a
+    real(kind=fp), dimension(2), intent(in) :: v1, v2
+    real(kind=fp)                           :: a
 
     a = atan2( v1(2)*v2(1) - v1(1)*v2(2), v1(1)*v2(1) + v1(2)*v2(2) )
 
@@ -22,9 +22,9 @@ contains
   function rotation_matrix2d( angle ) result( R )
     ! Matrice de rotation en 2d
     implicit none
-    real(kind=MATHpr), intent(in) :: angle
-    real(kind=MATHpr)             :: R(2,2)
-    real(kind=MATHpr)             :: c, s
+    real(kind=fp), intent(in) :: angle
+    real(kind=fp)             :: R(2,2)
+    real(kind=fp)             :: c, s
 
     c = cos( angle )
     s = sin( angle )
@@ -44,12 +44,12 @@ contains
        nhull )
     ! Enveloppe convexe d'un ensemble de points du plan.
     implicit none
-    integer,           intent(in)  :: n       ! nombre de points
-    real(kind=MATHpr), intent(in)  :: xy(2,n) ! coordonnées xy des points
-    integer,           intent(out) :: hull(n) ! liste des points sur l'enveloppe convexe
-    integer,           intent(out) :: nhull   ! nombre de points sur l'enveloppe convexe
-    real(kind=MATHpr)              :: dxy(2), dxy_prev(2), angle, anglenext, dist, distnext
-    integer                        :: i, first, next
+    integer,       intent(in)  :: n       ! nombre de points
+    real(kind=fp), intent(in)  :: xy(2,n) ! coordonnées xy des points
+    integer,       intent(out) :: hull(n) ! liste des points sur l'enveloppe convexe
+    integer,       intent(out) :: nhull   ! nombre de points sur l'enveloppe convexe
+    real(kind=fp)              :: dxy(2), dxy_prev(2), angle, anglenext, dist, distnext
+    integer                    :: i, first, next
     
     !PRINT *,'';PRINT *,'';PRINT *,'';
 
@@ -95,12 +95,12 @@ contains
     ! Construction incrémentale de l'enveloppe convexe :
     ! connaissant $p_{i-1}$ et $p_{i}$, on cherche le point 
     ! $p_{i+1}$ qui maximise $\angle p_{i-1} p_{i} p_{i+1} $.
-    dxy_prev = real( [0,-1],kind=MATHpr ) ! point p_{0} fictif à p_{1} - (0,1)
+    dxy_prev = real( [0,-1],kind=fp ) ! point p_{0} fictif à p_{1} - (0,1)
     do
        !PRINT *,'HULL =',HULL(1:NHULL)
        !PRINT *,'DXY PREV =',DXY_PREV
        anglenext = MATHpi
-       distnext = huge(1._MATHpr)
+       distnext = huge(1._fp)
        next = 0
        do i = 1,n
           if ( i == hull(nhull) ) cycle
@@ -162,39 +162,39 @@ contains
     ! Retourne la boîte orientée d'aire minimale qui englobe un ensemble de points du plan.
     ! La boîte est definie par son centre, ses axes, et ses demi-côtés (ranges)
     implicit none
-    integer,           intent(in)  :: n         ! nombre de points
-    real(kind=MATHpr), intent(in)  :: xy(2,n)   ! coordonnées xy des points
-    real(kind=MATHpr), intent(out) :: center(2) ! coordonnées xy du centre de la boîte
-    real(kind=MATHpr), intent(out) :: ranges(2) ! demi-côtés de la boîte
-    real(kind=MATHpr), intent(out) :: axes(2,2) ! axes de la boîte
-    integer                        :: hull(n), nhull
-    real(kind=MATHpr)              :: area_tmp, area
-    real(kind=MATHpr)              :: vec(2), rot(2,2)
-    real(kind=MATHpr), allocatable :: xy_rot(:,:)
-    real(kind=MATHpr)              :: mn(2), mx(2), ranges_tmp(2)
-    integer                        :: i
+    integer,       intent(in)  :: n         ! nombre de points
+    real(kind=fp), intent(in)  :: xy(2,n)   ! coordonnées xy des points
+    real(kind=fp), intent(out) :: center(2) ! coordonnées xy du centre de la boîte
+    real(kind=fp), intent(out) :: ranges(2) ! demi-côtés de la boîte
+    real(kind=fp), intent(out) :: axes(2,2) ! axes de la boîte
+    integer                    :: hull(n), nhull
+    real(kind=fp)              :: area_tmp, area
+    real(kind=fp)              :: vec(2), rot(2,2)
+    real(kind=fp), allocatable :: xy_rot(:,:)
+    real(kind=fp)              :: mn(2), mx(2), ranges_tmp(2)
+    integer                    :: i
     
     ! enveloppe convexe de l'ensemble des points
     call convex_hull_2d( xy, n, hull, nhull )
     
     ! cas particuliers nhull = 0, 1 ou 2
     if ( nhull < 1 ) then
-       center(:) = 0._MATHpr
-       ranges(:) = 0._MATHpr
-       axes = rotation_matrix2d( 0._MATHpr )
+       center(:) = 0._fp
+       ranges(:) = 0._fp
+       axes = rotation_matrix2d( 0._fp )
        return
 
     elseif ( nhull == 1 ) then
        center = xy(:,hull(1))
-       ranges(:) = 0._MATHpr
-       axes = rotation_matrix2d( 0._MATHpr )
+       ranges(:) = 0._fp
+       axes = rotation_matrix2d( 0._fp )
        return
 
     elseif( nhull == 2 ) then
-       center = 0.5_MATHpr * sum( xy(:,hull(1:2)), 2 )
+       center = 0.5_fp * sum( xy(:,hull(1:2)), 2 )
        vec = xy(:,hull(2)) - xy(:,hull(1))
-       ranges(1) = 0.5_MATHpr * norm2( vec )
-       ranges(2) = 0._MATHpr
+       ranges(1) = 0.5_fp * norm2( vec )
+       ranges(2) = 0._fp
        axes = rotation_matrix2d( -atan2( vec(2), vec(1) ) )
        return
 
@@ -223,14 +223,14 @@ contains
           ! rotation vers le repère initial
           rot = transpose( rot )
           ! coordonnées du centre de la boîte dans le repère initial
-          center = matmul( rot, 0.5_MATHpr * (mn + mx) )
+          center = matmul( rot, 0.5_fp * (mn + mx) )
           ! on ordonne les axes pour avoir ranges(1) >= ranges(2)
           if ( ranges_tmp(2) > 1 ) then
-             ranges = 0.5_MATHpr * ranges_tmp([2,1])
+             ranges = 0.5_fp * ranges_tmp([2,1])
              axes(:,1) = rot(:,2)
              axes(:,2) = -rot(:,1)
           else
-             ranges = 0.5_MATHpr * ranges_tmp
+             ranges = 0.5_fp * ranges_tmp
              axes = rot
           end if
        end if
@@ -256,22 +256,22 @@ contains
     ! ( see https://en.wikipedia.org/wiki/Slerp )
     ! p0 and p1 need not be unit vectors
     ! t should be a subset of [0,1]
-    real(kind=MATHpr), intent(in)  :: p0(3), p1(3)
-    integer,           intent(in)  :: n
-    real(kind=MATHpr), intent(in)  :: t(n)
-    real(kind=MATHpr), intent(out) :: p(3,n)
-    real(kind=MATHpr)              :: r0, r1, a, s
+    real(kind=fp), intent(in)  :: p0(3), p1(3)
+    integer,       intent(in)  :: n
+    real(kind=fp), intent(in)  :: t(n)
+    real(kind=fp), intent(out) :: p(3,n)
+    real(kind=fp)              :: r0, r1, a, s
     
     r0 = norm2(p0) 
     r1 = norm2(p1)
 
-    a = acos( min( 1._MATHpr, max( -1._MATHpr, dot_product(p0, p1) / (r0 * r1) ) ) )
+    a = acos( min( 1._fp, max( -1._fp, dot_product(p0, p1) / (r0 * r1) ) ) )
 
     s = sin(a)
 
-    !p = matmul( p0, sin( (1._MATHpr - t)*a ) ) + &
+    !p = matmul( p0, sin( (1._fp - t)*a ) ) + &
     !     matmul( p1, sin( t*a ) )
-    p = outer_product( p0, sin( (1._MATHpr - t)*a ) ) + &
+    p = outer_product( p0, sin( (1._fp - t)*a ) ) + &
          outer_product( p1, sin( t*a ) )
     if ( abs(s) > MATHeps ) p = p / s
 
@@ -283,12 +283,12 @@ contains
   ! ---------------------------------------------------------
   subroutine random_rotation_matrix3d( R )
     implicit none
-    real(kind=MATHpr), intent(out) :: R(3,3)
+    real(kind=fp), intent(out) :: R(3,3)
     
     call random_number( R(:,1) )
     R(:,1) = R(:,1) / norm2( R(:,1) )
-    R(:,2) = 0._MATHpr
-    R(minloc(abs(R(:,1))),2) = 1._MATHpr
+    R(:,2) = 0._fp
+    R(minloc(abs(R(:,1))),2) = 1._fp
     R(:,2) = R(:,2) - dot_product( R(:,2), R(:,1) ) * R(:,1)
     R(:,3) = cross( R(:,1), R(:,2) )
 

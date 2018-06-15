@@ -1,6 +1,6 @@
 module mod_chebyshev2
 
-  use mod_constants
+  use mod_math
 
   implicit none
 
@@ -85,7 +85,6 @@ contains
        c1, &
        ivar, &
        ival ) 
-    use mod_constants
     implicit none
     integer,       intent(in)  :: m, n, p
     real(kind=fp), intent(in)  :: c2(m,n,p)

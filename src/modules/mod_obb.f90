@@ -1,17 +1,16 @@
 module mod_obb
   ! Oriented Bounding Boxes (OBBs)
-
   use mod_math
 
   implicit none
 
-  real(kind=MATHpr), parameter :: OBBmrg = real( 1.0e-10, kind=MATHpr )
-  real(kind=MATHpr), parameter :: OBBeps = real( 1.0e-14, kind=MATHpr )
+  real(kind=fp), parameter :: MRGobb = real( 0.0, kind=fp )
+  real(kind=fp), parameter :: EPSobb = real( 1.0e-14, kind=fp )
 
   type type_obb
-     real(kind=MATHpr) :: ctr(3)   ! center
-     real(kind=MATHpr) :: rng(3)   ! (half-)ranges
-     real(kind=MATHpr) :: axe(3,3) ! unit axes
+     real(kind=fp) :: ctr(3)   ! center
+     real(kind=fp) :: rng(3)   ! (half-)ranges
+     real(kind=fp) :: axe(3,3) ! unit axes
   end type type_obb
 
 contains
@@ -27,7 +26,7 @@ contains
     implicit none
     type(type_obb), intent(in)  :: box1, box2
     logical,        intent(out) :: overlap
-    real(kind=MATHpr)           :: c(3,3), M(3), Rk, Rl, R
+    real(kind=fp)               :: c(3,3), M(3), Rk, Rl, R
     integer                     :: i, j, k, l, n, o, p, q, s
     
     overlap = .true.
@@ -90,15 +89,15 @@ contains
        xyz )
     ! Returns the xyz coordinates of all eight vertices of an OBB
     implicit none
-    type(type_obb),    intent(in)  :: box
-    real(kind=MATHpr), intent(out) :: xyz(8,3)
-    integer                        :: i, j, k
+    type(type_obb), intent(in)  :: box
+    real(kind=fp),  intent(out) :: xyz(8,3)
+    integer                     :: i, j, k
 
     do i = 1,2
        do j = 1,2
           do k = 1,2
              xyz( 4*(i-1) + 2*(j-1) + k, : ) = box%ctr + &
-                  matmul( real( (-1)**[i,j,k], kind=MATHpr ) * box%rng, &
+                  matmul( real( (-1)**[i,j,k], kind=fp ) * box%rng, &
                   transpose(box%axe) )
           end do
        end do
@@ -115,17 +114,17 @@ contains
        tol_opt )
     ! Tests wether an xyz point lies inside the volume of an OBB
     implicit none
-    real(kind=MATHpr), intent(in)           :: xyz(3)
-    type(type_obb),    intent(in)           :: box
-    real(kind=MATHpr), intent(in), optional :: tol_opt
-    logical                                 :: is_inside_OBB
-    real(kind=MATHpr)                       :: tol
-    integer                                 :: iaxe
+    real(kind=fp),  intent(in)           :: xyz(3)
+    type(type_obb), intent(in)           :: box
+    real(kind=fp),  intent(in), optional :: tol_opt
+    logical                              :: is_inside_OBB
+    real(kind=fp)                        :: tol
+    integer                              :: iaxe
 
     if ( present(tol_opt) ) then
        tol = tol_opt
     else
-       tol = 0._MATHpr
+       tol = 0._fp
     end if
 
     is_inside_OBB = .true.
@@ -148,11 +147,11 @@ contains
        box )
     ! Computes an OBB for a curve represented by a Chebyshev series
     implicit none
-    integer,           intent(in)  :: degr
-    real(kind=MATHpr), intent(in)  :: c(degr+1,3)
-    type(type_obb),    intent(out) :: box
-    real(kind=MATHpr)              :: mag
-    integer                        :: i
+    integer,        intent(in)  :: degr
+    real(kind=fp),  intent(in)  :: c(degr+1,3)
+    type(type_obb), intent(out) :: box
+    real(kind=fp)               :: mag
+    integer                     :: i
 
     if ( degr < 0 ) STOP 'chebOBB1 : degr < 0'
     
@@ -166,15 +165,15 @@ contains
 
     ! axes
     mag = norm2( c(2,1:3) )
-    if ( mag < OBBeps ) then
+    if ( mag < EPSobb ) then
        GO TO 99 ! axis-aligned bounding box
     else
        ! oriented bounding box
        box%axe(:,1) = c(2,:) / mag
 
        i = minloc(abs(box%axe(:,1)),1)
-       box%axe(:,2) = 0._MATHpr
-       box%axe(i,2) = 1._MATHpr
+       box%axe(:,2) = 0._fp
+       box%axe(i,2) = 1._fp
        box%axe(:,2) = box%axe(:,2) - box%axe(i,1) * box%axe(:,1)
        box%axe(:,2) = box%axe(:,2) / norm2( box%axe(:,2) )
 
@@ -182,21 +181,22 @@ contains
 
        ! ranges
        box%rng = sum( abs( matmul(c(2:,:), box%axe) ), 1 )    
-       box%rng = box%rng + OBBmrg
+       box%rng = box%rng + MRGobb
 
        return
     end if
 
     99  IF (.FALSE.) PRINT *,'chebOBB1 : axis-aligned bounding box'
     ! axes
-    box%axe(:,:) = 0._MATHpr
+    box%axe(:,:) = 0._fp
     do i = 1,3
-       box%axe(i,i) = 1._MATHpr
+       box%axe(i,i) = 1._fp
     end do
 
     ! ranges
     box%rng = sum( abs( c(2:,:) ), 1 )    
-    box%rng = box%rng + OBBmrg
+    box%rng = box%rng + MRGobb
+    box%rng = max( EPSobb, box%rng )
 
   end subroutine chebOBB1
   ! ==================================================================
@@ -209,12 +209,12 @@ contains
        box )
     ! Computes an OBB for a surface represented by a Chebyshev Series
     implicit none
-    integer,           intent(in)  :: degr(2)
-    real(kind=MATHpr), intent(in)  :: c(degr(1)+1,degr(2)+1,3)
-    type(type_obb),    intent(out) :: box
-    real(kind=MATHpr)              :: vec(3,2)
-    real(kind=MATHpr)              :: mag(2)
-    integer                        :: i
+    integer,        intent(in)  :: degr(2)
+    real(kind=fp),  intent(in)  :: c(degr(1)+1,degr(2)+1,3)
+    type(type_obb), intent(out) :: box
+    real(kind=fp)               :: vec(3,2)
+    real(kind=fp)               :: mag(2)
+    integer                     :: i
     
     if ( minval(degr) < 0 ) STOP 'chebOBB2 : degr < 0'
 
@@ -242,7 +242,7 @@ contains
        mag = norm2( vec, 1 )
 
        i = maxloc( mag, 1 )
-       if ( mag(i) < OBBeps ) GO TO 99 ! axis-aligned bounding box
+       if ( mag(i) < EPSobb ) GO TO 99 ! axis-aligned bounding box
 
        box%axe(:,1) = vec(:,i) / mag(i)
 
@@ -251,10 +251,10 @@ contains
        box%axe(:,3) = cross( box%axe(:,1), vec(:,i) )
        mag(i) = norm2( box%axe(:,3) )
 
-       if ( mag(i) < OBBeps ) then
+       if ( mag(i) < EPSobb ) then
           i = minloc( abs(box%axe(:,1)), 1 )
-          box%axe(:,2) = 0._MATHpr
-          box%axe(i,2) = 1._MATHpr
+          box%axe(:,2) = 0._fp
+          box%axe(i,2) = 1._fp
           box%axe(:,2) = box%axe(:,2) - &
                dot_product(box%axe(:,1),box%axe(:,2)) * box%axe(:,1)
           box%axe(:,2) = box%axe(:,2) / norm2( box%axe(:,2) )
@@ -270,22 +270,23 @@ contains
          reshape( c, [(degr(1)+1)*(degr(2)+1),3] ), &
          box%axe ) ), 1 ) - &
          abs( matmul( c(1,1,:), box%axe ) )
-    box%rng = box%rng + OBBmrg
+    box%rng = box%rng + MRGobb
     
     return
 
 99  IF (.FALSE.) PRINT *,'chebOBB2 : axis-aligned bounding box'
     ! axes
-    !box%axe(:,:) = 0._MATHpr
+    !box%axe(:,:) = 0._fp
     !do i = 1,3
-    !   box%axe(i,i) = 1._MATHpr
+    !   box%axe(i,i) = 1._fp
     !end do
     box%axe = identity_matrix( 3 )
 
     ! ranges
     box%rng = sum( abs( reshape( c,[(degr(1)+1)*(degr(2)+1),3] ) ), 1 ) - &
          abs( c(1,1,:) )
-    box%rng = box%rng + OBBmrg
+    box%rng = box%rng + MRGobb
+    box%rng = max( EPSobb, box%rng )
 
   end subroutine chebOBB2
   ! ==================================================================
@@ -302,28 +303,26 @@ contains
     ! Computes an OBB for a surface represented by a Bernstein Series (Bezier surface)
     ! "Efficient bounding of displaced Bézier patches", Munkberg et al. (2010)
     implicit none
-    integer,           intent(in)   :: degr(2)
-    real(kind=MATHpr), intent(in)   :: b(degr(1)+1,degr(2)+1,3)
-    type(type_obb),    intent(out)  :: box
-    real(kind=MATHpr)               :: vec(3,2)
-    real(kind=MATHpr)               :: mag(2)
-    real(kind=MATHpr)               :: X(size(b,1)*size(b,2),3)
-    real(kind=MATHpr), dimension(3) :: mx, mn
-    integer                         :: i
+    integer,        intent(in)  :: degr(2)
+    real(kind=fp),  intent(in)  :: b(degr(1)+1,degr(2)+1,3)
+    type(type_obb), intent(out) :: box
+    real(kind=fp)               :: vec(3,2)
+    real(kind=fp)               :: mag(2)
+    real(kind=fp)               :: X(size(b,1)*size(b,2),3)
+    real(kind=fp), dimension(3) :: mx, mn
+    integer                     :: i
 
     if ( minval(degr) < 0 ) STOP 'bernOBB2 : degr < 0'
 
     X = reshape( b, [size(b,1)*size(b,2),3] )
 
     ! axes
-    !vec(:,1) = b(2,1,:)
-    !vec(:,2) = b(1,2,:)
     vec(:,1) = b(degr(1)+1,1,:) - b(1,1,:) + b(degr(1)+1,degr(2)+1,:) - b(1,degr(2)+1,:)
     vec(:,2) = b(1,degr(2)+1,:) - b(1,1,:) + b(degr(1)+1,degr(2)+1,:) - b(degr(1)+1,1,:)
     mag = norm2( vec, 1 )
     i = maxloc( mag, 1 )
 
-    if ( mag(i) < OBBeps ) then
+    if ( mag(i) < EPSobb ) then
        box%axe = identity_matrix( 3 )
     else
        box%axe(:,1) = vec(:,i) / mag(i)
@@ -332,10 +331,10 @@ contains
        box%axe(:,3) = cross( box%axe(:,1), vec(:,i) )
        mag(i) = norm2( box%axe(:,3) )
        
-       if ( mag(i) < OBBeps ) then
+       if ( mag(i) < EPSobb ) then
           i = minloc( abs(box%axe(:,1)), 1 )
-          box%axe(:,2) = 0._MATHpr
-          box%axe(i,2) = 1._MATHpr
+          box%axe(:,2) = 0._fp
+          box%axe(i,2) = 1._fp
           box%axe(:,2) = box%axe(:,2) - &
                dot_product(box%axe(:,1),box%axe(:,2)) * box%axe(:,1)
           box%axe(:,2) = box%axe(:,2) / norm2( box%axe(:,2) )
@@ -351,11 +350,12 @@ contains
     ! ranges
     mn = minval( X, DIM=1 )
     mx = maxval( X, DIM=1 )
-    box%rng = 0.5_MATHpr * ( mx - mn )
-    box%rng = box%rng + OBBmrg
+    box%rng = 0.5_fp * ( mx - mn )
+    box%rng = box%rng + MRGobb
+    box%rng = max( EPSobb, box%rng )
 
     ! center
-    box%ctr = 0.5_MATHpr * matmul( box%axe, mx + mn )
+    box%ctr = 0.5_fp * matmul( box%axe, mx + mn )
 
   end subroutine bernOBB2
     ! ==================================================================
@@ -368,27 +368,27 @@ contains
        degr, &
        box )
     implicit none
-    integer,           intent(in)   :: degr
-    real(kind=MATHpr), intent(in)   :: b(degr+1,3)
-    type(type_obb),    intent(out)  :: box
-    real(kind=MATHpr)               :: vec(3), mag
-    integer                         :: i
-    real(kind=MATHpr)               :: X(degr+1,3)
-    real(kind=MATHpr), dimension(3) :: mx, mn
+    integer,        intent(in)  :: degr
+    real(kind=fp),  intent(in)  :: b(degr+1,3)
+    type(type_obb), intent(out) :: box
+    real(kind=fp)               :: vec(3), mag
+    integer                     :: i
+    real(kind=fp)               :: X(degr+1,3)
+    real(kind=fp), dimension(3) :: mx, mn
 
     if ( degr < 0 ) STOP 'bernOBB1 : degr < 0'
 
     vec = b(degr+1,:) - b(1,:)
     mag = norm2( vec )
 
-    if ( mag < OBBeps ) then
+    if ( mag < EPSobb ) then
        if ( degr > 1 ) then
           vec = b(2,:) - b(1,:) + b(degr+1,:) - b(degr,:)
           mag = norm2( vec )
        end if
     end if
 
-    if ( mag < OBBeps ) then
+    if ( mag < EPSobb ) then
        box%axe = identity_matrix( 3 )
        X = b
     else
@@ -399,10 +399,10 @@ contains
             matmul( X(1:degr,:), outer_product( box%axe(:,1), box%axe(:,1) ) )
        i = maxloc( sum( X(1:degr,:)**2, dim=2 ), 1 )
        mag = norm2( X(i,:) )
-       if ( mag < OBBeps ) then
+       if ( mag < EPSobb ) then
           i = minloc( abs(box%axe(:,1)), 1 )
-          box%axe(:,2) = 0._MATHpr
-          box%axe(i,2) = 1._MATHpr
+          box%axe(:,2) = 0._fp
+          box%axe(i,2) = 1._fp
           box%axe(:,2) = box%axe(:,2) - &
                dot_product(box%axe(:,1),box%axe(:,2)) * box%axe(:,1)
           box%axe(:,2) = box%axe(:,2) / norm2( box%axe(:,2) )
@@ -417,11 +417,12 @@ contains
     ! ranges
     mn = minval( X, DIM=1 )
     mx = maxval( X, DIM=1 )
-    box%rng = 0.5_MATHpr * ( mx - mn )
-    box%rng = box%rng + OBBmrg
+    box%rng = 0.5_fp * ( mx - mn )
+    box%rng = box%rng + MRGobb
+    box%rng = max( EPSobb, box%rng )
 
     ! center
-    box%ctr = 0.5_MATHpr * matmul( box%axe, mx + mn )
+    box%ctr = 0.5_fp * matmul( box%axe, mx + mn )
 
   end subroutine bernOBB1
   ! ==================================================================
