@@ -18,7 +18,12 @@ module mod_polynomial
      type(type_polynomial), pointer :: ptr => null()
   end type ptr_polynomial
 
+
+
+
 contains
+
+
 
   subroutine free_polynomial( poly )
     implicit none
@@ -342,6 +347,7 @@ contains
        poly1, &
        ivar, &
        ival )
+    ! Extracts an extremal iso-parametric line of a bivariate polynomial as a univariate polynomial
     implicit none
     type(type_polynomial), intent(in)    :: poly2
     type(type_polynomial), intent(inout) :: poly1
@@ -380,6 +386,11 @@ contains
     end select
 
   end subroutine bivar2univar
+
+
+
+
+
 
 
 
@@ -427,6 +438,8 @@ contains
 
 
 
+
+
   subroutine polyval2( &
        f, &
        poly, &
@@ -439,7 +452,7 @@ contains
     real(kind=fp),         intent(out) :: f(poly%dim,n)
     real(kind=fp)                      :: a(poly%degr(2)+1,poly%dim)
     integer                            :: i, k
-    
+
     select case ( poly%base )
     case (1) ! Chebyshev basis
        do i = 1,n
@@ -477,9 +490,221 @@ contains
 
 
 
+  subroutine subdiv_bezier1( &
+       b, &
+       t, &
+       bl, &
+       br )
+    implicit none
+    type(type_polynomial), intent(in)  :: b
+    real(kind=fp),         intent(in)  :: t
+    type(type_polynomial), intent(out) :: bl
+    type(type_polynomial), intent(out) :: br
+
+    if ( b%base /= 2 ) STOP 'subdiv_bezier1 : polynomial not in Bernstein basis'
+
+    call reset_polynomial( poly=bl, nvar=1, base=2, degr=b%degr(1), dim=b%dim )
+    call reset_polynomial( poly=br, nvar=1, base=2, degr=b%degr(1), dim=b%dim )
+
+    call de_casteljau( &
+         b%coef(1:b%degr(1)+1,1:b%dim,1), &
+         t, &
+         b%degr(1), &
+         b%dim, &
+         bl=bl%coef(1:b%degr(1)+1,1:b%dim,1), &
+         br=br%coef(1:b%degr(1)+1,1:b%dim,1) )
+
+  end subroutine subdiv_bezier1
 
 
 
+
+
+  subroutine subdiv_bezier2( &
+       b, &
+       uv, &
+       bsw, &
+       bse, &
+       bnw, &
+       bne )
+    implicit none
+    type(type_polynomial), intent(in)                 :: b
+    real(kind=fp),         intent(in)                 :: uv(2)
+    type(type_polynomial), intent(out), optional      :: bsw
+    type(type_polynomial), intent(out), optional      :: bse
+    type(type_polynomial), intent(out), optional      :: bnw
+    type(type_polynomial), intent(out), optional      :: bne
+    real(kind=fp), dimension(b%degr(1)+1,b%degr(2)+1) :: bw, be
+    real(kind=fp), dimension(b%degr(2)+1,b%degr(1)+1) :: bsT, bnT
+    integer                                           :: m, n, k
+
+    if ( b%base /= 2 ) STOP 'subdiv_bezier1 : polynomial not in Bernstein basis'
+
+    m = b%degr(1)+1
+    n = b%degr(2)+1
+
+    if ( present(bsw) ) call reset_polynomial( bsw, 2, 2, b%degr, b%dim )
+    if ( present(bse) ) call reset_polynomial( bse, 2, 2, b%degr, b%dim )
+    if ( present(bnw) ) call reset_polynomial( bnw, 2, 2, b%degr, b%dim )
+    if ( present(bne) ) call reset_polynomial( bne, 2, 2, b%degr, b%dim )
+
+    do k = 1,b%dim
+       call de_casteljau( &
+            b%coef(1:m,1:n,k), &
+            uv(1), &
+            b%degr(1), &
+            n, &
+            bl=bw, &
+            br=be )
+
+       call de_casteljau( &
+            transpose(bw), &
+            uv(2), &
+            b%degr(2), &
+            m, &
+            bl=bsT, &
+            br=bnT )
+       if ( present(bsw) ) bsw%coef(1:m,1:n,k) = transpose(bsT)
+       if ( present(bnw) ) bnw%coef(1:m,1:n,k) = transpose(bnT)
+
+       call de_casteljau( &
+            transpose(be), &
+            uv(2), &
+            b%degr(2), &
+            m, &
+            bl=bsT, &
+            br=bnT )
+       if ( present(bse) ) bse%coef(1:m,1:n,k) = transpose(bsT)
+       if ( present(bne) ) bne%coef(1:m,1:n,k) = transpose(bnT)     
+
+    end do
+
+  end subroutine subdiv_bezier2
+
+
+
+
+  subroutine subdiv_bezier2_only_u( &
+       b, &
+       u, &
+       bw, &
+       be )
+    implicit none
+    type(type_polynomial), intent(in)  :: b
+    real(kind=fp),         intent(in)  :: u
+    type(type_polynomial), intent(out) :: bw
+    type(type_polynomial), intent(out) :: be
+    integer                            :: m, n, k
+
+    m = b%degr(1)+1
+    n = b%degr(2)+1
+
+    call reset_polynomial( bw, 2, 2, b%degr, b%dim )
+    call reset_polynomial( be, 2, 2, b%degr, b%dim )
+
+    do k = 1,b%dim
+       call de_casteljau( &
+            b%coef(1:m,1:n,k), &
+            u, &
+            b%degr(1), &
+            n, &
+            bl=bw%coef(1:m,1:n,k), &
+            br=be%coef(1:m,1:n,k) )
+    end do
+
+  end subroutine subdiv_bezier2_only_u
+
+
+
+
+
+  subroutine subdiv_bezier2_only_v( &
+       b, &
+       v, &
+       bs, &
+       bn )
+    implicit none
+    type(type_polynomial), intent(in)                 :: b
+    real(kind=fp),         intent(in)                 :: v
+    type(type_polynomial), intent(out)                :: bs
+    type(type_polynomial), intent(out)                :: bn
+    real(kind=fp), dimension(b%degr(2)+1,b%degr(1)+1) :: bsT, bnT
+    integer                                           :: m, n, k
+
+    m = b%degr(1)+1
+    n = b%degr(2)+1
+
+    call reset_polynomial( bs, 2, 2, b%degr, b%dim )
+    call reset_polynomial( bn, 2, 2, b%degr, b%dim )
+
+    do k = 1,b%dim
+       call de_casteljau( &
+            transpose( b%coef(1:m,1:n,k) ), &
+            v, &
+            b%degr(2), &
+            m, &
+            bl=bsT, &
+            br=bnT )
+       bs%coef(1:m,1:n,k) = transpose(bsT)
+       bn%coef(1:m,1:n,k) = transpose(bnT)
+    end do
+
+  end subroutine subdiv_bezier2_only_v
+
+
+
+
+
+
+  subroutine cheb2bern_matrix( A, degr )
+    ! Transformation matrix from Chebyshev to Bernstein polynomial basis 
+    ! "Transformation of Chebyshev–Bernstein polynomial basis", Rababah (2003) -- p.8 (615)
+    use mod_math
+    implicit none
+    integer,       intent(in)  :: degr
+    real(kind=fp), intent(out) :: A(1:degr+1,1:degr+1)
+    real(kind=fp)              :: fnumerator, fdegr, s
+    integer                    :: i, j, k, m, n, imin, p
+
+    if ( degr == 0 ) then
+       A(1,1) = 1._fp
+       return
+    end if
+
+    m = degr / 2
+    n = degr+1
+
+    A(1:m+1,1) = 1._fp
+    A(1,2:n:2) = -1._fp
+    A(1,3:n:2) = 1._fp
+
+    A(2:m+1,2:n) = 0._fp
+    do k = 1,degr
+       fnumerator = factln(2*k) + factln(degr-k)
+       do j = 1,m
+          imin = max(0,j+k-degr)
+          s = real( (-1)**(k-imin), kind=fp )
+          do i = imin,min(j,k)
+             A(1+j,1+k) = A(1+j,1+k) + s * exp( fnumerator - &
+                  (factln(2*(k-i)) + factln(2*i) + factln(degr-k-j+i) + factln(j-i)) &
+                  )
+             s = -s
+          end do
+       end do
+    end do
+
+    fdegr = factln( degr )
+    do j = 1,m
+       A(1+j,2:n) = A(1+j,2:n) / exp( fdegr - factln(degr-j) - factln(j) )
+    end do
+
+    p = m
+    if ( mod(degr,2) /= 0 ) p = p + 1
+
+    A(n:p+1:-1,2:n:2) = -A(1:m+1,2:n:2)
+    A(n:p+1:-1,1:n:2) = A(1:m+1,1:n:2)
+
+  end subroutine cheb2bern_matrix
 
 
 end module mod_polynomial
