@@ -30,59 +30,6 @@ contains
 
 
 
-subroutine write_bernstein_series2( &
-     b, &
-     filename )
-  use mod_util
-  implicit none
-  character(*),                 intent(in) :: filename
-  type(type_bernstein_series2), intent(in) :: b
-  integer                                  :: fileunit, icoef, jcoef, idim
-
-  call get_free_unit( fileunit )
-  if ( fileunit == 0 ) STOP "write_bernstein_series2 : could not find free unit"
-
-  open( unit = fileunit, file = filename, action = "write" )
-  write (fileunit,*) b%degr+1, b%dim
-
-  do idim = 1,b%dim
-     do jcoef = 1,b%degr(2)+1
-        do icoef = 1,b%degr(1)+1
-           write (fileunit,"(ES22.15)") b%coef(icoef,jcoef,idim)
-        end do
-     end do
-  end do
-  close(fileunit)
-end subroutine write_bernstein_series2
-
-
-
-subroutine bernbivar2univar( &
-    b2, &
-    m, &
-    n, &
-    p, &
-    b1, &
-    ivar, &
-    ival )
-  implicit none
-  integer,       intent(in)  :: m, n, p
-  real(kind=fp), intent(in)  :: b2(m,n,p)
-  integer,       intent(in)  :: ivar, ival
-  real(kind=fp), intent(out) :: b1(size(b2,1+mod(ivar,2)),p)
-  integer                    :: j
-
-  j = 1 + (ival - 1)*size(b2,ivar)
-  if ( ivar == 1 ) then
-     b1 = b2(j,:,:)
-  else
-     b1 = b2(:,j,:)
-  end if
-
-end subroutine bernbivar2univar
-
-
-
 subroutine de_casteljau( &
      b, &
      t, &
@@ -125,6 +72,32 @@ end subroutine de_casteljau
 
 
 
+subroutine bernbivar2univar( &
+    b2, &
+    m, &
+    n, &
+    p, &
+    b1, &
+    ivar, &
+    ival )
+  implicit none
+  integer,       intent(in)  :: m, n, p
+  real(kind=fp), intent(in)  :: b2(m,n,p)
+  integer,       intent(in)  :: ivar, ival
+  real(kind=fp), intent(out) :: b1(size(b2,1+mod(ivar,2)),p)
+  integer                    :: j
+
+  j = 1 + (ival - 1)*size(b2,ivar)
+  if ( ivar == 1 ) then
+     b1 = b2(j,:,:)
+  else
+     b1 = b2(:,j,:)
+  end if
+
+end subroutine bernbivar2univar
+
+
+
 subroutine subdiv2_along_u( &
      b, &
      u, &
@@ -154,26 +127,6 @@ subroutine subdiv2_along_u( &
   end do
 
 end subroutine subdiv2_along_u
-
-
-
-subroutine berndiff( &
-     b, &
-     d, &
-     degr, &
-     dim )
-  implicit none
-  integer,           intent(in)  :: degr, dim
-  real(kind=MATHpr), intent(in)  :: b(degr+1,dim)
-  real(kind=MATHpr), intent(out) :: d(max(degr,1),dim)
-  
-  if ( degr < 1 ) then
-     d(:,:) = 0._MATHpr
-  else
-     d = real( degr, kind=MATHpr ) * ( b(2:degr+1,:) - b(1:degr,:) )
-  end if
-
-end subroutine berndiff
 
 
 
@@ -239,29 +192,6 @@ end subroutine subdiv2
 
 
 
-subroutine reset_bernstein_series1( &
-     b, &
-     degr, &
-     dim )
-  implicit none
-  integer,                      intent(in)  :: degr
-  integer,                      intent(in)  :: dim
-  type(type_bernstein_series1), intent(out) :: b
-
-  if ( allocated(b%coef) ) then
-     if ( size(b%coef,1) <= degr .or. &
-          size(b%coef,2) < dim ) deallocate(b%coef)
-  end if
-  if ( .not.allocated(b%coef) ) allocate(b%coef(1:degr+1, dim))
-
-  b%degr = degr
-  b%dim = dim
-  b%coef(:,:) = 0._MATHpr
-
-end subroutine reset_bernstein_series1
-
-
-
 subroutine subdiv1( &
      b, &
      t, &
@@ -286,79 +216,6 @@ subroutine subdiv1( &
        br=br%coef(1:b%degr+1,:) )
 
 end subroutine subdiv1
-
-
-
-subroutine berndiff1( &
-     b, &
-     d )
-  implicit none
-  type(type_bernstein_series1), intent(in)  :: b
-  type(type_bernstein_series1), intent(out) :: d
-
-  call reset_bernstein_series1( d, max( b%degr-1, 0 ), b%dim )
-  call berndiff( b%coef(1:b%degr+1,:), d%coef(1:max(b%degr,1),:), b%degr, b%dim )
-
-end subroutine berndiff1
-
-
-
-subroutine subdiv2_along_v( &
-     b, &
-     v, &
-     bs, &
-     bn )
-  implicit none
-  type(type_bernstein_series2), intent(in)              :: b
-  real(kind=MATHpr),            intent(in)              :: v
-  type(type_bernstein_series2), intent(out)             :: bs
-  type(type_bernstein_series2), intent(out)             :: bn
-  real(kind=MATHpr), dimension(b%degr(2)+1,b%degr(1)+1) :: bsT, bnT
-  integer                                               :: m, n, k
-
-  m = b%degr(1)+1
-  n = b%degr(2)+1
-  
-  call reset_bernstein_series2( bs, b%degr, b%dim )
-  call reset_bernstein_series2( bn, b%degr, b%dim )
-
-  do k = 1,b%dim
-     call de_casteljau( &
-          transpose( b%coef(1:m,1:n,k) ), &
-          v, &
-          b%degr(2), &
-          m, &
-          bl=bsT, &
-          br=bnT )
-     bs%coef(1:m,1:n,k) = transpose(bsT)
-     bn%coef(1:m,1:n,k) = transpose(bnT)
-  end do
-
-end subroutine subdiv2_along_v
-
-
-
-subroutine reset_bernstein_series2( &
-     b, &
-     degr, &
-     dim )
-  implicit none
-  integer,                      intent(in)  :: degr(2)
-  integer,                      intent(in)  :: dim
-  type(type_bernstein_series2), intent(out) :: b
-
-  if ( allocated(b%coef) ) then
-     if ( size(b%coef,1) <= degr(1) .or. &
-          size(b%coef,2) <= degr(2) .or. &
-          size(b%coef,3) < dim ) deallocate(b%coef)
-  end if
-  if ( .not.allocated(b%coef) ) allocate( b%coef(1:degr(1)+1, 1:degr(2)+1, dim) )
-
-  b%degr = degr
-  b%dim = dim
-  b%coef(:,:,:) = 0._MATHpr
-
-end subroutine reset_bernstein_series2
 
 
 
@@ -398,6 +255,99 @@ end subroutine berndiff2
 
 
 
+subroutine berndiff( &
+     b, &
+     d, &
+     degr, &
+     dim )
+  implicit none
+  integer,           intent(in)  :: degr, dim
+  real(kind=MATHpr), intent(in)  :: b(degr+1,dim)
+  real(kind=MATHpr), intent(out) :: d(max(degr,1),dim)
+  
+  if ( degr < 1 ) then
+     d(:,:) = 0._MATHpr
+  else
+     d = real( degr, kind=MATHpr ) * ( b(2:degr+1,:) - b(1:degr,:) )
+  end if
+
+end subroutine berndiff
+
+
+
+subroutine subdiv2_along_v( &
+     b, &
+     v, &
+     bs, &
+     bn )
+  implicit none
+  type(type_bernstein_series2), intent(in)              :: b
+  real(kind=MATHpr),            intent(in)              :: v
+  type(type_bernstein_series2), intent(out)             :: bs
+  type(type_bernstein_series2), intent(out)             :: bn
+  real(kind=MATHpr), dimension(b%degr(2)+1,b%degr(1)+1) :: bsT, bnT
+  integer                                               :: m, n, k
+
+  m = b%degr(1)+1
+  n = b%degr(2)+1
+  
+  call reset_bernstein_series2( bs, b%degr, b%dim )
+  call reset_bernstein_series2( bn, b%degr, b%dim )
+
+  do k = 1,b%dim
+     call de_casteljau( &
+          transpose( b%coef(1:m,1:n,k) ), &
+          v, &
+          b%degr(2), &
+          m, &
+          bl=bsT, &
+          br=bnT )
+     bs%coef(1:m,1:n,k) = transpose(bsT)
+     bn%coef(1:m,1:n,k) = transpose(bnT)
+  end do
+
+end subroutine subdiv2_along_v
+
+
+
+subroutine berndiff1( &
+     b, &
+     d )
+  implicit none
+  type(type_bernstein_series1), intent(in)  :: b
+  type(type_bernstein_series1), intent(out) :: d
+
+  call reset_bernstein_series1( d, max( b%degr-1, 0 ), b%dim )
+  call berndiff( b%coef(1:b%degr+1,:), d%coef(1:max(b%degr,1),:), b%degr, b%dim )
+
+end subroutine berndiff1
+
+
+
+subroutine reset_bernstein_series2( &
+     b, &
+     degr, &
+     dim )
+  implicit none
+  integer,                      intent(in)  :: degr(2)
+  integer,                      intent(in)  :: dim
+  type(type_bernstein_series2), intent(out) :: b
+
+  if ( allocated(b%coef) ) then
+     if ( size(b%coef,1) <= degr(1) .or. &
+          size(b%coef,2) <= degr(2) .or. &
+          size(b%coef,3) < dim ) deallocate(b%coef)
+  end if
+  if ( .not.allocated(b%coef) ) allocate( b%coef(1:degr(1)+1, 1:degr(2)+1, dim) )
+
+  b%degr = degr
+  b%dim = dim
+  b%coef(:,:,:) = 0._MATHpr
+
+end subroutine reset_bernstein_series2
+
+
+
 subroutine write_bernstein_series1( &
      b, &
      filename )
@@ -420,4 +370,54 @@ subroutine write_bernstein_series1( &
   end do
   close(fileunit)
 end subroutine write_bernstein_series1
+
+
+
+subroutine write_bernstein_series2( &
+     b, &
+     filename )
+  use mod_util
+  implicit none
+  character(*),                 intent(in) :: filename
+  type(type_bernstein_series2), intent(in) :: b
+  integer                                  :: fileunit, icoef, jcoef, idim
+
+  call get_free_unit( fileunit )
+  if ( fileunit == 0 ) STOP "write_bernstein_series2 : could not find free unit"
+
+  open( unit = fileunit, file = filename, action = "write" )
+  write (fileunit,*) b%degr+1, b%dim
+
+  do idim = 1,b%dim
+     do jcoef = 1,b%degr(2)+1
+        do icoef = 1,b%degr(1)+1
+           write (fileunit,"(ES22.15)") b%coef(icoef,jcoef,idim)
+        end do
+     end do
+  end do
+  close(fileunit)
+end subroutine write_bernstein_series2
+
+
+
+subroutine reset_bernstein_series1( &
+     b, &
+     degr, &
+     dim )
+  implicit none
+  integer,                      intent(in)  :: degr
+  integer,                      intent(in)  :: dim
+  type(type_bernstein_series1), intent(out) :: b
+
+  if ( allocated(b%coef) ) then
+     if ( size(b%coef,1) <= degr .or. &
+          size(b%coef,2) < dim ) deallocate(b%coef)
+  end if
+  if ( .not.allocated(b%coef) ) allocate(b%coef(1:degr+1, dim))
+
+  b%degr = degr
+  b%dim = dim
+  b%coef(:,:) = 0._MATHpr
+
+end subroutine reset_bernstein_series1
 end module mod_bernstein

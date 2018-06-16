@@ -1,5 +1,6 @@
 program dev_intersection_simple_surface
 
+  use mod_util
   use mod_math
   use mod_regiontree
   use mod_polynomial
@@ -13,7 +14,8 @@ program dev_intersection_simple_surface
   character(100)             :: arg
   character                  :: strnum
   character(2)               :: strnum2
-
+  integer                    :: fileunit
+  
   type(type_surface), target :: surf(2)
   type(type_region), target  :: root(2)
   type(ptr_surface)          :: surfroot(2)
@@ -74,10 +76,10 @@ program dev_intersection_simple_surface
      write (strnum,'(I1)') isurf
      call read_polynomial( &
           surf(isurf)%x, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          !'/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          '/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
           nvar=2, &
           base=1 )
-     !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt' )
 
      if ( ECONOMIZE ) then
         !PRINT *,'     S DEGR =',SURF(ISURF)%S%DEGR
@@ -88,6 +90,9 @@ program dev_intersection_simple_surface
 
      call compute_deriv1( surf(isurf) )
      call compute_deriv2( surf(isurf) )
+
+     call write_polynomial( surf(isurf)%xu, 'dev_intersection_simple_surface/du_'//strnum//'.cheb' )
+     call write_polynomial( surf(isurf)%xv, 'dev_intersection_simple_surface/dv_'//strnum//'.cheb' )
 
      call init_region( &
           root(isurf), &
@@ -138,14 +143,41 @@ program dev_intersection_simple_surface
      end do
   end do outer
   call system_clock( toc )
+  PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
 
+  PRINT *,NUVXYZ,' INTERSECTION POINT(S)'
+  call get_free_unit( fileunit )
+  open( unit=fileunit, file='dev_intersection_simple_surface/uv_xyz.dat', action='write' )
+  if ( nuvxyz < 1 ) then
+     write (fileunit,*) ''
+  else
+     do ipt = 1,nuvxyz
+        PRINT *,uvxyz(:,ipt)
+        write (fileunit,*) uvxyz(:,ipt)
+     end do
+  end if
+  close(fileunit)
 
+
+
+
+
+  
 
   do isurf = 1,2
      call free_polynomial( region(isurf)%ptr%poly )
      deallocate( region(isurf)%ptr%poly )
+
+     call free_polynomial( surf(isurf)%x )
+     call free_polynomial( surf(isurf)%xu )
+     call free_polynomial( surf(isurf)%xv )
+     call free_polynomial( surf(isurf)%xuu )
+     call free_polynomial( surf(isurf)%xuv )
+     call free_polynomial( surf(isurf)%xvv )
+
+     deallocate( root(isurf)%uvbox )
   end do
 
   
@@ -158,6 +190,8 @@ program dev_intersection_simple_surface
 
   deallocate( uvxyz )
 
+
+  
 
 
 contains
@@ -246,8 +280,8 @@ contains
     real(kind=fp)                             :: uv(2,2)
     integer                                   :: isurf, ipt, jpt
 
-    !PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
-    !PRINT *,'ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
+    PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
+    PRINT *,'ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
 
     isurf = 1 + mod(icurv,2)
 
@@ -262,6 +296,8 @@ contains
     call compute_deriv1( root_c )
     call compute_deriv2( root_c )
 
+    call write_polynomial( root_c%x, 'dev_intersection_simple_surface/root_c_x.cheb' )
+    call write_polynomial( root_c%xt, 'dev_intersection_simple_surface/root_c_xt.cheb' )
 
     ! initialize curve region tree
     call init_region( &
@@ -330,7 +366,7 @@ contains
           if ( sum( ( tuvxyz(4:6,ipt) - uvxyz(5:7,jpt) )**2 ) < EPSxyzsqr ) cycle outer
        end do
 
-       uv(ivar,icurv) = region(icurv)%ptr%uvbox(2*ivar+ival-1) !region(icurv)%ptr%uvbox(ival,ivar)
+       uv(ivar,icurv) = region(icurv)%ptr%uvbox(2*(ivar-1)+ival) !region(icurv)%ptr%uvbox(ival,ivar)
        uv(1+mod(ivar,2),icurv) = n1p12ab( &
             tuvxyz(1,ipt), &
             region(icurv)%ptr%uvbox(2*(1+mod(ivar,2))-1), &!region(icurv)%ptr%uvbox(1,1+mod(ivar,2)), &
@@ -353,6 +389,10 @@ contains
 
     call free_region_tree( region_s )
     call free_region_tree( region_c )
+
+    call free_polynomial( root_c%x )
+    call free_polynomial( root_c%xt )
+    call free_polynomial( root_c%xtt )
 
   end subroutine intersect_border_surface
 
@@ -760,10 +800,10 @@ recursive subroutine intersect_curve_surface( &
 
     if ( stat_degeneracy > 1 ) return
 
-    PRINT *,''
-    PRINT *,''
-    PRINT *,' TBOX =',REGION_C%UVBOX
-    PRINT *,'UVBOX =',REGION_S%UVBOX
+    !PRINT *,''
+    !PRINT *,''
+    !PRINT *,' TBOX =',REGION_C%UVBOX
+    !PRINT *,'UVBOX =',REGION_S%UVBOX
     !IF ( REGION_C%TBOX(1) < -0.99D0 .AND. REGION_C%TBOX(2) > 0.02D0 .AND. &
     !     REGION_S%UVBOX(1,1) > 0.50D0 .AND. REGION_S%UVBOX(2,1) > 0.99D0 .AND. &
     !     REGION_S%UVBOX(1,2) < -0.99D0 .AND. REGION_S%UVBOX(2,2) > 0.55D0 ) THEN
@@ -781,21 +821,30 @@ recursive subroutine intersect_curve_surface( &
 
 
     !
+    !PRINT *,'ASSOCIATED C_PARENT?', associated(region_c%parent)
     if ( associated(region_c%parent) ) then
+       !PRINT *, 'C_PARENT%NPTS =', region_c%parent%npts
        if ( region_c%parent%npts > 0 ) then
           allocate( mask(region_c%parent%npts) )
           mask(1:region_c%parent%npts) = .true.
           do jpt = 1,region_c%parent%npts
              ipt = region_c%parent%ipts(jpt)
-             if ( is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) ) ) mask(jpt) = .false.
+             !PRINT *,COORDS(1,IPT), is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )
+             if ( is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) ) ) then!mask(jpt) = .false.
+                call append( &
+                     region_c%ipts, &
+                     ipt, &
+                     noduplicates=.true., &
+                     newlength=region_c%npts )
+             end if
           end do
 
-          call append_n( &
-               region_c%ipts, &
-               region_c%npts, &
-               pack( region_c%parent%ipts(1:region_c%parent%npts), mask ), &
-               count(mask), &
-               unique=.true. )
+          !call append_n( &
+          !     region_c%ipts, &
+          !     region_c%npts, &
+          !     pack( region_c%parent%ipts(1:region_c%parent%npts), mask ), &
+          !     count(mask), &
+          !     unique=.true. )
 
           deallocate( mask )
        end if
@@ -803,24 +852,33 @@ recursive subroutine intersect_curve_surface( &
 
 
 
-    
+    !PRINT *,'ASSOCIATED S_PARENT?', associated(region_s%parent)
     if ( associated(region_s%parent) ) then
+       !PRINT *, 'S_PARENT%NPTS =', region_s%parent%npts
        if ( region_s%parent%npts > 0 ) then
           allocate( mask(region_s%parent%npts) )
           mask(1:region_s%parent%npts) = .true.
           do jpt = 1,region_s%parent%npts
              ipt = region_s%parent%ipts(jpt)
+             !PRINT *,COORDS(2:3,IPT), ( is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
+             !     is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )
              if ( &
-                  is_in_interval( coords(1,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
-                  is_in_interval( coords(1,ipt), region_s%uvbox(3), region_s%uvbox(4) ) ) mask(jpt) = .false.
+                  is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
+                  is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) ) then!mask(jpt) = .false.
+                call append( &
+                     region_s%ipts, &
+                     ipt, &
+                     noduplicates=.true., &
+                     newlength=region_s%npts )
+             end if
           end do
 
-          call append_n( &
-               region_s%ipts, &
-               region_s%npts, &
-               pack( region_s%parent%ipts(1:region_s%parent%npts), mask ), &
-               count(mask), &
-               unique=.true. )
+          !call append_n( &
+          !     region_s%ipts, &
+          !     region_s%npts, &
+          !     pack( region_s%parent%ipts(1:region_s%parent%npts), mask ), &
+          !     count(mask), &
+          !     unique=.true. )
 
           deallocate( mask )
        end if
@@ -846,22 +904,32 @@ recursive subroutine intersect_curve_surface( &
     !   PRINT *,'';PRINT *,'';PRINT *,''
     !   PRINT *,' TBOX =',REGION_C%TBOX
     !   PRINT *,'UVBOX =',REGION_S%UVBOX
-    !   PRINT *,N_SHAREDPTS,' SHARED POINT(S)'
-    !   IF ( N_SHAREDPTS > 0 ) THEN
-    !      DO IPT = 1,N_SHAREDPTS
-    !         PRINT *,COORDS(:,SHAREDPTS(IPT))
-    !      END DO
-    !   END IF
+       !PRINT *,N_SHAREDPTS,' SHARED POINT(S)'
+       !IF ( N_SHAREDPTS > 0 ) THEN
+       !   DO IPT = 1,N_SHAREDPTS
+       !      PRINT *,COORDS(:,SHAREDPTS(IPT))
+       !   END DO
+       !END IF
     !END IF
 
     if ( n_sharedpts == 1 ) then
-       ! check if the curve and surface regions can intersect at other (not yet discovered) points
-       call intersect_curve_surface_elsewhere( &
-            region_c%poly, &
-            region_s%poly, &
-            coords(4:6,sharedpts(1)), &
-            separable, &
-            randomize=.true. )
+
+       interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )
+       interior(2) = ( &
+            is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
+            is_in_interval_strict( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )
+
+       if ( any(interior) ) then
+          separable = .false. 
+       else
+          ! check if the curve and surface regions can intersect at other (not yet discovered) points
+          call intersect_curve_surface_elsewhere( &
+               region_c%poly, &
+               region_s%poly, &
+               coords(4:6,sharedpts(1)), &
+               separable, &
+               randomize=.true. )
+       end if
        !PRINT *,'MAY INTERSECT AT OTHER POINTS?', .NOT.SEPARABLE
        
        !IF ( REGION_C%TBOX(1) > 0._MATHPR .AND. &
@@ -945,6 +1013,24 @@ recursive subroutine intersect_curve_surface( &
           return
        end if
 
+
+       !IF ( &
+       !     REGION_C%UVBOX(2) < REGION_C%UVBOX(1) + 1.D-4 .OR. &
+       !     REGION_S%UVBOX(2) < REGION_S%UVBOX(1) + 1.D-4 .OR. &
+       !     REGION_S%UVBOX(4) < REGION_S%UVBOX(3) + 1.D-4 ) THEN
+       IF (.FALSE.) THEN
+          PRINT *,' TBOX =',REGION_C%UVBOX
+          PRINT *,'UVBOX =',REGION_S%UVBOX
+          CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
+          CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
+          CALL WRITE_POLYNOMIAL( REGION_C%POLY, 'dev_intersection_simple_surface/region_c_bezier.bern' )
+          CALL WRITE_POLYNOMIAL( REGION_S%POLY, 'dev_intersection_simple_surface/region_s_bezier.bern' )
+          !STOP '--> VERIF OBBs'
+          PRINT *,'--> VERIF OBBs'
+          STAT_NEWPOINT = 44
+          RETURN
+       END IF
+
     end if
 
     !PRINT *,'INTERIOR?',INTERIOR
@@ -980,7 +1066,8 @@ recursive subroutine intersect_curve_surface( &
                region_c%uvbox(1) + region_c%uvbox(2), &                                                                   !     !
                region_s%uvbox([1,3]) + region_s%uvbox([2,4]) ]                                                            !     !
        end if ! <---------------------------------------------------------------------------------------------------------+     !
-       !PRINT *,'NEWTON <--- TUV0 =',REAL(TUV)
+      !PRINT *,''; PRINT *,'';
+       !PRINT *,'NEWTON <--- TUV0 =',TUV
        !PRINT *,'------- NEWTON -------'
        !PRINT *,'N_SHAREDPTS =',N_SHAREDPTS
        !PRINT *,'INTERIOR?    ',INTERIOR
@@ -1039,6 +1126,8 @@ recursive subroutine intersect_curve_surface( &
           call add_point_bottom_up( region_c, npts )                                                                     !      !
           call add_point_bottom_up( region_s, npts )                                                                     !      !
           !      !
+          !PRINT *,'    REGION_C%NPTS =',REGION_C%NPTS                                                                   !      !
+          !PRINT *,'    REGION_S%NPTS =',REGION_S%NPTS                                                                   !      !
           !PRINT *,'    REGION_C%IPTS =',REGION_C%IPTS                                                                   !      !
           !PRINT *,'    REGION_S%IPTS =',REGION_S%IPTS                                                                   !      !
           !      !
@@ -1062,18 +1151,18 @@ recursive subroutine intersect_curve_surface( &
 
 
 
-    !PRINT *,'TUV_SUBDIV =',REAL(TUV_SUBDIV)
+    !PRINT *,'TUV_SUBDIV =',TUV_SUBDIV
     !! Subdivide the curve region
     call subdiv_region( &
        region_c, &
        tuv_subdiv(1), &
        stat_subdiv )
 
-    PRINT *,'STAT_SUBDIV C =',STAT_SUBDIV
+    !PRINT *,'STAT_SUBDIV C =',STAT_SUBDIV
     tuv_subdiv(1) = 0.5_fp * ( ab2n1p1( tuv_subdiv(1), region_c%uvbox(1), region_c%uvbox(2) ) + 1._fp )
     !PRINT *,'SIZE(CHILD) =',SIZE(REGION_C%CHILD)
 
-    if ( stat_subdiv /= 0) then
+    if ( stat_subdiv == 1 ) then
        !PRINT *,'DO NOT SUBDIVIDE (CURVE ENDPOINT)'
        nchild(1) = 1
     else
@@ -1082,20 +1171,6 @@ recursive subroutine intersect_curve_surface( &
           PRINT *,'ERROR : NCHILD(1) =',NCHILD(1)
           STOP
        END IF
-
-       !do ichild = 1,nchild(1)
-       !   do jpt = 1,region_c%npts
-       !      ipt = region_c%ipts(jpt)
-       !      !PRINT *,REAL(COORDS(1,IPT)), ' IN ',REAL(REGION_C%CHILD(ICHILD)%TBOX), ' ? ', &
-       !      !     is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) )
-       !      if ( is_in_interval( coords(1,ipt), region_c%child(ichild)%tbox(1), region_c%child(ichild)%tbox(2) ) ) then
-       !         !IF ( REGION_C%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_C%CHILD(ICHILD)%IPTS
-       !         call append( region_c%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_c%child(ichild)%npts )
-       !         !region_c%child(ichild)%npts = region_c%child(ichild)%npts + 1
-       !      end if
-       !   end do
-       !   !PRINT *,'CHILD #',ICHILD,', NPTS =', REGION_C%CHILD(ICHILD)%NPTS
-       !end do
 
        if ( stat_subdiv == 0 ) then
           allocate( region_c%child(1)%poly, region_c%child(2)%poly )
@@ -1114,13 +1189,13 @@ recursive subroutine intersect_curve_surface( &
          region_s, &
          tuv_subdiv(2:3), &
          stat_subdiv )
+    
 
-
-    PRINT *,'STAT_SUBDIV S =',STAT_SUBDIV
+    !PRINT *,'STAT_SUBDIV S =',STAT_SUBDIV
     tuv_subdiv(2) = 0.5_fp * ( ab2n1p1( tuv_subdiv(2), region_s%uvbox(1), region_s%uvbox(2) ) + 1._fp )
     tuv_subdiv(3) = 0.5_fp * ( ab2n1p1( tuv_subdiv(3), region_s%uvbox(3), region_s%uvbox(4) ) + 1._fp )
 
-    if ( stat_subdiv == 2 .or. stat_subdiv <= 0 ) then
+    if ( stat_subdiv == 2 ) then!.or. stat_subdiv < 0 ) then
        !PRINT *,'DO NOT SUBDIVIDE (SURFACE CORNER)'
        nchild(2) = 1
        !stat_newpoint = 44
@@ -1128,21 +1203,10 @@ recursive subroutine intersect_curve_surface( &
     else
        !PRINT *,'NCHILD_S =',NCHILD(2)
        nchild(2) = size(region_s%child)
-       !do ichild = 1,nchild(2)
-       !   do jpt = 1,region_s%npts
-       !      ipt = region_s%ipts(jpt)
-       !      if ( &
-       !           is_in_interval( coords(2,ipt), region_s%child(ichild)%uvbox(1,1), region_s%child(ichild)%uvbox(2,1) ) .and. &
-       !           is_in_interval( coords(3,ipt), region_s%child(ichild)%uvbox(1,2), region_s%child(ichild)%uvbox(2,2) ) ) then
-       !         !IF ( REGION_S%CHILD(ICHILD)%NPTS > 0 ) PRINT *,'==>>>>> APPEND',IPT,'TO',REGION_S%CHILD(ICHILD)%IPTS
-       !         call append( region_s%child(ichild)%ipts, ipt, noduplicates=.true., newlength=region_s%child(ichild)%npts )
-       !         !region_s%child(ichild)%npts = region_s%child(ichild)%npts + 1
-       !      end if
-       !   end do
-       !end do
     end if
 
     if ( stat_subdiv == 0 ) then
+       ! 4 children
        allocate( &
             region_s%child(1)%poly, region_s%child(2)%poly, &
             region_s%child(3)%poly, region_s%child(4)%poly )
@@ -1155,6 +1219,7 @@ recursive subroutine intersect_curve_surface( &
             bne=region_s%child(4)%poly )
 
     elseif ( stat_subdiv == 1 ) then
+       ! 2 children
        allocate( region_s%child(1)%poly, region_s%child(2)%poly )
 
        if ( region_s%child(2)%uvbox(1) <= region_s%uvbox(1) + EPSregion ) then
@@ -1193,9 +1258,16 @@ recursive subroutine intersect_curve_surface( &
        PRINT *,'NO MORE SUBDIVISION !!!!!'
        CALL WRITE_POLYNOMIAL( REGION_C%POLY, 'dev_intersection_simple_surface/region_c_bezier.bern' )
        CALL WRITE_POLYNOMIAL( REGION_S%POLY, 'dev_intersection_simple_surface/region_s_bezier.bern' )
-              
-       CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
-       CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
+       IF ( ASSOCIATED( REGION_C%XYZBOX ) ) THEN
+          CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
+       ELSE
+          PRINT *,'OBB_C N/A'
+       END IF
+       IF ( ASSOCIATED( REGION_S%XYZBOX ) ) THEN
+          CALL WRITE_OBB( REGION_S%XYZBOX, 'dev_intersection_simple_surface/xyzbox_s.dat' )
+       ELSE
+          PRINT *,'OBB_S N/A'
+       END IF
        RETURN
        !STOP 'NO MORE SUBDIVISION !!!!!'
     end if

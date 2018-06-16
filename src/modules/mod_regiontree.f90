@@ -34,9 +34,10 @@ contains
     integer,           intent(in)    :: dim
     real(kind=fp),     intent(in)    :: uvbox(2*dim)
 
-    if ( allocated(region%uvbox) ) then
-       if ( size(region%uvbox) < 2*dim ) deallocate( region%uvbox )
-    end if
+    !if ( allocated(region%uvbox) ) then
+    !   if ( size(region%uvbox) < 2*dim ) deallocate( region%uvbox )
+    !end if
+    if ( allocated(region%uvbox) ) deallocate( region%uvbox )
     region%dim = dim
     if ( .not.allocated(region%uvbox) ) allocate( region%uvbox(2*dim) )
     region%uvbox(1:2*dim) = uvbox
@@ -79,7 +80,6 @@ contains
        stat = -1
        return
     end if
-
 
     do idim = 1,region%dim
        ! check for possibly "degenerate" dimensions
@@ -129,13 +129,6 @@ contains
     type(type_region), intent(inout) :: region
     integer                          :: ichild
 
-    if ( associated(region%child) ) then
-       do ichild = 1,size(region%child)
-          call free_region_tree( region%child(ichild) )
-       end do
-       deallocate( region%child )
-    end if
-
     if ( allocated(region%uvbox) )   deallocate( region%uvbox )
     if ( associated(region%xyzbox) ) deallocate( region%xyzbox )
     if ( allocated(region%ipts) )    deallocate( region%ipts )
@@ -144,6 +137,13 @@ contains
           call free_polynomial( region%poly )
           deallocate( region%poly )
        end if
+    end if
+
+    if ( associated(region%child) ) then
+       do ichild = 1,size(region%child)
+          call free_region_tree( region%child(ichild) )
+       end do
+       deallocate( region%child )
     end if
 
   end subroutine free_region_tree
@@ -222,6 +222,13 @@ contains
          region%ipts, &
          region%npts, &
          ipt )
+    
+    if ( associated(region%parent) ) then
+       call add_point_bottom_up( &
+            region%parent, &
+            ipt )
+    end if
+    
   end subroutine add_point_bottom_up
 
 

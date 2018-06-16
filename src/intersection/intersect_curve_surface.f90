@@ -17,7 +17,7 @@ recursive subroutine intersect_curve_surface( &
     regions, &
     tuvxyz )
   use mod_math
-  use mod_list
+  !use mod_list
   use mod_util
   use mod_diffgeom
   use mod_types_intersection
