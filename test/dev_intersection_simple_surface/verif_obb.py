@@ -7,7 +7,7 @@ import my_lib as mylb
 
 
 
-
+###################################################
 
 def addOBB( ctr, rng, axe, clr, alp=0.5, layer=0 ):
     faces = [ [0,2,3,1],
@@ -21,12 +21,6 @@ def addOBB( ctr, rng, axe, clr, alp=0.5, layer=0 ):
         for j in range(2):
             for i in range(2):
                 xyz[4*k + 2*j + i] = ctr + np.matmul( -np.power( -1.0, np.array([i,j,k],dtype=float) ) * rng, np.transpose( axe ) )
-    #print(xyz)
-    #mylb.addVertices(
-    #    v=xyz,
-    #    clr=(1,1,0),
-    #    radius=1.e-2,
-    #    layer=0 )
 
     #create mesh and object
     mesh = bpy.data.meshes.new("obb")
@@ -46,16 +40,7 @@ def addOBB( ctr, rng, axe, clr, alp=0.5, layer=0 ):
     
     return
 
-
-
-
-
-
-
-#addOBB( np.zeros(3), np.ones(3), np.identity(3) )
-
-
-
+###################################################
 
 
 
@@ -66,15 +51,6 @@ bc = myl.readCoeffs1( pth + 'region_c_bezier.bern' )
 bs = myl.readCoeffs2( pth + 'region_s_bezier.bern' )
 
 
-"""
-print ("bc=\n")
-print (bc)
-print ("bs=\n")
-print (bs)
-
-print ("x=\n")
-print (bs[:,:,0])
-"""
 
 boxc = np.loadtxt( pth + 'xyzbox_c.dat' )
 boxs = np.loadtxt( pth + 'xyzbox_s.dat' )

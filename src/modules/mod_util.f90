@@ -147,6 +147,17 @@ contains
     logical                             :: mask(nelem)
     integer, allocatable                :: tmp(:)
     integer                             :: i, nnew
+
+    !PRINT *,'------------------'
+    !PRINT *,'NLIST=',NLIST
+    !IF ( ALLOCATED(LIST) ) THEN
+    !   PRINT *,LIST
+    !ELSE
+    !   PRINT *,'[]'
+    !END IF
+    !PRINT *,'APPEND :'
+    !PRINT *,'ELEM=',ELEM(1:NELEM)
+
     
     if ( .not.allocated(list) ) then
 
@@ -184,6 +195,11 @@ contains
 
     end if
 
+    !PRINT *,'NLSIT=',NLIST
+    !PRINT *,LIST
+    !PRINT *,'------------------'
+    !PRINT *,''
+    
   end subroutine append_n
 
 
@@ -244,6 +260,9 @@ contains
     integer, optional,    intent(out)   :: newlength
     integer, allocatable                :: tmp(:)
     integer                             :: length, i
+
+
+    
 
     if ( allocated(array) ) then
 
