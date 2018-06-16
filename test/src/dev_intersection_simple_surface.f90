@@ -816,57 +816,70 @@ contains
     !!IF ( REGION_C%TBOX(2) - REGION_C%TBOX(1) < 1.D-3 ) RETURN !EPSREGION ) RETURN
     !!IF ( REGION_S%UVBOX(2,1) - REGION_S%UVBOX(1,1) < 1.D-3 ) RETURN !EPSREGION ) RETURN
     !!IF ( REGION_S%UVBOX(2,2) - REGION_S%UVBOX(1,2) < 1.D-3 ) RETURN !EPSREGION ) RETURN
-
+    
     ! REMPLACER PAR UNE BOUCLE >>>>>>>>----------------------------------------------------------------------------------------
-    !PRINT *,'ASSOCIATED C_PARENT?', associated(region_c%parent)
-    if ( associated(region_c%parent) ) then
-       !PRINT *, 'C_PARENT%NPTS =', region_c%parent%npts
-       if ( region_c%parent%npts > 0 ) then
-          allocate( mask(region_c%parent%npts) )
-          mask(1:region_c%parent%npts) = .false.
-          do jpt = 1,region_c%parent%npts
-             ipt = region_c%parent%ipts(jpt)
-             !PRINT *,COORDS(1,IPT), is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )
-             if ( is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) ) ) mask(jpt) = .true.
-          end do
+    IF (.true.) THEN
+       call inherit_points( &
+            region_c, &
+            coords(1,1:npts), &
+            npts )
+    ELSE
+       !PRINT *,'ASSOCIATED C_PARENT?', associated(region_c%parent)
+       if ( associated(region_c%parent) ) then
+          !PRINT *, 'C_PARENT%NPTS =', region_c%parent%npts
+          if ( region_c%parent%npts > 0 ) then
+             allocate( mask(region_c%parent%npts) )
+             mask(1:region_c%parent%npts) = .false.
+             do jpt = 1,region_c%parent%npts
+                ipt = region_c%parent%ipts(jpt)
+                !PRINT *,COORDS(1,IPT), is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )
+                if ( is_in_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) ) ) mask(jpt) = .true.
+             end do
 
-          call append_n( &
-               region_c%ipts, &
-               region_c%npts, &
-               pack( region_c%parent%ipts(1:region_c%parent%npts), mask ), &
-               count(mask), &
-               unique=.true. )
+             call append_n( &
+                  region_c%ipts, &
+                  region_c%npts, &
+                  pack( region_c%parent%ipts(1:region_c%parent%npts), mask ), &
+                  count(mask), &
+                  unique=.true. )
 
-          deallocate( mask )
+             deallocate( mask )
+          end if
        end if
-    end if
+    END IF
 
 
+    IF (.true.) THEN
+       call inherit_points( &
+            region_s, &
+            coords(2:3,1:npts), &
+            npts )
+    ELSE
+       !PRINT *,'ASSOCIATED S_PARENT?', associated(region_s%parent)
+       if ( associated(region_s%parent) ) then
+          !PRINT *, 'S_PARENT%NPTS =', region_s%parent%npts
+          if ( region_s%parent%npts > 0 ) then
+             allocate( mask(region_s%parent%npts) )
+             mask(1:region_s%parent%npts) = .false.
+             do jpt = 1,region_s%parent%npts
+                ipt = region_s%parent%ipts(jpt)
+                !PRINT *,COORDS(2:3,IPT), ( is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
+                !     is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )
+                if ( is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
+                     is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) ) mask(jpt) = .true.
+             end do
 
-    !PRINT *,'ASSOCIATED S_PARENT?', associated(region_s%parent)
-    if ( associated(region_s%parent) ) then
-       !PRINT *, 'S_PARENT%NPTS =', region_s%parent%npts
-       if ( region_s%parent%npts > 0 ) then
-          allocate( mask(region_s%parent%npts) )
-          mask(1:region_s%parent%npts) = .false.
-          do jpt = 1,region_s%parent%npts
-             ipt = region_s%parent%ipts(jpt)
-             !PRINT *,COORDS(2:3,IPT), ( is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
-             !     is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )
-             if ( is_in_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
-                  is_in_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) ) mask(jpt) = .true.
-          end do
+             call append_n( &
+                  region_s%ipts, &
+                  region_s%npts, &
+                  pack( region_s%parent%ipts(1:region_s%parent%npts), mask ), &
+                  count(mask), &
+                  unique=.true. )
 
-          call append_n( &
-               region_s%ipts, &
-               region_s%npts, &
-               pack( region_s%parent%ipts(1:region_s%parent%npts), mask ), &
-               count(mask), &
-               unique=.true. )
-
-          deallocate( mask )
+             deallocate( mask )
+          end if
        end if
-    end if
+    END IF
     ! <<<<<<<<---------------------------------------------------------------------------------------------------
 
 
@@ -932,7 +945,7 @@ contains
 
 
     if ( n_sharedpts == 1 ) then
-
+       ipt = sharedpts(1)
        interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )
        interior(2) = ( &
             is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &
@@ -1267,5 +1280,60 @@ contains
 
 
 
+
+
+
+
+
+
+
+
+
+
+  subroutine inherit_points( &
+       region, &
+       coords, &
+       npts )
+    implicit none
+    type(type_region), intent(inout) :: region
+    integer,           intent(in)    :: npts
+    real(kind=fp),     intent(in)    :: coords(region%dim,npts)
+    logical, allocatable             :: mask(:)
+    integer                          :: idim, ipt, jpt
+
+    if ( .not.associated(region%parent) ) return
+    if ( region%parent%npts < 1 ) return
+
+    allocate( mask(region%parent%npts) )
+    mask(:) = .true.
+    outer : do jpt = 1,region%parent%npts
+       ipt = region%parent%ipts(jpt)
+       do idim = 1,region%dim
+          if ( .not.is_in_interval( &
+               coords(idim,ipt), &
+               region%uvbox(2*idim-1), &
+               region%uvbox(2*idim) ) ) then
+             mask(jpt) = .false.
+             cycle outer
+          end if
+       end do
+    end do outer
+
+    call append_n( &
+         region%ipts, &
+         region%npts, &
+         pack( region%parent%ipts(1:region%parent%npts), mask ), &
+         count(mask), &
+         unique=.true. )
+    deallocate( mask )
+
+  end subroutine inherit_points
+
+
+
+
+
+  
+  
 
 end program dev_intersection_simple_surface
