@@ -1,4 +1,2 @@
-* un seul type de polynome univarié (coef, degr, dim) 
-* un seul type de polynome bivarié
 * uniformiser noms des constantes (EPSxxx, ...)
 * module I/O?
