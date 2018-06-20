@@ -83,3 +83,7 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/chebyshev2.out test
 
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/bernstein2.f90 -o test/obj/bernstein2.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/bernstein2.out test/obj/bernstein2.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
+
+
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/debugobb.f90 -o test/obj/debugobb.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/debugobb.out test/obj/debugobb.o obj/mod_util.o obj/mod_math.o obj/mod_obb.o

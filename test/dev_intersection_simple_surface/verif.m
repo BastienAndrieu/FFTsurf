@@ -48,7 +48,7 @@ surf( s(:,:,1), s(:,:,2), s(:,:,3), ...
 if 1
     h = plotOBB( boxc(1,:)', boxc(2,:)', boxc(3:5,:)' );
     set( h, 'facecolor', 'none', 'edgecolor', 'b' );
-    plot3( boxc(1,1), boxc(1,2), boxc(1,3), 'b*' );
+%     plot3( boxc(1,1), boxc(1,2), boxc(1,3), 'b*' );
     
     h = plotOBB( boxs(1,:)', boxs(2,:)', boxs(3:5,:)' );
     set( h, 'facecolor', 'none', 'edgecolor', 'r' );

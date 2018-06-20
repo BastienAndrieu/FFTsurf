@@ -356,11 +356,11 @@ contains
     if ( poly2%nvar /= 2 ) STOP 'bivar2univar : poly%nvar /= 2'
 
     call reset_polynomial( &
-         poly1, &
-         1, &
-         poly2%base, &
-         poly2%degr(1+mod(ivar,2)), &
-         poly2%dim )
+         poly=poly1, &
+         nvar=1, &
+         base=poly2%base, &
+         degr=poly2%degr(1+mod(ivar,2)), &
+         dim=poly2%dim )
 
     select case ( poly2%base )
     case (1) ! Chebyshev basis
@@ -795,5 +795,85 @@ contains
 
 
 
+
+
+  
+  subroutine chgvar1( &
+       polya, &
+       polyb, &
+       x0, &
+       x1 )
+    implicit none
+    type(type_polynomial), intent(in)    :: polya
+    type(type_polynomial), intent(inout) :: polyb    
+    real(kind=fp),         intent(in)    :: x0, x1
+
+    if ( polya%base /= 1 ) STOP 'chgvar1 : polynomial not in Chebyshev basis'
+    if ( polya%nvar /= 1 ) STOP 'chgvar1 : not a univariate polynomial'
+    
+    call reset_polynomial( &
+         polyb, &
+         1, &
+         1, &
+         polya%degr(1), &
+         polya%dim )
+
+    call chgvar( &
+         polya%coef(1:polya%degr(1)+1,1:polya%dim,1), &
+         polyb%coef(1:polya%degr(1)+1,1:polya%dim,1), &
+         x0, &
+         x1, &
+         polya%degr(1), &
+         polya%dim )
+
+  end subroutine chgvar1
+
+
+
+
+
+  subroutine chgvar2( &
+       polya, &
+       polyb, &
+       xy0, &
+       xy1 )
+    implicit none
+    type(type_polynomial),       intent(in)    :: polya
+    type(type_polynomial),       intent(inout) :: polyb    
+    real(kind=fp), dimension(2), intent(in)    :: xy0, xy1
+    real(kind=fp)                              :: tmp(polya%degr(2)+1,polya%degr(1)+1)
+    integer                                    :: k
+
+    if ( polya%base /= 1 ) STOP 'chgvar2 : polynomial not in Chebyshev basis'
+    if ( polya%nvar /= 2 ) STOP 'chgvar2 : not a bivariate polynomial'
+
+    call reset_polynomial( &
+         poly=polyb, &
+         nvar=2, &
+         base=1, &
+         degr=polya%degr, &
+         dim=polya%dim )
+
+    do k = 1,polya%dim
+       call chgvar( &
+            polya%coef(1:polya%degr(1)+1,1:polya%degr(2)+1,k), &
+            polyb%coef(1:polya%degr(1)+1,1:polya%degr(2)+1,k), &
+            xy0(1), &
+            xy1(1), &
+            polya%degr(1), &
+            polya%degr(2)+1 )
+
+       call chgvar( &
+            transpose( polyb%coef(1:polya%degr(1)+1,1:polya%degr(2)+1,k) ), &
+            tmp, &
+            xy0(2), &
+            xy1(2), &
+            polya%degr(2), &
+            polya%degr(1)+1 )
+       polyb%coef(1:polya%degr(1)+1,1:polya%degr(2)+1,k) = transpose(tmp)
+       
+    end do
+
+  end subroutine chgvar2
 
 end module mod_polynomial

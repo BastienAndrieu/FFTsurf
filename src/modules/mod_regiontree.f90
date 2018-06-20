@@ -4,7 +4,7 @@ module mod_regiontree
   use mod_obb
   use mod_polynomial
 
-  real(kind=fp), parameter          :: EPSregion = real( 1.e-6, kind=fp ) ! minimal range along any dimension
+  real(kind=fp), parameter          :: EPSregion = real( 1.e-3, kind=fp ) ! minimal range along any dimension
 
   type type_region
      integer                        :: dim = 0
@@ -218,10 +218,16 @@ contains
     type(type_region), intent(inout) :: region
     integer,           intent(in)    :: ipt
 
-    call append_list( &
+    !call append_list( &
+    !     region%ipts, &
+    !     region%npts, &
+    !     ipt )
+    call append_n( &
          region%ipts, &
          region%npts, &
-         ipt )
+         [ipt], &
+         1, &
+         unique=.true. )
     
     if ( associated(region%parent) ) then
        call add_point_bottom_up( &

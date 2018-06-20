@@ -1,7 +1,8 @@
 import bpy
 import numpy as np
 import sys
-sys.path.append('/home/bastien/Bureau/Python/')
+#sys.path.append('/home/bastien/Bureau/Python/')
+sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
 import my_lib1 as myl
 import my_lib as mylb
 
@@ -20,7 +21,8 @@ def addOBB( ctr, rng, axe, clr, alp=0.5, layer=0 ):
     for k in range(2):
         for j in range(2):
             for i in range(2):
-                xyz[4*k + 2*j + i] = ctr + np.matmul( -np.power( -1.0, np.array([i,j,k],dtype=float) ) * rng, np.transpose( axe ) )
+                xyz[4*k + 2*j + i] = ctr + \
+                np.matmul( -np.power( -1.0, np.array([i,j,k],dtype=float) ) * rng, np.transpose( axe ) )
 
     #create mesh and object
     mesh = bpy.data.meshes.new("obb")
@@ -45,7 +47,8 @@ def addOBB( ctr, rng, axe, clr, alp=0.5, layer=0 ):
 
 
 
-pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
+#pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
+pth = '/home/bandrieu/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
 
 bc = myl.readCoeffs1( pth + 'region_c_bezier.bern' )
 bs = myl.readCoeffs2( pth + 'region_s_bezier.bern' )

@@ -46,63 +46,41 @@ contains
 
 
 
-subroutine ifcht1_padded( &
-     c, &
+subroutine chebval2_mn( &
      f, &
-     m )
+     c, &
+     x, &
+     y, &
+     nx, &
+     ny )
+  ! Evaluation of bivariate Chebyshev series at nodes of a tensor-product grid
   implicit none
-  type(type_chebyshev_series1), intent(in)  :: c
-  integer,                      intent(in)  :: m
-  real(kind=MATHpr),            intent(out) :: f(m,c%dim)
-  real(kind=MATHpr), allocatable            :: w(:)    
-  integer                                   :: j, degrprev, r, p
-  save w, degrprev
-  data degrprev /0/
+  integer,                      intent(in)  :: nx, ny
+  real(kind=MATHpr),            intent(in)  :: x(nx), y(ny)
+  type(type_chebyshev_series2), intent(in)  :: c
+  real(kind=MATHpr),            intent(out) :: f(nx,ny,c%dim)
+  real(kind=MATHpr)                         :: b(ny,c%degr(1)+1)
+  integer                                   :: k
 
-  r = min( m, c%degr+1 )
-  f(1:r,:) = c%coef(1:r,:)
-  if ( r < m ) f(r+1:m,:) = 0._MATHpr
+  do k = 1,c%dim
+     call clenshaw( &
+          b, &
+          transpose( c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
+          y, &
+          ny, &
+          c%degr(2), &
+          c%degr(1)+1 )
 
-  p = sizeminw( m )
-  if ( allocated(w) ) then
-     if ( size(w) < p ) deallocate( w )
-  end if
-  if ( .not.allocated( w ) ) allocate( w(p) )
-
-  if ( degrprev /= m-1 ) call dcosti( m, w )
-  degrprev = m-1
-
-  f(2:m-1,:) = 0.5_MATHpr * f(2:m-1,:)
-  do j = 1,c%dim
-     call dcost( m, f(:,j), w )
+     call clenshaw( &
+          f(:,:,k), &
+          transpose(b), &
+          x, &
+          nx, &
+          c%degr(1), &
+          ny )
   end do
 
-end subroutine ifcht1_padded
-
-
-
-subroutine reset_chebyshev_series2( &
-     c, &
-     degr, &
-     dim )
-  implicit none
-  integer,                      intent(in)  :: degr(2)
-  integer,                      intent(in)  :: dim
-  type(type_chebyshev_series2), intent(out) :: c
-
-  if ( allocated(c%coef) ) then
-     !if ( any(c%degr < degr) .or. c%dim < dim ) deallocate(c%coef)
-     if ( size(c%coef,1) <= degr(1) .or. &
-          size(c%coef,2) <= degr(2) .or. &
-          size(c%coef,3) < dim ) deallocate(c%coef)
-  end if
-  if ( .not.allocated(c%coef) ) allocate(c%coef(1:degr(1)+1, 1:degr(2)+1, dim))
-
-  c%degr = degr
-  c%dim = dim
-  c%coef(:,:,:) = 0._MATHpr
-
-end subroutine reset_chebyshev_series2
+end subroutine chebval2_mn
 
 
 
@@ -127,68 +105,95 @@ end subroutine chebval1
 
 
 
-subroutine chgvar2( &
+subroutine economization1( &
      c, &
-     s, &
-     xy0, &
-     xy1 )
+     tol )
+  implicit none
+  type(type_chebyshev_series1), intent(inout) :: c
+  real(kind=MATHpr),            intent(in)    :: tol
+  real(kind=MATHpr)                           :: tolsqr
+  integer                                     :: i, M
+
+  tolsqr = tol**2
+
+  M = c%degr+1
+  do i = M,1,-1
+     if ( sum( c%coef(i:M,:)**2 ) > tolsqr ) exit
+  end do
+  c%degr = i-1
+
+end subroutine economization1
+
+
+
+subroutine chebdiff( &
+     c, &
+     d, &
+     degr, &
+     dim )
+  implicit none
+  integer,           intent(in)  :: degr, dim
+  real(kind=MATHpr), intent(in)  :: c(degr+1,dim)
+  real(kind=MATHpr), intent(out) :: d(max(degr,1),dim)
+  integer                        :: i
+
+  d(:,:) = 0._MATHpr
+  if ( degr < 1 ) return
+
+  d(degr,:) = real( 2*degr, kind=MATHpr ) * c(degr+1,:)
+
+  if ( degr > 1 ) then
+     d(degr-1,:) = real( 2*(degr-1), kind=MATHpr ) * c(degr,:)
+
+     if ( degr > 2 ) then
+        do i = degr-2,1,-1
+           d(i,:) = real( 2*i, kind=MATHpr ) * c(i+1,:) + d(i+2,:)
+        end do
+     end if
+
+  end if
+  d(1,:) = 0.5_MATHpr * d(1,:)
+
+end subroutine chebdiff
+
+
+
+subroutine ifcht2_padded( &
+     c, &
+     f, &
+     m, &
+     n )
   implicit none
   type(type_chebyshev_series2), intent(in)  :: c
-  real(kind=MATHpr),            intent(in)  :: xy0(2)
-  real(kind=MATHpr),            intent(in)  :: xy1(2)
-  type(type_chebyshev_series2), intent(out) :: s
-  real(kind=MATHpr)                         :: tmp(c%degr(2)+1,c%degr(1)+1)
-  integer                                   :: k
+  integer,                      intent(in)  :: m, n
+  real(kind=MATHpr),            intent(out) :: f(m,n,c%dim)
+  real(kind=MATHpr)                         :: w(3*max(m,n)+15)
+  integer                                   :: i, j, k, r, s
 
-  call reset_chebyshev_series2( s, c%degr, c%dim )
+  r = min( m, c%degr(1)+1 )
+  s = min( n, c%degr(2)+1 )
+
+  f(1:r,1:s,:) = c%coef(1:r,1:s,:)
+  if ( r < m ) f(r+1:m,:,:) = 0._MATHpr
+  if ( s < n ) f(1:r,s+1:n,:) = 0._MATHpr
+
+  f(2:m-1,:,:) = 0.5_MATHpr * f(2:m-1,:,:)
+  call dcosti( m, w )
   do k = 1,c%dim
-     call chgvar( &
-          c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
-          s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
-          xy0(1), &
-          xy1(1), &
-          c%degr(1), &
-          c%degr(2)+1 )
-
-     call chgvar( &
-          transpose( s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
-          tmp, &
-          xy0(2), &
-          xy1(2), &
-          c%degr(2), &
-          c%degr(1)+1 )
-
-     s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) = transpose(tmp)
-  end do
-
-end subroutine chgvar2
-
-
-
-subroutine write_chebyshev_series2( &
-     c, &
-     filename )
-  use mod_util
-  implicit none
-  character(*),                 intent(in) :: filename
-  type(type_chebyshev_series2), intent(in) :: c
-  integer                                  :: fileunit, icoef, jcoef, idim
-
-  call get_free_unit( fileunit )
-  if ( fileunit == 0 ) STOP "write_chebyshev_series2 : could not find free unit"
-
-  open( unit = fileunit, file = filename, action = "write" )
-  write (fileunit,*) c%degr+1, c%dim
-
-  do idim = 1,c%dim
-     do jcoef = 1,c%degr(2)+1
-        do icoef = 1,c%degr(1)+1
-           write (fileunit,"(ES22.15)") c%coef(icoef,jcoef,idim)
-        end do
+     do j = 1,n
+        call dcost( m, f(:,j,k), w )
      end do
   end do
-  close(fileunit)
-end subroutine write_chebyshev_series2
+
+  f(:,2:n-1,:) = 0.5_MATHpr * f(:,2:n-1,:)
+  if ( m /= n ) call dcosti( n, w )
+  do k = 1,c%dim
+     do i = 1,m
+        call dcost( n, f(i,:,k), w )
+     end do
+  end do
+
+end subroutine ifcht2_padded
 
 
 
@@ -220,120 +225,6 @@ subroutine ifcht2( &
   end do
 
 end subroutine ifcht2
-
-
-
-subroutine read_chebyshev_series2( &
-     c, &
-     filename )
-  use mod_util
-  implicit none
-  character(*),                 intent(in)  :: filename
-  type(type_chebyshev_series2), intent(out) :: c
-  integer                                   :: degr(2), dim
-  integer                                   :: fileunit, icoef, jcoef, idim
-
-  call get_free_unit( fileunit )
-  if ( fileunit == 0 ) STOP "read_chebyshev_series2 : could not find free unit"
-
-  open( unit = fileunit, file = filename, action = "read" )
-  read (fileunit,*) degr, dim
-  degr = degr - 1
-
-  if ( any(degr < 0) ) STOP "read_chebyshev_series2 : degr < 0"
-
-  call reset_chebyshev_series2( &
-       c, &
-       degr, &
-       dim)
-
-  do idim = 1,dim
-     do jcoef = 1,degr(2)+1
-        do icoef = 1,degr(1)+1
-           read (fileunit,*) c%coef(icoef,jcoef,idim)
-        end do
-     end do
-  end do
-  close(fileunit)
-
-end subroutine read_chebyshev_series2
-
-
-
-subroutine get_ch2be_from_collection( &
-     collection, &
-     N, &
-     c2b )
-  use mod_math
-  implicit none
-  integer,            intent(in)    :: N
-  type(type_matrix),  intent(inout) :: collection(:)
-  real(kind=MATHpr)                 :: c2b(N,N)
-
-  if ( N > size(collection) ) then
-     call ch2be_matrix( c2b, N-1 )
-  else
-     if ( .not.allocated(collection(N)%mat) ) then
-        allocate( collection(N)%mat(N,N) )
-        call ch2be_matrix( collection(N)%mat, N-1 )
-     end if
-     c2b = collection(N)%mat
-  end if
-
-end subroutine get_ch2be_from_collection
-
-
-
-subroutine economization1( &
-     c, &
-     tol )
-  implicit none
-  type(type_chebyshev_series1), intent(inout) :: c
-  real(kind=MATHpr),            intent(in)    :: tol
-  real(kind=MATHpr)                           :: tolsqr
-  integer                                     :: i, M
-
-  tolsqr = tol**2
-
-  M = c%degr+1
-  do i = M,1,-1
-     if ( sum( c%coef(i:M,:)**2 ) > tolsqr ) exit
-  end do
-  c%degr = i-1
-
-end subroutine economization1
-
-
-
-subroutine chebval2( &
-     f, &
-     c, &
-     xy )
-  implicit none
-  real(kind=MATHpr),            intent(in)  :: xy(2)
-  type(type_chebyshev_series2), intent(in)  :: c
-  real(kind=MATHpr),            intent(out) :: f(c%dim)
-  real(kind=MATHpr)                         :: b(c%degr(2)+1,c%dim)
-  integer                                   :: k
-
-  do k = 1,c%dim
-     call clenshaw( &
-          b(:,k), &
-          c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
-          [xy(1)], &
-          1, &
-          c%degr(1), &
-          c%degr(2)+1 )
-  end do
-  call clenshaw( &
-       f, &
-       b, &
-       [xy(2)], &
-       1, &
-       c%degr(2), &
-       c%dim )
-
-end subroutine chebval2
 
 
 
@@ -384,6 +275,343 @@ end subroutine chebbivar2univar
 
 
 
+subroutine ifcht1( &
+     c, &
+     f )
+  implicit none
+  type(type_chebyshev_series1), intent(in)  :: c
+  real(kind=MATHpr),            intent(out) :: f(c%degr+1,c%dim)
+  real(kind=MATHpr), allocatable            :: w(:)    
+  integer                                   :: j, degrprev, p
+  save w, degrprev
+  data degrprev /-1/
+
+  f = c%coef(1:c%degr+1,:)
+  f(2:c%degr,:) = 0.5_MATHpr * f(2:c%degr,:)
+
+  p = sizeminw( c%degr+1 )
+  if ( allocated(w) ) then
+     if ( size(w) < p ) deallocate( w )
+  end if
+  if ( .not.allocated( w ) ) allocate( w(p) )
+
+  if ( degrprev /= c%degr ) call dcosti( c%degr+1, w )
+  degrprev = c%degr
+
+  do j = 1,c%dim
+     call dcost( c%degr+1, f(:,j), w )
+  end do
+
+end subroutine ifcht1
+
+
+
+subroutine cgl_points( &
+     x, &
+     a, &
+     b, &
+     n )
+    ! Returns the n Chebyshev-Gauss-Lobatto points
+    ! mapped to the interval [a,b]
+    implicit none
+    integer,           intent(in)  :: n
+    real(kind=MATHpr), intent(in)  :: a, b
+    real(kind=MATHpr), intent(out) :: x(n)
+    integer                        :: i = 0
+
+    if (n == 1) then
+       x = 0.5_MATHpr*(a+b)
+    else
+       x = a + (b-a) * 0.5_MATHpr * ( 1._MATHpr + &
+            cos(MATHpi* [( real(i,kind=MATHpr)/real(n-1,kind=MATHpr) , &
+            i = n-1,0,-1 )]) )
+    end if
+
+  end subroutine cgl_points
+
+
+
+subroutine read_chebyshev_series2( &
+     c, &
+     filename )
+  use mod_util
+  implicit none
+  character(*),                 intent(in)  :: filename
+  type(type_chebyshev_series2), intent(out) :: c
+  integer                                   :: degr(2), dim
+  integer                                   :: fileunit, icoef, jcoef, idim
+
+  call get_free_unit( fileunit )
+  if ( fileunit == 0 ) STOP "read_chebyshev_series2 : could not find free unit"
+
+  open( unit = fileunit, file = filename, action = "read" )
+  read (fileunit,*) degr, dim
+  degr = degr - 1
+
+  if ( any(degr < 0) ) STOP "read_chebyshev_series2 : degr < 0"
+
+  call reset_chebyshev_series2( &
+       c, &
+       degr, &
+       dim)
+
+  do idim = 1,dim
+     do jcoef = 1,degr(2)+1
+        do icoef = 1,degr(1)+1
+           read (fileunit,*) c%coef(icoef,jcoef,idim)
+        end do
+     end do
+  end do
+  close(fileunit)
+
+end subroutine read_chebyshev_series2
+
+
+
+subroutine chebdiff1( &
+     c, &
+     d )
+  implicit none
+  type(type_chebyshev_series1), intent(in)  :: c
+  type(type_chebyshev_series1), intent(out) :: d
+
+  call reset_chebyshev_series1( d, max( c%degr-1, 0 ), c%dim )
+  call chebdiff( c%coef(1:c%degr+1,:), d%coef(1:max(c%degr,1),:), c%degr, c%dim )
+
+end subroutine chebdiff1
+
+
+
+subroutine write_chebyshev_series2( &
+     c, &
+     filename )
+  use mod_util
+  implicit none
+  character(*),                 intent(in) :: filename
+  type(type_chebyshev_series2), intent(in) :: c
+  integer                                  :: fileunit, icoef, jcoef, idim
+
+  call get_free_unit( fileunit )
+  if ( fileunit == 0 ) STOP "write_chebyshev_series2 : could not find free unit"
+
+  open( unit = fileunit, file = filename, action = "write" )
+  write (fileunit,*) c%degr+1, c%dim
+
+  do idim = 1,c%dim
+     do jcoef = 1,c%degr(2)+1
+        do icoef = 1,c%degr(1)+1
+           write (fileunit,"(ES22.15)") c%coef(icoef,jcoef,idim)
+        end do
+     end do
+  end do
+  close(fileunit)
+end subroutine write_chebyshev_series2
+
+
+
+subroutine delete_chebyshev_series1( &
+     c )
+  implicit none
+  type(type_chebyshev_series1), intent(inout) :: c
+
+  if (allocated(c%coef)) deallocate(c%coef)
+  c%dim = 0
+  c%degr = 0
+
+end subroutine delete_chebyshev_series1
+
+
+
+subroutine write_chebyshev_series1( &
+     c, &
+     filename )
+  use mod_util
+  implicit none
+  character(*),                 intent(in) :: filename
+  type(type_chebyshev_series1), intent(in) :: c
+  integer                                  :: fileunit, icoef, idim
+
+  call get_free_unit( fileunit )
+  if ( fileunit == 0 ) STOP "write_chebyshev_series1 : could not find free unit"
+
+  open( unit = fileunit, file = filename, action = "write" )
+  write (fileunit,*) c%degr+1, c%dim
+
+  do idim = 1,c%dim
+     do icoef = 1,c%degr+1
+        write (fileunit,"(ES22.15)") c%coef(icoef,idim)
+     end do
+  end do
+  close(fileunit)
+end subroutine write_chebyshev_series1
+
+
+
+function ith_cgl_point( i, n ) result( x )
+  ! Returns the i-th of the n+1 Chebyshev-Gauss-Lobatto points
+  ! xi = cos( i\pi/n ) with 0 <= i <= n
+  ! /!\ CGL points are ordered from +1 to -1 (x0 = +1, ..., xn = -1)
+  implicit none
+  integer, intent(in) :: i, n
+  real(kind=MATHpr)   :: x
+
+  x = cos( real( i, kind=MATHpr ) * MATHpi / real( n, kind=MATHpr ) )
+
+end function ith_cgl_point
+
+
+
+subroutine chebval2_corners( &
+     c, &
+     f )
+  implicit none
+  type(type_chebyshev_series2), intent(in)              :: c
+  real(kind=MATHpr),            intent(out)             :: f(c%dim,4)
+  integer                                               :: i = 0, m, n
+  real(kind=MATHpr), dimension(c%degr(1)+1,c%degr(2)+1) :: om, on
+
+  om = spread( &
+       source = real( (-1)**[ ( i, i=0,c%degr(1) ) ], kind=MATHpr ), &
+       dim = 2, &
+       ncopies = c%degr(2)+1 )
+  on = spread( &
+       source = real( (-1)**[ ( i, i=0,c%degr(2) ) ], kind=MATHpr ), &
+       dim = 1, &
+       ncopies = c%degr(1)+1 )
+
+  m = c%degr(1)+1
+  n = c%degr(2)+1
+
+  f(:,:) = 0._MATHpr
+  do i = 1,c%dim
+     f(i,1) = sum( sum( c%coef(1:m,1:n,i) * om * on, 2 ), 1 )
+     f(i,2) = sum( sum( c%coef(1:m,1:n,i) * on, 2 ), 1 )
+     f(i,3) = sum( sum( c%coef(1:m,1:n,i) * om, 2 ), 1 )
+     f(i,4) = sum( sum( c%coef(1:m,1:n,i), 2 ), 1 )
+  end do
+
+end subroutine chebval2_corners
+
+
+
+subroutine get_ch2be_from_collection( &
+     collection, &
+     N, &
+     c2b )
+  use mod_math
+  implicit none
+  integer,            intent(in)    :: N
+  type(type_matrix),  intent(inout) :: collection(:)
+  real(kind=MATHpr)                 :: c2b(N,N)
+
+  if ( N > size(collection) ) then
+     call ch2be_matrix( c2b, N-1 )
+  else
+     if ( .not.allocated(collection(N)%mat) ) then
+        allocate( collection(N)%mat(N,N) )
+        call ch2be_matrix( collection(N)%mat, N-1 )
+     end if
+     c2b = collection(N)%mat
+  end if
+
+end subroutine get_ch2be_from_collection
+
+
+
+subroutine fcht2( &
+     f, &
+     c, &
+     m, &
+     n, &
+     dim, &
+     epsilon )
+  implicit none
+  integer,                      intent(in)           :: m, n, dim
+  real(kind=MATHpr),            intent(in)           :: f(m, n, dim)
+  type(type_chebyshev_series2), intent(out)          :: c
+  real(kind=MATHpr),            intent(in), optional :: epsilon
+  real(kind=MATHpr)                                  :: w(3*max(m,n)+15)
+  integer                                            :: degr(2), i, j, k
+
+  degr(1) = m - 1
+  degr(2) = n - 1
+
+  call reset_chebyshev_series2( c, degr, dim )
+
+  c%coef = f / real( degr(1), kind=MATHpr )
+  call dcosti( m, w )
+  do k = 1,dim
+     do j = 1,n
+        call dcost( m, c%coef(:,j,k), w )
+     end do
+  end do
+  c%coef([1,m],:,:) = 0.5_MATHpr * c%coef([1,m],:,:)
+
+  c%coef = c%coef / real( degr(2), kind=MATHpr )
+  if ( degr(1) /= degr(2) ) call dcosti( n, w )
+  do k = 1,dim
+     do i = 1,m
+        call dcost( n, c%coef(i,:,k), w )
+     end do
+  end do
+  c%coef(:,[1,n],:) = 0.5_MATHpr * c%coef(:,[1,n],:)
+
+  if ( present(epsilon) ) then
+     where ( abs(c%coef) < epsilon ) c%coef = 0._MATHpr
+  end if
+
+end subroutine fcht2
+
+
+
+subroutine ifcht1_padded( &
+     c, &
+     f, &
+     m )
+  implicit none
+  type(type_chebyshev_series1), intent(in)  :: c
+  integer,                      intent(in)  :: m
+  real(kind=MATHpr),            intent(out) :: f(m,c%dim)
+  real(kind=MATHpr), allocatable            :: w(:)    
+  integer                                   :: j, degrprev, r, p
+  save w, degrprev
+  data degrprev /0/
+
+  r = min( m, c%degr+1 )
+  f(1:r,:) = c%coef(1:r,:)
+  if ( r < m ) f(r+1:m,:) = 0._MATHpr
+
+  p = sizeminw( m )
+  if ( allocated(w) ) then
+     if ( size(w) < p ) deallocate( w )
+  end if
+  if ( .not.allocated( w ) ) allocate( w(p) )
+
+  if ( degrprev /= m-1 ) call dcosti( m, w )
+  degrprev = m-1
+
+  f(2:m-1,:) = 0.5_MATHpr * f(2:m-1,:)
+  do j = 1,c%dim
+     call dcost( m, f(:,j), w )
+  end do
+
+end subroutine ifcht1_padded
+
+
+
+subroutine delete_chebyshev_series2( &
+     c )
+  implicit none
+  type(type_chebyshev_series2), intent(inout) :: c
+
+  if (allocated(c%coef)) deallocate(c%coef)
+  c%dim = 0
+  c%degr(:) = 0
+
+end subroutine delete_chebyshev_series2
+
+
+
 subroutine chebfit1( &
      x, &
      y, &
@@ -421,218 +649,26 @@ end subroutine chebfit1
 
 
 
-subroutine clenshaw( &
+subroutine chebval2_n( &
      f, &
      c, &
-     x, &
-     nx, &
-     degr, &
-     dim )
-  implicit none
-  integer,                      intent(in)  :: nx, degr, dim
-  real(kind=MATHpr),            intent(in)  :: x(nx)
-  real(kind=MATHpr),            intent(in)  :: c(degr+1,dim)
-  real(kind=MATHpr),            intent(out) :: f(nx,dim)
-  real(kind=MATHpr), dimension(nx)          :: bim1, bi, bip1
-  integer                                   :: i, j
-
-  do j = 1,dim
-     bip1(:) = 0._MATHpr
-     bi(:) = 0._MATHpr
-     do i = degr+1,2,-1
-        bim1 = c(i,j) + 2._MATHpr * x * bi - bip1
-        if ( i > 2 ) then
-           if (i < degr+1) bip1 = bi
-           bi = bim1
-        end if
-     end do
-     f(:,j) = c(1,j) + x * bim1 - bi
-  end do
-
-end subroutine clenshaw
-
-
-
-function sizeminw( n ) 
-  ! Minimal size of work array (see dfftpack documentation, dcosti subroutine)
-  implicit none
-  integer, intent(in) :: n
-  integer             :: sizeminw
-  sizeminw = 3*n + 15
-end function sizeminw
-
-
-
-subroutine chebdiff( &
-     c, &
-     d, &
-     degr, &
-     dim )
-  implicit none
-  integer,           intent(in)  :: degr, dim
-  real(kind=MATHpr), intent(in)  :: c(degr+1,dim)
-  real(kind=MATHpr), intent(out) :: d(max(degr,1),dim)
-  integer                        :: i
-
-  d(:,:) = 0._MATHpr
-  if ( degr < 1 ) return
-
-  d(degr,:) = real( 2*degr, kind=MATHpr ) * c(degr+1,:)
-
-  if ( degr > 1 ) then
-     d(degr-1,:) = real( 2*(degr-1), kind=MATHpr ) * c(degr,:)
-
-     if ( degr > 2 ) then
-        do i = degr-2,1,-1
-           d(i,:) = real( 2*i, kind=MATHpr ) * c(i+1,:) + d(i+2,:)
-        end do
-     end if
-
-  end if
-  d(1,:) = 0.5_MATHpr * d(1,:)
-
-end subroutine chebdiff
-
-
-
-subroutine chebval2_mn( &
-     f, &
-     c, &
-     x, &
-     y, &
-     nx, &
-     ny )
-  ! Evaluation of bivariate Chebyshev series at nodes of a tensor-product grid
-  implicit none
-  integer,                      intent(in)  :: nx, ny
-  real(kind=MATHpr),            intent(in)  :: x(nx), y(ny)
-  type(type_chebyshev_series2), intent(in)  :: c
-  real(kind=MATHpr),            intent(out) :: f(nx,ny,c%dim)
-  real(kind=MATHpr)                         :: b(ny,c%degr(1)+1)
-  integer                                   :: k
-
-  do k = 1,c%dim
-     call clenshaw( &
-          b, &
-          transpose( c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
-          y, &
-          ny, &
-          c%degr(2), &
-          c%degr(1)+1 )
-
-     call clenshaw( &
-          f(:,:,k), &
-          transpose(b), &
-          x, &
-          nx, &
-          c%degr(1), &
-          ny )
-  end do
-
-end subroutine chebval2_mn
-
-
-
-function ith_cgl_point( i, n ) result( x )
-  ! Returns the i-th of the n+1 Chebyshev-Gauss-Lobatto points
-  ! xi = cos( i\pi/n ) with 0 <= i <= n
-  ! /!\ CGL points are ordered from +1 to -1 (x0 = +1, ..., xn = -1)
-  implicit none
-  integer, intent(in) :: i, n
-  real(kind=MATHpr)   :: x
-
-  x = cos( real( i, kind=MATHpr ) * MATHpi / real( n, kind=MATHpr ) )
-
-end function ith_cgl_point
-
-
-
-subroutine cgl_points( &
-     x, &
-     a, &
-     b, &
-     n )
-    ! Returns the n Chebyshev-Gauss-Lobatto points
-    ! mapped to the interval [a,b]
-    implicit none
-    integer,           intent(in)  :: n
-    real(kind=MATHpr), intent(in)  :: a, b
-    real(kind=MATHpr), intent(out) :: x(n)
-    integer                        :: i = 0
-
-    if (n == 1) then
-       x = 0.5_MATHpr*(a+b)
-    else
-       x = a + (b-a) * 0.5_MATHpr * ( 1._MATHpr + &
-            cos(MATHpi* [( real(i,kind=MATHpr)/real(n-1,kind=MATHpr) , &
-            i = n-1,0,-1 )]) )
-    end if
-
-  end subroutine cgl_points
-
-
-
-subroutine write_chebyshev_series1( &
-     c, &
-     filename )
-  use mod_util
-  implicit none
-  character(*),                 intent(in) :: filename
-  type(type_chebyshev_series1), intent(in) :: c
-  integer                                  :: fileunit, icoef, idim
-
-  call get_free_unit( fileunit )
-  if ( fileunit == 0 ) STOP "write_chebyshev_series1 : could not find free unit"
-
-  open( unit = fileunit, file = filename, action = "write" )
-  write (fileunit,*) c%degr+1, c%dim
-
-  do idim = 1,c%dim
-     do icoef = 1,c%degr+1
-        write (fileunit,"(ES22.15)") c%coef(icoef,idim)
-     end do
-  end do
-  close(fileunit)
-end subroutine write_chebyshev_series1
-
-
-
-subroutine ifcht2_padded( &
-     c, &
-     f, &
-     m, &
+     xy, &
      n )
   implicit none
+  integer,                      intent(in)  :: n
+  real(kind=MATHpr),            intent(in)  :: xy(2,n)
   type(type_chebyshev_series2), intent(in)  :: c
-  integer,                      intent(in)  :: m, n
-  real(kind=MATHpr),            intent(out) :: f(m,n,c%dim)
-  real(kind=MATHpr)                         :: w(3*max(m,n)+15)
-  integer                                   :: i, j, k, r, s
+  real(kind=MATHpr),            intent(out) :: f(c%dim,n)
+  integer                                   :: i
 
-  r = min( m, c%degr(1)+1 )
-  s = min( n, c%degr(2)+1 )
-
-  f(1:r,1:s,:) = c%coef(1:r,1:s,:)
-  if ( r < m ) f(r+1:m,:,:) = 0._MATHpr
-  if ( s < n ) f(1:r,s+1:n,:) = 0._MATHpr
-
-  f(2:m-1,:,:) = 0.5_MATHpr * f(2:m-1,:,:)
-  call dcosti( m, w )
-  do k = 1,c%dim
-     do j = 1,n
-        call dcost( m, f(:,j,k), w )
-     end do
+  do i = 1,n
+     call chebval2( &
+          f(:,i), &
+          c, &
+          xy(:,i) )
   end do
 
-  f(:,2:n-1,:) = 0.5_MATHpr * f(:,2:n-1,:)
-  if ( m /= n ) call dcosti( n, w )
-  do k = 1,c%dim
-     do i = 1,m
-        call dcost( n, f(i,:,k), w )
-     end do
-  end do
-
-end subroutine ifcht2_padded
+end subroutine chebval2_n
 
 
 
@@ -683,6 +719,42 @@ subroutine cht_matrix( C, degr )
   C( 2:degr+1:2, degr+1:m+2:-1 ) = -C( 2:degr+1:2, 1:p:1 )
 
 end subroutine cht_matrix
+
+
+
+subroutine chebdiff2( &
+     c, &
+     du, &
+     dv )
+  implicit none
+  type(type_chebyshev_series2), intent(in)            :: c
+  type(type_chebyshev_series2), intent(out)           :: du
+  type(type_chebyshev_series2), intent(out), optional :: dv
+  real(kind=MATHpr)                                   :: tmp(max(c%degr(2),1),max(c%degr(1)+1,1))
+  integer                                             :: k
+
+  call reset_chebyshev_series2( du, max( [c%degr(1)-1, c%degr(2)], 0 ), c%dim )
+  do k = 1,c%dim
+     call chebdiff( &
+          c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
+          du%coef(1:max(c%degr(1),1),1:c%degr(2)+1,k), &
+          c%degr(1), &
+          c%degr(2)+1 )
+  end do
+
+  if ( present(dv) ) then
+     call reset_chebyshev_series2( dv, max( [c%degr(1), c%degr(2)-1], 0 ), c%dim )
+     do k = 1,c%dim
+        call chebdiff( &
+             transpose( c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
+             tmp, &
+             c%degr(2), &
+             c%degr(1)+1 )
+        dv%coef(1:size(tmp,2),1:size(tmp,1),k) = transpose(tmp)
+     end do
+  end if
+
+end subroutine chebdiff2
 
 
 
@@ -754,98 +826,106 @@ end subroutine fcht1
 
 
 
-subroutine chgvar1( &
+function sizeminw( n ) 
+  ! Minimal size of work array (see dfftpack documentation, dcosti subroutine)
+  implicit none
+  integer, intent(in) :: n
+  integer             :: sizeminw
+  sizeminw = 3*n + 15
+end function sizeminw
+
+
+
+subroutine chgvar2( &
      c, &
      s, &
-     x0, &
-     x1 )
+     xy0, &
+     xy1 )
   implicit none
-  type(type_chebyshev_series1), intent(in)  :: c
-  real(kind=MATHpr),            intent(in)  :: x0
-  real(kind=MATHpr),            intent(in)  :: x1
-  type(type_chebyshev_series1), intent(out) :: s
+  type(type_chebyshev_series2), intent(in)  :: c
+  real(kind=MATHpr),            intent(in)  :: xy0(2)
+  real(kind=MATHpr),            intent(in)  :: xy1(2)
+  type(type_chebyshev_series2), intent(out) :: s
+  real(kind=MATHpr)                         :: tmp(c%degr(2)+1,c%degr(1)+1)
+  integer                                   :: k
 
-  call reset_chebyshev_series1( s, c%degr, c%dim )
+  call reset_chebyshev_series2( s, c%degr, c%dim )
+  do k = 1,c%dim
+     call chgvar( &
+          c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
+          s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
+          xy0(1), &
+          xy1(1), &
+          c%degr(1), &
+          c%degr(2)+1 )
 
-  call chgvar( &
-       c%coef(1:c%degr+1,:), &
-       s%coef(1:c%degr+1,:), &
-       x0, &
-       x1, &
-       c%degr, &
-       c%dim )
+     call chgvar( &
+          transpose( s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
+          tmp, &
+          xy0(2), &
+          xy1(2), &
+          c%degr(2), &
+          c%degr(1)+1 )
 
-end subroutine chgvar1
-
-
-
-subroutine chebval1_n( &
-     f, &
-     c, &
-     x, &
-     n )
-  implicit none
-  integer,                      intent(in)  :: n
-  real(kind=MATHpr),            intent(in)  :: x(n)
-  type(type_chebyshev_series1), intent(in)  :: c
-  real(kind=MATHpr),            intent(out) :: f(n,c%dim)
-
-  call clenshaw( &
-       f, &
-       c%coef(1:c%degr+1,:), &
-       x, &
-       n, &
-       c%degr, &
-       c%dim )
-
-end subroutine chebval1_n
-
-
-
-subroutine chebdiff1( &
-     c, &
-     d )
-  implicit none
-  type(type_chebyshev_series1), intent(in)  :: c
-  type(type_chebyshev_series1), intent(out) :: d
-
-  call reset_chebyshev_series1( d, max( c%degr-1, 0 ), c%dim )
-  call chebdiff( c%coef(1:c%degr+1,:), d%coef(1:max(c%degr,1),:), c%degr, c%dim )
-
-end subroutine chebdiff1
-
-
-
-subroutine chebval2_corners( &
-     c, &
-     f )
-  implicit none
-  type(type_chebyshev_series2), intent(in)              :: c
-  real(kind=MATHpr),            intent(out)             :: f(c%dim,4)
-  integer                                               :: i = 0, m, n
-  real(kind=MATHpr), dimension(c%degr(1)+1,c%degr(2)+1) :: om, on
-
-  om = spread( &
-       source = real( (-1)**[ ( i, i=0,c%degr(1) ) ], kind=MATHpr ), &
-       dim = 2, &
-       ncopies = c%degr(2)+1 )
-  on = spread( &
-       source = real( (-1)**[ ( i, i=0,c%degr(2) ) ], kind=MATHpr ), &
-       dim = 1, &
-       ncopies = c%degr(1)+1 )
-
-  m = c%degr(1)+1
-  n = c%degr(2)+1
-
-  f(:,:) = 0._MATHpr
-  do i = 1,c%dim
-     f(i,1) = sum( sum( c%coef(1:m,1:n,i) * om * on, 2 ), 1 )
-     f(i,2) = sum( sum( c%coef(1:m,1:n,i) * on, 2 ), 1 )
-     f(i,3) = sum( sum( c%coef(1:m,1:n,i) * om, 2 ), 1 )
-     f(i,4) = sum( sum( c%coef(1:m,1:n,i), 2 ), 1 )
+     s%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) = transpose(tmp)
   end do
 
-end subroutine chebval2_corners
+end subroutine chgvar2
+
+
+
+subroutine economization2( &
+     c, &
+     tol )
+  implicit none
+  type(type_chebyshev_series2), intent(inout) :: c
+  real(kind=MATHpr),            intent(in)    :: tol
+  real(kind=MATHpr)                           :: tolsqr
+  real(kind=MATHpr), dimension(c%dim)         :: s, r
+  integer                                     :: i, j
+
+  tolsqr = tol**2
+
+  s = sum( sum( abs(c%coef), 2), 1 )
+
+  do i = c%degr(1)+1,1,-1
+     r = sum( sum( abs(c%coef(1:i-1,1:c%degr(2)+1,:)), 2), 1 )
+     if ( sum( (s - r)**2 ) > tolsqr ) exit
+  end do
+  c%degr(1) = i-1
+
+  do j = c%degr(2)+1,1,-1
+     r = sum( sum( abs(c%coef(1:i,1:j-1,:)), 2), 1 )
+     if ( sum( (s - r)**2 ) > tolsqr ) exit
+  end do
+  c%degr(2) = j-1
+
+end subroutine economization2
+
+
+
+subroutine reset_chebyshev_series2( &
+     c, &
+     degr, &
+     dim )
+  implicit none
+  integer,                      intent(in)  :: degr(2)
+  integer,                      intent(in)  :: dim
+  type(type_chebyshev_series2), intent(out) :: c
+
+  if ( allocated(c%coef) ) then
+     !if ( any(c%degr < degr) .or. c%dim < dim ) deallocate(c%coef)
+     if ( size(c%coef,1) <= degr(1) .or. &
+          size(c%coef,2) <= degr(2) .or. &
+          size(c%coef,3) < dim ) deallocate(c%coef)
+  end if
+  if ( .not.allocated(c%coef) ) allocate(c%coef(1:degr(1)+1, 1:degr(2)+1, dim))
+
+  c%degr = degr
+  c%dim = dim
+  c%coef(:,:,:) = 0._MATHpr
+
+end subroutine reset_chebyshev_series2
 
 
 
@@ -895,172 +975,6 @@ subroutine chgvar( c, s, x0, x1, degr, dim )
   end do
 
 end subroutine chgvar
-
-
-
-subroutine delete_chebyshev_series1( &
-     c )
-  implicit none
-  type(type_chebyshev_series1), intent(inout) :: c
-
-  if (allocated(c%coef)) deallocate(c%coef)
-  c%dim = 0
-  c%degr = 0
-
-end subroutine delete_chebyshev_series1
-
-
-
-subroutine fcht2( &
-     f, &
-     c, &
-     m, &
-     n, &
-     dim, &
-     epsilon )
-  implicit none
-  integer,                      intent(in)           :: m, n, dim
-  real(kind=MATHpr),            intent(in)           :: f(m, n, dim)
-  type(type_chebyshev_series2), intent(out)          :: c
-  real(kind=MATHpr),            intent(in), optional :: epsilon
-  real(kind=MATHpr)                                  :: w(3*max(m,n)+15)
-  integer                                            :: degr(2), i, j, k
-
-  degr(1) = m - 1
-  degr(2) = n - 1
-
-  call reset_chebyshev_series2( c, degr, dim )
-
-  c%coef = f / real( degr(1), kind=MATHpr )
-  call dcosti( m, w )
-  do k = 1,dim
-     do j = 1,n
-        call dcost( m, c%coef(:,j,k), w )
-     end do
-  end do
-  c%coef([1,m],:,:) = 0.5_MATHpr * c%coef([1,m],:,:)
-
-  c%coef = c%coef / real( degr(2), kind=MATHpr )
-  if ( degr(1) /= degr(2) ) call dcosti( n, w )
-  do k = 1,dim
-     do i = 1,m
-        call dcost( n, c%coef(i,:,k), w )
-     end do
-  end do
-  c%coef(:,[1,n],:) = 0.5_MATHpr * c%coef(:,[1,n],:)
-
-  if ( present(epsilon) ) then
-     where ( abs(c%coef) < epsilon ) c%coef = 0._MATHpr
-  end if
-
-end subroutine fcht2
-
-
-
-subroutine chebval2_n( &
-     f, &
-     c, &
-     xy, &
-     n )
-  implicit none
-  integer,                      intent(in)  :: n
-  real(kind=MATHpr),            intent(in)  :: xy(2,n)
-  type(type_chebyshev_series2), intent(in)  :: c
-  real(kind=MATHpr),            intent(out) :: f(c%dim,n)
-  integer                                   :: i
-
-  do i = 1,n
-     call chebval2( &
-          f(:,i), &
-          c, &
-          xy(:,i) )
-  end do
-
-end subroutine chebval2_n
-
-
-
-subroutine cs2edge2cs1( &
-     c2, &
-     ivar, &
-     ival, &
-     c1 )
-  implicit none
-  type(type_chebyshev_series2), intent(in)  :: c2
-  integer,                      intent(in)  :: ivar,ival
-  type(type_chebyshev_series1), intent(out) :: c1
-  integer                                   :: i, j, k=0
-
-  call reset_chebyshev_series1( c1, c2%degr(1+mod(ivar,2)), c2%dim )
-
-  if ( ival == 2 ) then
-     do j = 1,c2%dim
-        c1%coef(:,j) = sum( c2%coef(1:c2%degr(1)+1,1:c2%degr(2)+1,j), ivar )
-     end do
-  else
-     if ( ivar == 1 ) then
-        do j = 1,c2%dim
-           do i = 1,c2%degr(2)+1
-              c1%coef(i,j) = sum( &
-                   c2%coef(1:c2%degr(1)+1,i,j) * real( [( (-1)**k, k=0,c2%degr(1) )], kind=MATHpr ) &
-                   )
-           end do
-        end do
-     else
-        do j = 1,c2%dim
-           do i = 1,c2%degr(1)+1
-              c1%coef(i,j) = sum( &
-                   c2%coef(i,1:c2%degr(2)+1,j) * real( [( (-1)**k, k=0,c2%degr(2) )], kind=MATHpr ) &
-                   )
-           end do
-        end do
-     end if
-  end if
-
-end subroutine cs2edge2cs1
-
-
-
-subroutine economization2( &
-     c, &
-     tol )
-  implicit none
-  type(type_chebyshev_series2), intent(inout) :: c
-  real(kind=MATHpr),            intent(in)    :: tol
-  real(kind=MATHpr)                           :: tolsqr
-  real(kind=MATHpr), dimension(c%dim)         :: s, r
-  integer                                     :: i, j
-
-  tolsqr = tol**2
-
-  s = sum( sum( abs(c%coef), 2), 1 )
-
-  do i = c%degr(1)+1,1,-1
-     r = sum( sum( abs(c%coef(1:i-1,1:c%degr(2)+1,:)), 2), 1 )
-     if ( sum( (s - r)**2 ) > tolsqr ) exit
-  end do
-  c%degr(1) = i-1
-
-  do j = c%degr(2)+1,1,-1
-     r = sum( sum( abs(c%coef(1:i,1:j-1,:)), 2), 1 )
-     if ( sum( (s - r)**2 ) > tolsqr ) exit
-  end do
-  c%degr(2) = j-1
-
-end subroutine economization2
-
-
-
-subroutine delete_chebyshev_series2( &
-     c )
-  implicit none
-  type(type_chebyshev_series2), intent(inout) :: c
-
-  if (allocated(c%coef)) deallocate(c%coef)
-  c%dim = 0
-  c%degr(:) = 0
-
-end subroutine delete_chebyshev_series2
 
 
 
@@ -1114,70 +1028,101 @@ end subroutine ch2be_matrix
 
 
 
-subroutine chebdiff2( &
+subroutine chebval2( &
+     f, &
      c, &
-     du, &
-     dv )
+     xy )
   implicit none
-  type(type_chebyshev_series2), intent(in)            :: c
-  type(type_chebyshev_series2), intent(out)           :: du
-  type(type_chebyshev_series2), intent(out), optional :: dv
-  real(kind=MATHpr)                                   :: tmp(max(c%degr(2),1),max(c%degr(1)+1,1))
-  integer                                             :: k
+  real(kind=MATHpr),            intent(in)  :: xy(2)
+  type(type_chebyshev_series2), intent(in)  :: c
+  real(kind=MATHpr),            intent(out) :: f(c%dim)
+  real(kind=MATHpr)                         :: b(c%degr(2)+1,c%dim)
+  integer                                   :: k
 
-  call reset_chebyshev_series2( du, max( [c%degr(1)-1, c%degr(2)], 0 ), c%dim )
   do k = 1,c%dim
-     call chebdiff( &
+     call clenshaw( &
+          b(:,k), &
           c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k), &
-          du%coef(1:max(c%degr(1),1),1:c%degr(2)+1,k), &
+          [xy(1)], &
+          1, &
           c%degr(1), &
           c%degr(2)+1 )
   end do
+  call clenshaw( &
+       f, &
+       b, &
+       [xy(2)], &
+       1, &
+       c%degr(2), &
+       c%dim )
 
-  if ( present(dv) ) then
-     call reset_chebyshev_series2( dv, max( [c%degr(1), c%degr(2)-1], 0 ), c%dim )
-     do k = 1,c%dim
-        call chebdiff( &
-             transpose( c%coef(1:c%degr(1)+1,1:c%degr(2)+1,k) ), &
-             tmp, &
-             c%degr(2), &
-             c%degr(1)+1 )
-        dv%coef(1:size(tmp,2),1:size(tmp,1),k) = transpose(tmp)
+end subroutine chebval2
+
+
+
+subroutine cs2edge2cs1( &
+     c2, &
+     ivar, &
+     ival, &
+     c1 )
+  implicit none
+  type(type_chebyshev_series2), intent(in)  :: c2
+  integer,                      intent(in)  :: ivar,ival
+  type(type_chebyshev_series1), intent(out) :: c1
+  integer                                   :: i, j, k=0
+
+  call reset_chebyshev_series1( c1, c2%degr(1+mod(ivar,2)), c2%dim )
+
+  if ( ival == 2 ) then
+     do j = 1,c2%dim
+        c1%coef(:,j) = sum( c2%coef(1:c2%degr(1)+1,1:c2%degr(2)+1,j), ivar )
      end do
+  else
+     if ( ivar == 1 ) then
+        do j = 1,c2%dim
+           do i = 1,c2%degr(2)+1
+              c1%coef(i,j) = sum( &
+                   c2%coef(1:c2%degr(1)+1,i,j) * real( [( (-1)**k, k=0,c2%degr(1) )], kind=MATHpr ) &
+                   )
+           end do
+        end do
+     else
+        do j = 1,c2%dim
+           do i = 1,c2%degr(1)+1
+              c1%coef(i,j) = sum( &
+                   c2%coef(i,1:c2%degr(2)+1,j) * real( [( (-1)**k, k=0,c2%degr(2) )], kind=MATHpr ) &
+                   )
+           end do
+        end do
+     end if
   end if
 
-end subroutine chebdiff2
+end subroutine cs2edge2cs1
 
 
 
-subroutine ifcht1( &
+subroutine chgvar1( &
      c, &
-     f )
+     s, &
+     x0, &
+     x1 )
   implicit none
   type(type_chebyshev_series1), intent(in)  :: c
-  real(kind=MATHpr),            intent(out) :: f(c%degr+1,c%dim)
-  real(kind=MATHpr), allocatable            :: w(:)    
-  integer                                   :: j, degrprev, p
-  save w, degrprev
-  data degrprev /-1/
+  real(kind=MATHpr),            intent(in)  :: x0
+  real(kind=MATHpr),            intent(in)  :: x1
+  type(type_chebyshev_series1), intent(out) :: s
 
-  f = c%coef(1:c%degr+1,:)
-  f(2:c%degr,:) = 0.5_MATHpr * f(2:c%degr,:)
+  call reset_chebyshev_series1( s, c%degr, c%dim )
 
-  p = sizeminw( c%degr+1 )
-  if ( allocated(w) ) then
-     if ( size(w) < p ) deallocate( w )
-  end if
-  if ( .not.allocated( w ) ) allocate( w(p) )
+  call chgvar( &
+       c%coef(1:c%degr+1,:), &
+       s%coef(1:c%degr+1,:), &
+       x0, &
+       x1, &
+       c%degr, &
+       c%dim )
 
-  if ( degrprev /= c%degr ) call dcosti( c%degr+1, w )
-  degrprev = c%degr
-
-  do j = 1,c%dim
-     call dcost( c%degr+1, f(:,j), w )
-  end do
-
-end subroutine ifcht1
+end subroutine chgvar1
 
 
 
@@ -1213,4 +1158,59 @@ subroutine read_chebyshev_series1( &
   close(fileunit)
 
 end subroutine read_chebyshev_series1
+
+
+
+subroutine clenshaw( &
+     f, &
+     c, &
+     x, &
+     nx, &
+     degr, &
+     dim )
+  implicit none
+  integer,                      intent(in)  :: nx, degr, dim
+  real(kind=MATHpr),            intent(in)  :: x(nx)
+  real(kind=MATHpr),            intent(in)  :: c(degr+1,dim)
+  real(kind=MATHpr),            intent(out) :: f(nx,dim)
+  real(kind=MATHpr), dimension(nx)          :: bim1, bi, bip1
+  integer                                   :: i, j
+
+  do j = 1,dim
+     bip1(:) = 0._MATHpr
+     bi(:) = 0._MATHpr
+     do i = degr+1,2,-1
+        bim1 = c(i,j) + 2._MATHpr * x * bi - bip1
+        if ( i > 2 ) then
+           if (i < degr+1) bip1 = bi
+           bi = bim1
+        end if
+     end do
+     f(:,j) = c(1,j) + x * bim1 - bi
+  end do
+
+end subroutine clenshaw
+
+
+
+subroutine chebval1_n( &
+     f, &
+     c, &
+     x, &
+     n )
+  implicit none
+  integer,                      intent(in)  :: n
+  real(kind=MATHpr),            intent(in)  :: x(n)
+  type(type_chebyshev_series1), intent(in)  :: c
+  real(kind=MATHpr),            intent(out) :: f(n,c%dim)
+
+  call clenshaw( &
+       f, &
+       c%coef(1:c%degr+1,:), &
+       x, &
+       n, &
+       c%degr, &
+       c%dim )
+
+end subroutine chebval1_n
 end module mod_chebyshev

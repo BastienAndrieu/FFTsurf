@@ -1,13 +1,18 @@
 import bpy
 import numpy as np
 import sys
-sys.path.append('/home/bastien/Bureau/Python/')
+#sys.path.append('/home/bastien/Bureau/Python/')
+sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
 import my_lib1 as myl
 import my_lib as mylb
 
 
-uvxyz = np.loadtxt('uv_xyz.dat')
-pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
+#pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
+pth = '/home/bandrieu/GitHub/FFTsurf/test/dev_intersection_simple_surface/'
+
+
+uvxyz = np.loadtxt( pth + 'uv_xyz.dat' )
+
 
 ## set up a blank scene
 mylb.blankScene()

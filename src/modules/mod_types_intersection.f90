@@ -91,7 +91,7 @@ module mod_types_intersection
   type type_intersection_segment                                                                                                !
      integer                                    :: head = 0            ! first polyline point                                   !
      integer                                    :: tail = 0            ! last polyline point                                    !
-     integer                                    :: endpoints           ! indices of intersection_points at endpoints            !
+     integer                                    :: endpoints(2)        ! indices of intersection_points at endpoints            !
      real(kind=MATHpr)                          :: endangles(2)        ! tangent direction at endpoints                         !
      type(type_intersection_segment), pointer   :: child(:) => null()  ! child segments in tree                                 !
      type(type_intersection_segment), pointer   :: parent(:) => null() ! parent segment in tree                                 !

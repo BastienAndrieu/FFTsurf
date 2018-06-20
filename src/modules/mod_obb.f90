@@ -34,25 +34,27 @@ contains
     M = box2%ctr - box1%ctr
     c = matmul( transpose(box1%axe), box2%axe )
 
+    !PRINT *,'M =',M
+    !PRINT *,'C ='
+    !CALL PRINT_MAT( C )
+
     ! test all 15 possible separating axes
     do i = 1,15
        j = 1 + mod( i-1, 3 )
 
        if ( i == 4 .or. i == 7 ) c = transpose(c)
 
-       !if ( i < 7 ) then
-          !k = (i-j)/3 + 1
-          !Rk = boxes(k)%rng(j)
-          !Rl = dot_product( boxes(1+mod(k,2))%rng, abs(c(j,:)) )
-          !R = abs( dot_product( boxes(k)%axe(:,j), M ) )
-       if ( i < 4 ) then
-          Rk = box1%rng(j)
-          Rl = dot_product( box2%rng, abs(c(j,:)) )
-          R = abs( dot_product( box1%axe(:,j), M ) )
-       elseif ( i < 7 ) then
-          Rk = box2%rng(j)
-          Rl = dot_product( box1%rng, abs(c(j,:)) )
-          R = abs( dot_product( box2%axe(:,j), M ) )
+       if ( i < 7 ) then
+          k = (i-j)/3 + 1
+          if ( k == 1 ) then
+             Rk = box1%rng(j)
+             Rl = dot_product( box2%rng, abs(c(j,:)) )
+             R = abs( dot_product( box1%axe(:,j), M ) )
+          else
+             Rk = box2%rng(j)
+             Rl = dot_product( box1%rng, abs(c(j,:)) )
+             R = abs( dot_product( box2%axe(:,j), M ) )
+          end if
        else
           k = (i-j)/3 - 1
           l = max( 3-k, 1 )
@@ -69,7 +71,12 @@ contains
                c(s,j) * dot_product( box1%axe(:,q), M ) &
                )
        end if
+       
+       !PRINT *,'RK =',RK
+       !PRINT *,'RL =',RL
+       !PRINT *,'R  =',R
 
+       !PRINT *,'I=',I,', R-(RK+RL) =',R - RK - RL
        if ( R > Rk + Rl ) then
           !PRINT *,'R - (RK + RL) =',R - RK - RL
           !PRINT *,'DISJOINT OBBs, I =',I
@@ -419,7 +426,7 @@ contains
     mx = maxval( X, DIM=1 )
     box%rng = 0.5_fp * ( mx - mn )
     box%rng = box%rng + MRGobb
-    box%rng = max( EPSobb, box%rng )
+    !box%rng = max( EPSobb, box%rng )
 
     ! center
     box%ctr = 0.5_fp * matmul( box%axe, mx + mn )
@@ -433,11 +440,11 @@ subroutine print_obb( box )
   implicit none
   type(type_obb), intent(in) :: box
   integer                    :: i
-  print *,'ctr =',real(box%ctr)
-  print *,'rng =',real(box%rng)
+  print *,'ctr =',box%ctr
+  print *,'rng =',box%rng
   print *,'axe ='
   do i = 1,3
-     print *,real(box%axe(:,i))
+     print *,box%axe(:,i)
   end do
   
 end subroutine print_obb
