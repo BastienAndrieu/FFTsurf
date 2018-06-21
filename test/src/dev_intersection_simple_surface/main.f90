@@ -39,7 +39,8 @@
   type type_intersection_curve
      logical                                    :: smooth = .false.
      type(ptr_surface)                          :: surf(2)
-     type(ptr_region)                           :: region(2)
+     !type(ptr_region)                           :: region(2)
+     real(kind=fp)                              :: uvbox(2,2,2) ! umin/max, vmin/max, #surf
      real(kind=fp)                              :: param_vector(3)
      type(type_intersection_segment)            :: root
      type(type_intersection_polyline)           :: polyline
@@ -80,7 +81,7 @@
   type(type_region), target  :: root(2)
   type(ptr_surface)          :: surfroot(2)
   type(ptr_region)           :: region(2)
-  type(type_listcurves)      :: listcurv
+  !type(type_listcurves)      :: listcurv
   type(type_intersection_data) :: interdat
 
   real(kind=fp), allocatable :: uvxyz(:,:)
@@ -151,10 +152,11 @@
      region(isurf)%ptr => root(isurf)
      surfroot(isurf)%ptr => surf(isurf)
 
-     allocate( region(isurf)%ptr%poly )
+     allocate( region(isurf)%ptr%poly(1) )
+     allocate( region(isurf)%ptr%poly(1)%ptr )
      call cheb2bern_poly( &
           surf(isurf)%x, &
-          region(isurf)%ptr%poly )
+          region(isurf)%ptr%poly(1)%ptr )
   end do
 
 
@@ -167,7 +169,7 @@
        region, &
        [1._fp, 0._fp, 0._fp], &
        interdat, &
-       listcurv, &
+       !listcurv, &
        uvxyz, &
        nuvxyz, &
        stat_degeneracy )
@@ -177,17 +179,17 @@
 
   PRINT *,'STAT_DEGENERACY =',STAT_DEGENERACY
 
-  call get_free_unit( fileunit )
-  open( &
-       unit=fileunit, &
-       file='dev_intersection_simple_surface/curves.dat', &
-       action='write' )
-  write ( fileunit, * ) listcurv%nc
-  do i = 1,listcurv%nc
-     write ( fileunit, * ) listcurv%curve(i)%uvxyz(:,1)
-     write ( fileunit, * ) listcurv%curve(i)%uvxyz(:,2)
-  end do
-  close( fileunit )
+  !call get_free_unit( fileunit )
+  !open( &
+  !     unit=fileunit, &
+  !     file='dev_intersection_simple_surface/curves.dat', &
+  !     action='write' )
+  !write ( fileunit, * ) listcurv%nc
+  !do i = 1,listcurv%nc
+  !   write ( fileunit, * ) listcurv%curve(i)%uvxyz(:,1)
+  !   write ( fileunit, * ) listcurv%curve(i)%uvxyz(:,2)
+  !end do
+  !close( fileunit )
 
 
 
@@ -230,8 +232,10 @@
   write ( fileunit, * ) interdat%nc
   do i = 1,interdat%nc
      write ( fileunit, * ) interdat%curves(i)%root%endpoints
-     write ( fileunit, * ) interdat%curves(i)%region(1)%ptr%uvbox
-     write ( fileunit, * ) interdat%curves(i)%region(2)%ptr%uvbox
+     !write ( fileunit, * ) interdat%curves(i)%region(1)%ptr%uvbox
+     !write ( fileunit, * ) interdat%curves(i)%region(2)%ptr%uvbox
+     write ( fileunit, * ) interdat%curves(i)%uvbox(:,:,1)
+     write ( fileunit, * ) interdat%curves(i)%uvbox(:,:,2)
   end do
   close( fileunit )
 
@@ -245,7 +249,7 @@
           'dev_intersection_simple_surface/tree_' // strnum // '.dat' )
 
      call free_region_tree( region(isurf)%ptr )
-     call free_polynomial( region(isurf)%ptr%poly )
+     call free_polynomial( region(isurf)%ptr%poly(1)%ptr )
      deallocate( region(isurf)%ptr%poly )
 
      call free_polynomial( surf(isurf)%x )

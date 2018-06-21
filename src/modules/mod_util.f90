@@ -460,4 +460,26 @@ contains
 
 
 
+
+
+ subroutine write_matrix( a, m, n, filename )
+   implicit none
+   integer,      intent(in) :: m, n
+   real*8,       intent(in) :: a(m,n)
+   character(*), intent(in) :: filename
+   integer                  :: fileunit, i
+
+   call get_free_unit( fileunit )
+   open( unit=fileunit, file=filename, action='write' )
+   do i = 1,m
+      write ( unit=fileunit, fmt=* ) a(i,:)
+   end do
+   close( fileunit )
+ end subroutine write_matrix
+
+
+ 
+
+
+
 end module mod_util

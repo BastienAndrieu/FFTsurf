@@ -65,14 +65,14 @@ recursive subroutine intersect_curve_surface( &
   IF (.FALSE.) THEN
      if ( n_sharedpts == 0 ) then
         ! check endpoint/corner pairs for possible intersection point
-        do k = 1,region_s%poly%degr(2)+1,region_s%poly%degr(2)
-           do j = 1,region_s%poly%degr(1)+1,region_s%poly%degr(1)
-              do i = 1,region_c%poly%degr(1)+1,region_c%poly%degr(1)
-                 if ( sum( (region_c%poly%coef(i,:,1) - region_s%poly%coef(j,k,:))**2 ) < EPSxyzsqr ) then
-                    xyz = 0.5_fp * ( region_c%poly%coef(i,:,1) + region_s%poly%coef(j,k,:) )
-                    tuv(1) = real( i-1, kind=fp ) / real( region_c%poly%degr(1), kind=fp )
-                    tuv(2) = real( j-1, kind=fp ) / real( region_s%poly%degr(1), kind=fp )
-                    tuv(3) = real( k-1, kind=fp ) / real( region_s%poly%degr(2), kind=fp )
+        do k = 1,region_s%poly(1)%ptr%degr(2)+1,region_s%poly(1)%ptr%degr(2)
+           do j = 1,region_s%poly(1)%ptr%degr(1)+1,region_s%poly(1)%ptr%degr(1)
+              do i = 1,region_c%poly(1)%ptr%degr(1)+1,region_c%poly(1)%ptr%degr(1)
+                 if ( sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ) < EPSxyzsqr ) then
+                    xyz = 0.5_fp * ( region_c%poly(1)%ptr%coef(i,:,1) + region_s%poly(1)%ptr%coef(j,k,:) )
+                    tuv(1) = real( i-1, kind=fp ) / real( region_c%poly(1)%ptr%degr(1), kind=fp )
+                    tuv(2) = real( j-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(1), kind=fp )
+                    tuv(3) = real( k-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(2), kind=fp )
                     tuv = -1._fp + 2._fp * tuv
 
                     call append_vector( &
@@ -108,8 +108,8 @@ recursive subroutine intersect_curve_surface( &
      else ! ------------------------------------------------------------------------------------------+                       !
         ! check if the curve and surface regions can intersect at other (not yet discovered) points   !                       !
         call intersect_curve_surface_elsewhere( &                                                     !                       !
-             region_c%poly, &                                                                         !                       !
-             region_s%poly, &                                                                         !                       !
+             region_c%poly(1)%ptr, &                                                                         !                       !
+             region_s%poly(1)%ptr, &                                                                         !                       !
              coords(4:6,sharedpts(1)), &                                                              !                       !
              separable, &                                                                             !                       !
              randomize=.true. )                                                                       !                       !
@@ -141,16 +141,16 @@ recursive subroutine intersect_curve_surface( &
      if ( .not.associated(region_c%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_c%xyzbox )                                                          !                                !
         call bernOBB1( &                                                                     !                                !
-             region_c%poly%coef(1:region_c%poly%degr(1)+1,1:3,1), &                          !                                !
-             region_c%poly%degr(1), &                                                        !                                !
+             region_c%poly(1)%ptr%coef(1:region_c%poly(1)%ptr%degr(1)+1,1:3,1), &                          !                                !
+             region_c%poly(1)%ptr%degr(1), &                                                        !                                !
              region_c%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
      if ( .not.associated(region_s%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_s%xyzbox )                                                          !                                !
         call bernOBB2( &                                                                     !                                !
-             region_s%poly%coef(1:region_s%poly%degr(1)+1,1:region_s%poly%degr(2)+1,1:3), &  !                                !
-             region_s%poly%degr, &                                                           !                                !
+             region_s%poly(1)%ptr%coef(1:region_s%poly(1)%ptr%degr(1)+1,1:region_s%poly(1)%ptr%degr(2)+1,1:3), &  !                                !
+             region_s%poly(1)%ptr%degr, &                                                           !                                !
              region_s%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
@@ -253,12 +253,13 @@ recursive subroutine intersect_curve_surface( &
      !                                                                          !
      if ( stat_subdiv == 0 ) then ! <-----------------------------------+       !
         ! the curve region has no children yet                          !       !
-        allocate( region_c%child(1)%poly, region_c%child(2)%poly )      !       !
+        allocate( region_c%child(1)%poly(1), region_c%child(2)%poly(1) )      !       !
+        allocate( region_c%child(1)%poly(1)%ptr, region_c%child(2)%poly(1)%ptr )
         call subdiv_bezier1( &                                          !       !
-             region_c%poly, &                                           !       !
+             region_c%poly(1)%ptr, &                                           !       !
              tuv_subdiv(1), &                                           !       !
-             bl=region_c%child(1)%poly, &                               !       !
-             br=region_c%child(2)%poly )                                !       !
+             bl=region_c%child(1)%poly(1)%ptr, &                               !       !
+             br=region_c%child(2)%poly(1)%ptr )                                !       !
      end if ! <---------------------------------------------------------+       !
      !                                                                          !
   end if ! <--------------------------------------------------------------------+
@@ -275,7 +276,7 @@ recursive subroutine intersect_curve_surface( &
   tuv_subdiv(3) = 0.5_fp * ( ab2n1p1( tuv_subdiv(3), region_s%uvbox(3), region_s%uvbox(4) ) + 1._fp )
 
   if ( stat_subdiv == 2 ) then ! <----------------------------------------------+
-     ! the subdivision point is at one of the curve's corners                   !
+     ! the subdivision point is at one of the surface's corners                 !
      nchild(2) = 1                                                              !
   else ! -----------------------------------------------------------------------+
      ! the subdivision point is interior to the surface                         !
@@ -285,30 +286,34 @@ recursive subroutine intersect_curve_surface( &
   if ( stat_subdiv == 0 ) then ! <------------------------------------------------------+
      ! 4 children                                                                       !
      allocate( &                                                                        !
-          region_s%child(1)%poly, region_s%child(2)%poly, &                             !
-          region_s%child(3)%poly, region_s%child(4)%poly )                              !
+          region_s%child(1)%poly(1), region_s%child(2)%poly(1), &                             !
+          region_s%child(3)%poly(1), region_s%child(4)%poly(1) )                              !
+     allocate( &                                                                        !
+          region_s%child(1)%poly(1)%ptr, region_s%child(2)%poly(1)%ptr, &                             !
+          region_s%child(3)%poly(1)%ptr, region_s%child(4)%poly(1)%ptr )                              !
      call subdiv_bezier2( &                                                             !
-          region_s%poly, &                                                              !
+          region_s%poly(1)%ptr, &                                                              !
           tuv_subdiv(2:3), &                                                            !
-          bsw=region_s%child(1)%poly, &                                                 !
-          bse=region_s%child(2)%poly, &                                                 !
-          bnw=region_s%child(3)%poly, &                                                 !
-          bne=region_s%child(4)%poly )                                                  !
+          bsw=region_s%child(1)%poly(1)%ptr, &                                                 !
+          bse=region_s%child(2)%poly(1)%ptr, &                                                 !
+          bnw=region_s%child(3)%poly(1)%ptr, &                                                 !
+          bne=region_s%child(4)%poly(1)%ptr )                                                  !
   elseif ( stat_subdiv == 1 ) then ! ---------------------------------------------------+
      ! 2 children                                                                       !
-     allocate( region_s%child(1)%poly, region_s%child(2)%poly )                         !
+     allocate( region_s%child(1)%poly(1), region_s%child(2)%poly(1) )                         !
+     allocate( region_s%child(1)%poly(1)%ptr, region_s%child(2)%poly(1)%ptr )                         !
      if ( region_s%child(2)%uvbox(1) <= region_s%uvbox(1) + EPSregion ) then ! <---+    !
         call subdiv_bezier2_only_v( &                                              !    !
-             region_s%poly, &                                                      !    !
+             region_s%poly(1)%ptr, &                                                      !    !
              v=tuv_subdiv(3), &                                                    !    !
-             bs=region_s%child(1)%poly, &                                          !    !
-             bn=region_s%child(2)%poly )                                           !    !
+             bs=region_s%child(1)%poly(1)%ptr, &                                          !    !
+             bn=region_s%child(2)%poly(1)%ptr )                                           !    !
      else ! -----------------------------------------------------------------------+    !
         call subdiv_bezier2_only_u( &                                              !    !
-             region_s%poly, &                                                      !    !
+             region_s%poly(1)%ptr, &                                                      !    !
              u=tuv_subdiv(2), &                                                    !    !
-             bw=region_s%child(1)%poly, &                                          !    !
-             be=region_s%child(2)%poly )                                           !    !
+             bw=region_s%child(1)%poly(1)%ptr, &                                          !    !
+             be=region_s%child(2)%poly(1)%ptr )                                           !    !
      end if ! <--------------------------------------------------------------------+    !
      !                                                                                  !
   end if ! <----------------------------------------------------------------------------+
@@ -325,8 +330,8 @@ recursive subroutine intersect_curve_surface( &
      PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT
      STAT_NEWPOINT = 99
      PRINT *,'NO MORE SUBDIVISION !!!!!'
-     CALL WRITE_POLYNOMIAL( REGION_C%POLY, 'dev_intersection_simple_surface/region_c_bezier.bern' )
-     CALL WRITE_POLYNOMIAL( REGION_S%POLY, 'dev_intersection_simple_surface/region_s_bezier.bern' )
+     CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%ptr, 'dev_intersection_simple_surface/region_c_bezier.bern' )
+     CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%ptr, 'dev_intersection_simple_surface/region_s_bezier.bern' )
      IF ( ASSOCIATED( REGION_C%XYZBOX ) ) THEN
         CALL WRITE_OBB( REGION_C%XYZBOX, 'dev_intersection_simple_surface/xyzbox_c.dat' )
      ELSE

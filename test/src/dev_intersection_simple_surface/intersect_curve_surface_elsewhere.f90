@@ -22,7 +22,8 @@ subroutine intersect_curve_surface_elsewhere( &
   call rearrange_for_separability_test( &
        b_c%coef(1:b_c%degr(1)+1,1:b_c%dim,1), &
        b_c%degr(1)+1, &
-       xyzinter, &
+       xyzinter, & ! pivot
+       xyzinter, & ! origin
        sep_c, &
        nc )
 
@@ -30,7 +31,8 @@ subroutine intersect_curve_surface_elsewhere( &
   call rearrange_for_separability_test( &
        reshape( b_s%coef(1:b_s%degr(1)+1,1:b_s%degr(2)+1,1:b_s%dim), [nbcps,3] ), &
        nbcps, &
-       xyzinter, &
+       xyzinter, & ! pivot
+       xyzinter, & ! origin
        sep_s, &
        ns )
 

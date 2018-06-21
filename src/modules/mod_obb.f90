@@ -321,7 +321,8 @@ contains
 
     if ( minval(degr) < 0 ) STOP 'bernOBB2 : degr < 0'
 
-    X = reshape( b, [size(b,1)*size(b,2),3] )
+    X = reshape( b(1:degr(1)+1,1:degr(2)+1,1:3), &
+         [(degr(1)+1)*(degr(2)+1),3] )
 
     ! axes
     vec(:,1) = b(degr(1)+1,1,:) - b(1,1,:) + b(degr(1)+1,degr(2)+1,:) - b(1,degr(2)+1,:)

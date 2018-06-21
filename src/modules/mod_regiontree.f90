@@ -4,13 +4,14 @@ module mod_regiontree
   use mod_obb
   use mod_polynomial
 
-  real(kind=fp), parameter          :: EPSregion = real( 1.e-3, kind=fp ) ! minimal range along any dimension
+  real(kind=fp), parameter          :: EPSregion = real( 1.e-6, kind=fp ) ! minimal range along any dimension
 
   type type_region
      integer                        :: dim = 0
      real(kind=fp), allocatable     :: uvbox(:) ! [ x_1_min, x_1_max, ..., x_dim_min, x_dim_max ]
      type(type_obb), pointer        :: xyzbox => null()
-     type(type_polynomial), pointer :: poly => null()
+     !type(type_polynomial), pointer :: poly => null()
+     type(ptr_polynomial), allocatable :: poly(:)
      integer                        :: npts = 0
      integer, allocatable           :: ipts(:)
      type(type_region), pointer     :: parent => null()
@@ -33,6 +34,7 @@ contains
     type(type_region), intent(inout) :: region
     integer,           intent(in)    :: dim
     real(kind=fp),     intent(in)    :: uvbox(2*dim)
+    integer                          :: i
 
     !if ( allocated(region%uvbox) ) then
     !   if ( size(region%uvbox) < 2*dim ) deallocate( region%uvbox )
@@ -47,10 +49,19 @@ contains
     if ( allocated(region%ipts) )    deallocate( region%ipts )
     region%npts = 0
 
-    if ( associated(region%poly) ) then
-       call free_polynomial( region%poly )
-       deallocate( region%poly )
+    !if ( associated(region%poly) ) then
+    !   call free_polynomial( region%poly )
+    !   deallocate( region%poly )
+    !end if
+    if ( allocated(region%poly) ) then
+       do i = 1,size(region%poly)
+          if ( associated(region%poly(i)%ptr) ) then
+             call free_polynomial( region%poly(i)%ptr )
+             deallocate( region%poly(i)%ptr )
+          end if
+       end do
     end if
+
     nullify( region%parent )
 
   end subroutine init_region
@@ -127,15 +138,23 @@ contains
        region )
     implicit none
     type(type_region), intent(inout) :: region
-    integer                          :: ichild
+    integer                          :: ichild, i
 
     if ( allocated(region%uvbox) )   deallocate( region%uvbox )
     if ( associated(region%xyzbox) ) deallocate( region%xyzbox )
     if ( allocated(region%ipts) )    deallocate( region%ipts )
     if ( associated(region%parent) ) then
-       if ( associated(region%poly) ) then
-          call free_polynomial( region%poly )
-          deallocate( region%poly )
+       !if ( associated(region%poly) ) then
+       !   call free_polynomial( region%poly )
+       !   deallocate( region%poly )
+       !end if
+       if ( allocated(region%poly) ) then
+          do i = 1,size(region%poly)
+             if ( associated(region%poly(i)%ptr) ) then
+                call free_polynomial( region%poly(i)%ptr )
+                deallocate( region%poly(i)%ptr )
+             end if
+          end do
        end if
     end if
 
@@ -147,6 +166,44 @@ contains
     end if
 
   end subroutine free_region_tree
+
+
+
+  
+  subroutine copy_region( &
+       region_source, &
+       region_target )
+    ! Creates a copy of a region (all attributes except 'child' are copied)
+    implicit none
+    type(type_region), intent(in)    :: region_source
+    type(type_region), intent(inout) :: region_target
+    integer                          :: ipoly
+
+    call init_region( &
+         region_target, &
+         region_source%dim, &
+         region_source%uvbox ) 
+
+    region_target%xyzbox => region_source%xyzbox
+
+    if ( allocated(region_source%poly) ) then
+       allocate( region_target%poly(size(region_source%poly)) )
+       do ipoly = 1,size(region_source%poly)
+          region_target%poly(ipoly)%ptr => region_source%poly(ipoly)%ptr
+       end do
+    end if
+
+    region_target%npts = region_source%npts
+    if ( allocated(region_source%ipts) ) then
+       allocate( region_target%ipts(size(region_source%ipts)) )
+       region_target%ipts = region_source%ipts
+    end if
+
+    region_target%parent => region_source%parent
+
+  end subroutine copy_region
+
+
 
 
 

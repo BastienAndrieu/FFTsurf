@@ -87,6 +87,68 @@ contains
 
   
 
+
+  subroutine compute_pseudonormal( surf )
+    use mod_chebyshev2
+    implicit none
+    type(type_surface), intent(inout) :: surf
+    real(kind=fp), allocatable        :: xu(:,:,:), xv(:,:,:), pn(:,:,:)
+    integer                           :: mu, nu, mv, nv, p, q, k
+
+    mu = surf%xu%degr(1)+1
+    nu = surf%xu%degr(2)+1
+    mv = surf%xv%degr(1)+1
+    nv = surf%xv%degr(2)+1
+
+    p = mu + mv
+    q = nu + nv
+
+    allocate( xu(p,q,3), xv(p,q,3), pn(p,q,3) )
+    
+    call ifcht2( &
+         surf%xu%coef(1:surf%xu%degr(1)+1,1:surf%xu%degr(2)+1,1:3), &
+         xu, &
+         p, &
+         q, &
+         3 )
+    call ifcht2( &
+         surf%xv%coef(1:surf%xv%degr(1)+1,1:surf%xv%degr(2)+1,1:3), &
+         xv, &
+         p, &
+         q, &
+         3 )
+    
+    do k = 1,3
+       pn(:,:,k) = &
+            xu(:,:,1+mod(k,3))   * xv(:,:,1+mod(k+1,3)) - &
+            xu(:,:,1+mod(k+1,3)) * xv(:,:,1+mod(k,3))
+    end do
+
+    call reset_polynomial( &
+         poly=surf%pn, &
+         nvar=2, &
+         base=1, &
+         degr=[p-1,q-1], &
+         dim=3 )
+
+    call fcht2( &
+         pn, &
+         surf%pn%coef(1:p,1:q,1:3), &
+         p, &
+         q, &
+         3 )
+
+    deallocate( xu, xv, pn )
+
+  end subroutine compute_pseudonormal
+
+
+
+
+
+
+
+
   subroutine eval_curve( &
        xyz, &
        curv, &

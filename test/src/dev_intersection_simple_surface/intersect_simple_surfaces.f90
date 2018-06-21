@@ -3,7 +3,7 @@ recursive subroutine intersect_simple_surfaces( &
      region, &
      param_vector, &
      interdat, &
-     listcurv, &
+     !listcurv, &
      uvxyz, &
      nuvxyz, &
      stat_degeneracy )
@@ -17,7 +17,7 @@ recursive subroutine intersect_simple_surfaces( &
   real(kind=fp),                intent(in)    :: param_vector(3)
   integer,                      intent(inout) :: stat_degeneracy
   type(type_intersection_data), intent(inout) :: interdat
-  type(type_listcurves),        intent(inout) :: listcurv
+  !type(type_listcurves),        intent(inout) :: listcurv
   real(kind=fp), allocatable,   intent(inout) :: uvxyz(:,:)
   integer,                      intent(inout) :: nuvxyz
   type(type_polynomial)                       :: regc
@@ -118,17 +118,22 @@ recursive subroutine intersect_simple_surfaces( &
            !                                                   !                     !     !
            if ( stat_subdiv == 0 ) then ! ----------------+    !                     !     !
               allocate( &                                 !    !                     !     !
-                   region(isurf)%ptr%child(1)%poly, &     !    !                     !     !
-                   region(isurf)%ptr%child(2)%poly, &     !    !                     !     !
-                   region(isurf)%ptr%child(3)%poly, &     !    !                     !     !
-                   region(isurf)%ptr%child(4)%poly )      !    !                     !     !
+                   region(isurf)%ptr%child(1)%poly(1), &     !    !                     !     !
+                   region(isurf)%ptr%child(2)%poly(1), &     !    !                     !     !
+                   region(isurf)%ptr%child(3)%poly(1), &     !    !                     !     !
+                   region(isurf)%ptr%child(4)%poly(1) )      !    !                     !     !
+              allocate( &                                 !    !                     !     !
+                   region(isurf)%ptr%child(1)%poly(1)%ptr, &     !    !                     !     !
+                   region(isurf)%ptr%child(2)%poly(1)%ptr, &     !    !                     !     !
+                   region(isurf)%ptr%child(3)%poly(1)%ptr, &     !    !                     !     !
+                   region(isurf)%ptr%child(4)%poly(1)%ptr )      !    !                     !     !
               call subdiv_bezier2( &                      !    !                     !     ! 
-                   region(isurf)%ptr%poly, &              !    !                     !     !
+                   region(isurf)%ptr%poly(1)%ptr, &              !    !                     !     !
                    [0.5_fp, 0.5_fp], &                    !    !                     !     !
-                   bsw=region(isurf)%ptr%child(1)%poly, & !    !                     !     !
-                   bse=region(isurf)%ptr%child(2)%poly, & !    !                     !     !
-                   bnw=region(isurf)%ptr%child(3)%poly, & !    !                     !     !
-                   bne=region(isurf)%ptr%child(4)%poly )  !    !                     !     !
+                   bsw=region(isurf)%ptr%child(1)%poly(1)%ptr, & !    !                     !     !
+                   bse=region(isurf)%ptr%child(2)%poly(1)%ptr, & !    !                     !     !
+                   bnw=region(isurf)%ptr%child(3)%poly(1)%ptr, & !    !                     !     !
+                   bne=region(isurf)%ptr%child(4)%poly(1)%ptr )  !    !                     !     !
            end if ! <-------------------------------------+    !                     !     !
            !                                                   !                     !     !
         end do ! <---------------------------------------------+                     !     !
@@ -186,7 +191,7 @@ recursive subroutine intersect_simple_surfaces( &
                    newregion, &                                              !  !    !     !
                    param_vector, &                                           !  !    !     !
                    interdat, &
-                   listcurv, &                                               !  !    !     !
+                   !listcurv, &                                               !  !    !     !
                    newuvxyz, &                                               !  !    !     !
                    nnewuvxyz, &                                              !  !    !     !
                    stat_degeneracy )                                         !  !    !     !
@@ -212,13 +217,14 @@ recursive subroutine intersect_simple_surfaces( &
               PRINT *,'1 CURVE :)' 
               CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
 
-              listcurv%nc = listcurv%nc + 1                    !** à supprimer
-              listcurv%curve(listcurv%nc)%uvxyz = uvxyz(:,1:2) !** à supprimer
+              !listcurv%nc = listcurv%nc + 1                    !** à supprimer
+              !listcurv%curve(listcurv%nc)%uvxyz = uvxyz(:,1:2) !** à supprimer
 
               interdat%nc = interdat%nc + 1              
               do isurf = 1,2
                  interdat%curves(interdat%nc)%surf(isurf)%ptr => surfroot(isurf)%ptr
-                 interdat%curves(interdat%nc)%region(isurf)%ptr => region(isurf)%ptr
+                 !interdat%curves(interdat%nc)%region(isurf)%ptr => region(isurf)%ptr
+                 interdat%curves(interdat%nc)%uvbox(:,:,isurf) = reshape( region(isurf)%ptr%uvbox, [2,2] )
               end do
 
               ! add the two new intersection points to the intersection data structure
@@ -230,6 +236,15 @@ recursive subroutine intersect_simple_surfaces( &
                       interdat, &
                       idnewpoint(ipt) )
               end do
+              do isurf = 1,2
+                 call append_n( &
+                      region(isurf)%ptr%ipts, &
+                      region(isurf)%ptr%npts, &
+                      idnewpoint(1:2), &
+                      2, &
+                      unique=.true. )
+              end do
+
               ! re-order the endpoints from entering to exiting
               if ( stat_point(1) < 0 ) then
                  order = [2,1]
@@ -240,28 +255,30 @@ recursive subroutine intersect_simple_surfaces( &
               uv_endpoints = reshape( uvxyz(1:4,order), [2,2,2] )
               xyz_endpoints = uvxyz(5:7,order)
 
-              !interdat%curves(interdat%nc)%param_vector = param_vector
-              INTERDAT%CURVES(INTERDAT%NC)%PARAM_VECTOR = UVXYZ(5:7,2) - UVXYZ(5:7,1)
+              interdat%curves(interdat%nc)%param_vector = param_vector
+              !INTERDAT%CURVES(INTERDAT%NC)%PARAM_VECTOR = UVXYZ(5:7,2) - UVXYZ(5:7,1)
 
               ! ****************************************
-              DO ISURF = 1,2
-                 WRITE (STR1,'(I1)') ISURF
-                 CALL WRITE_POLYNOMIAL( SURFROOT(ISURF)%PTR%X, 'trace_intersection_polyline/c' // STR1 // '.cheb' )
-              END DO
-              OPEN(UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE')
-              WRITE (13,*) 'UV_ENDPOINTS'
-              DO IPT = 1,2
+              IF ( .FALSE. ) THEN
                  DO ISURF = 1,2
-                    WRITE (13,*) uv_endpoints(:,isurf,ipt)
+                    WRITE (STR1,'(I1)') ISURF
+                    CALL WRITE_POLYNOMIAL( SURFROOT(ISURF)%PTR%X, 'trace_intersection_polyline/c' // STR1 // '.cheb' )
                  END DO
-              END DO
-              WRITE (13,*) 'XYZ_ENDPOINTS'
-              DO IPT = 1,2
-                 WRITE (13,*) xyz_endpoints(:,ipt)
-              END DO
-              WRITE (13,*) 'PARAM_VECTOR'
-              WRITE (13,*) interdat%curves(interdat%nc)%param_vector
-              CLOSE(13)
+                 OPEN(UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE')
+                 WRITE (13,*) 'UV_ENDPOINTS'
+                 DO IPT = 1,2
+                    DO ISURF = 1,2
+                       WRITE (13,*) uv_endpoints(:,isurf,ipt)
+                    END DO
+                 END DO
+                 WRITE (13,*) 'XYZ_ENDPOINTS'
+                 DO IPT = 1,2
+                    WRITE (13,*) xyz_endpoints(:,ipt)
+                 END DO
+                 WRITE (13,*) 'PARAM_VECTOR'
+                 WRITE (13,*) interdat%curves(interdat%nc)%param_vector
+                 CLOSE(13)
+              END IF
               ! ****************************************
 
               ALLOCATE( &
@@ -290,7 +307,9 @@ recursive subroutine intersect_simple_surfaces( &
               PRINT *,'STAT_POINT =',STAT_POINT(1:2)
               DO ISURF = 1,2
                  WRITE (STR1,'(I1)') ISURF
-                 CALL WRITE_POLYNOMIAL( REGION(ISURF)%PTR%POLY, 'dev_intersection_simple_surface/region_' // STR1 // '.bern' )
+                 CALL WRITE_POLYNOMIAL( &
+                      REGION(ISURF)%PTR%POLY(1)%ptr, &
+                      'dev_intersection_simple_surface/region_' // STR1 // '.bern' )
               END DO
               PRINT *,'***********'
               return                                        !  !                     !     !

@@ -301,6 +301,12 @@ contains
        end if
     end do
 
+    !PRINT *,'--------'
+    !DO I = 1,MIN(M,N)
+    !   PRINT *,ABS(R(I,I))
+    !END DO
+    !PRINT *,'--------'
+
   end subroutine QR_colpiv
   ! -----------------------------------------
 

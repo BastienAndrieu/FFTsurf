@@ -24,7 +24,6 @@ subroutine intersect_border_surface( &
   real(kind=fp), allocatable, intent(inout) :: uvxyz(:,:)
   integer,                    intent(inout) :: nuvxyz
   integer,                    intent(inout) :: stat_degeneracy
-  !type(type_polynomial)                     :: regc
   type(type_curve),           intent(in)    :: root_c
   type(type_region)                         :: region_c
   type(type_region)                         :: region_s
@@ -39,23 +38,6 @@ subroutine intersect_border_surface( &
   !END IF
 
   isurf = 1 + mod(icurv,2)
-
-  !! convert surface border to parametric curve
-  !! <-------------------------------------------+
-  !call chgvar2( &                               !
-  !     root_s(icurv)%ptr%x, &                    !
-  !     regc, &                                   !-- METTRE DANS INTERSECT_SIMPLE_SURFACES
-  !     region(icurv)%ptr%uvbox([1,3]), &         !
-  !     region(icurv)%ptr%uvbox([2,4]) )          !
-  !! <-------------------------------------------+
-  !call bivar2univar( &
-  !     regc, &!root_s(icurv)%ptr%x, &
-  !     root_c%x, &
-  !     ivar, &
-  !     ival )       
-  !all economize1( root_c%x, EPSmath )
-  !all compute_deriv1( root_c )
-  !all compute_deriv2( root_c )
 
   IF ( DEBUG ) THEN
      call write_polynomial( root_c%x, 'dev_intersection_simple_surface/root_c_x.cheb' )
@@ -79,20 +61,22 @@ subroutine intersect_border_surface( &
        region(isurf)%ptr%uvbox ) 
 
   ! compute curve Bezier control points
-  allocate( region_c%poly )
+  allocate( region_c%poly(1) )
+  allocate( region_c%poly(1)%ptr )
   call cheb2bern_poly( &
        root_c%x, &
-       region_c%poly )
+       region_c%poly(1)%ptr )
 
   ! copy surface Bezier control points
-  region_s%poly => region(isurf)%ptr%poly
+  allocate( region_s%poly(1) )
+  region_s%poly(1)%ptr => region(isurf)%ptr%poly(1)%ptr
 
   IF ( DEBUG ) THEN
      CALL WRITE_POLYNOMIAL( &
-          REGION_C%POLY, &
+          REGION_C%POLY(1)%ptr, &
           'dev_intersection_simple_surface/root_c_bezier.bern' )
      CALL WRITE_POLYNOMIAL( &
-          REGION_S%POLY, &
+          REGION_S%POLY(1)%ptr, &
           'dev_intersection_simple_surface/root_s_bezier.bern' )
   END IF
 
@@ -144,6 +128,7 @@ subroutine intersect_border_surface( &
   !PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';PRINT  *,'';
   !PRINT *,'     BEFORE :',NUVXYZ,' POINTS'
   !IF ( NUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:NUVXYZ)) )
+  !PRINT *,'NUVXYZ =',NUVXYZ,', SIZE(UVXYZ) =',SIZE(UVXYZ,2)
   outer : do ipt = 1,ntuvxyz
      do jpt = 1,nuvxyz
         if ( sum( ( tuvxyz(4:6,ipt) - uvxyz(5:7,jpt) )**2 ) < EPSxyzsqr ) cycle outer
@@ -170,15 +155,17 @@ subroutine intersect_border_surface( &
           7, &
           uvxyz, &
           nuvxyz )
+     !PRINT *,'NUVXYZ =',NUVXYZ,', SIZE(UVXYZ) =',SIZE(UVXYZ,2)
+
 
   end do outer
   !PRINT *,'     AFTER  :',NUVXYZ,' POINTS'
   !IF ( NUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:NUVXYZ)) )
 
-  call free_polynomial( region_c%poly )
+  call free_polynomial( region_c%poly(1)%ptr )
   deallocate( region_c%poly )
 
-  nullify( region_s%poly )
+  nullify( region_s%poly(1)%ptr )
 
   call free_region_tree( region_s )
   call free_region_tree( region_c )

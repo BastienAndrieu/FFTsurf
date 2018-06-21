@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_util.f90
-MD5:1ad714da636962412620bc062afa7196 -- If you edit this, you'll get what you deserve.
+MD5:d5e8b8da4846153288b46b31eba0634d -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () () ()
 () () ())
@@ -59,6 +59,9 @@ UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0
 58 'union_arrays' 'mod_util' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
 59 0 (60 61 62) () 0 () () () 0 0)
+63 'write_matrix' 'mod_util' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 64 0 (65 66 67
+68) () 0 () () () 0 0)
 5 'array' '' '' 4 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 ALLOCATABLE DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 DEFERRED
 () ()) 0 () () () 0 0)
@@ -141,10 +144,21 @@ DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0 ASSUMED_SHAPE
 62 'union' '' '' 59 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 ALLOCATABLE DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0
 DEFERRED () ()) 0 () () () 0 0)
+65 'a' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION
+DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 EXPLICIT (CONSTANT (INTEGER 4
+0 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 66 ())
+(CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0
+INTEGER ()) 0 67 ())) 0 () () () 0 0)
+66 'm' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
+INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+67 'n' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
+INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+68 'filename' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (CHARACTER 1 0 0 0 CHARACTER (())) 0 0 () () 0 () () () 0 0)
 )
 
 ('append_double' 0 2 'append_integer' 0 3 'append_list' 0 12 'append_n'
 0 18 'bubblesort_double' 0 25 'bubblesort_integers' 0 28 'copy_array' 0
 31 'generate_name_from_date' 0 35 'get_free_unit' 0 38 'int2logic' 0 41
 'intersection_arrays' 0 44 'is_in_list' 0 49 'logic2int' 0 54 'mod_util'
-0 57 'union_arrays' 0 58)
+0 57 'union_arrays' 0 58 'write_matrix' 0 63)

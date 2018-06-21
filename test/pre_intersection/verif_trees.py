@@ -6,7 +6,7 @@ import matplotlib.patches as patches
 
 
 
-suffixe = '' #'_bezier' #
+suffixe = '_bezier' #'' #
 
 
 

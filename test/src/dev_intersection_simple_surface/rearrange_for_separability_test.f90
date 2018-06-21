@@ -1,6 +1,7 @@
 subroutine rearrange_for_separability_test( &
      bcp, &
      nbcp, &
+     pivot, &
      origin, &
      sep, &
      nsep )
@@ -9,18 +10,17 @@ subroutine rearrange_for_separability_test( &
   implicit none
   integer,       intent(in)  :: nbcp
   real(kind=fp), intent(in)  :: bcp(nbcp,3)
+  real(kind=fp), intent(in)  :: pivot(3)
   real(kind=fp), intent(in)  :: origin(3)
   real(kind=fp), intent(out) :: sep(nbcp,3)
   integer,       intent(out) :: nsep
-  real(kind=fp)              :: xyzi(3)
   integer                    :: i
 
   nsep = 0
   do i = 1,nbcp
-     xyzi = bcp(i,:) - origin
-     if ( sum(xyzi**2) > EPSxyzsqr ) then
+     if ( sum( (bcp(i,:) - pivot)**2 ) > EPSxyzsqr ) then
         nsep = nsep + 1
-        sep(nsep,:) = xyzi
+        sep(nsep,:) = bcp(i,:) - origin
      end if
   end do
 
