@@ -59,6 +59,9 @@ recursive subroutine intersect_surface_surface( &
        region(2)%ptr%xyzbox, &
        overlap )
 
+  !PRINT *,'OVERLAP?',OVERLAP
+  !CALL WRITE_OBB( region(1)%ptr%xyzbox, 'dev_intersection_surface_surface/xyzbox1.dat' )
+  !CALL WRITE_OBB( region(2)%ptr%xyzbox, 'dev_intersection_surface_surface/xyzbox2.dat' )
   if ( .not.overlap ) return ! disjoint bounding boxes => empty intersection
 
 

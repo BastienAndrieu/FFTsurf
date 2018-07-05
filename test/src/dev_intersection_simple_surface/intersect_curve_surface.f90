@@ -13,6 +13,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = .false.
   type(type_curve),           intent(in)            :: root_c
   type(type_surface),         intent(in)            :: root_s
   type(type_region),          intent(inout), target :: region_c
@@ -33,10 +34,12 @@ recursive subroutine intersect_curve_surface( &
 
   if ( stat_degeneracy > 1 ) return
 
-  !PRINT *,''
-  !PRINT *,''
-  !PRINT *,' TBOX =',REGION_C%UVBOX
-  !PRINT *,'UVBOX =',REGION_S%UVBOX
+  IF ( DEBUG ) THEN
+     PRINT *,''
+     PRINT *,''
+     PRINT *,' TBOX =',REGION_C%UVBOX
+     PRINT *,'UVBOX =',REGION_S%UVBOX
+  END IF
 
   ! inherit from parents all already discovered points contained inside the current regions
   if ( npts > 0 ) then
@@ -64,18 +67,20 @@ recursive subroutine intersect_curve_surface( &
   !IF ( N_SHAREDPTS > 0 ) PRINT *,sharedpts
 
 
-  IF (.FALSE.) THEN
+  IF (.true.) THEN
      if ( n_sharedpts == 0 ) then
         ! check endpoint/corner pairs for possible intersection point
         do k = 1,region_s%poly(1)%ptr%degr(2)+1,region_s%poly(1)%ptr%degr(2)
            do j = 1,region_s%poly(1)%ptr%degr(1)+1,region_s%poly(1)%ptr%degr(1)
               do i = 1,region_c%poly(1)%ptr%degr(1)+1,region_c%poly(1)%ptr%degr(1)
+                 !PRINT *,I,J,K,sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ),EPSxyzsqr
                  if ( sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ) < EPSxyzsqr ) then
+                    IF (DEBUG) PRINT *,'+1 INTERSECTION POINT ENDPOINT/CORNER'
                     xyz = 0.5_fp * ( region_c%poly(1)%ptr%coef(i,:,1) + region_s%poly(1)%ptr%coef(j,k,:) )
                     tuv(1) = real( i-1, kind=fp ) / real( region_c%poly(1)%ptr%degr(1), kind=fp )
                     tuv(2) = real( j-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(1), kind=fp )
                     tuv(3) = real( k-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(2), kind=fp )
-                    tuv = -1._fp + 2._fp * tuv
+                    tuv = -1._fp + 2._fp * tuv ! map from [0,1] to [-1,1]
 
                     call append_vector( &
                          [tuv,xyz], &
@@ -87,6 +92,7 @@ recursive subroutine intersect_curve_surface( &
                          sharedpts, &
                          npts, &
                          newlength=n_sharedpts )
+                    PRINT *,'SHAREDPTS =',SHAREDPTS
 
                     call add_point_bottom_up( region_c, npts )
                     call add_point_bottom_up( region_s, npts )

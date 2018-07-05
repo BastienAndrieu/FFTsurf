@@ -20,6 +20,7 @@ contains
        box1, &
        box2, &
        overlap )
+    use mod_tolerances
     ! Overlap test between two OBBs using the Separating Axis Theorem ( adapted from
     ! "Dynamic Collision Detection using Oriented Bounding Boxes", D. Eberly (2002)
     ! https://www.geometrictools.com/Documentation/DynamicCollisionDetection.pdf )
@@ -77,7 +78,7 @@ contains
        !PRINT *,'R  =',R
 
        !PRINT *,'I=',I,', R-(RK+RL) =',R - RK - RL
-       if ( R > Rk + Rl ) then
+       if ( R > Rk + Rl + EPSfp ) then
           !PRINT *,'R - (RK + RL) =',R - RK - RL
           !PRINT *,'DISJOINT OBBs, I =',I
           overlap = .false.
