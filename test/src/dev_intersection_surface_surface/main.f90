@@ -157,7 +157,7 @@
           region(isurf)%ptr%poly(2)%ptr )
   end do
 
-  allocate( interdat%curves(100) )
+  allocate( interdat%curves(200) )
   stat_degeneracy = 0
   call system_clock( tic, count_rate )
   call intersect_surface_surface( &
@@ -173,11 +173,16 @@
 
   PRINT *,'STAT_DEGENERACY =',STAT_DEGENERACY
 
+  PRINT *,INTERDAT%NP,' INTERSECTION POINT(S)'
+  PRINT *,INTERDAT%NC,' INTERSECTION CURVE(S)'
+
   call write_interdat( &
        interdat, &
        'dev_intersection_surface_surface/interdat_points.dat', &
        'dev_intersection_surface_surface/interdat_curves.dat' )
 
+  call free_intersection_data( &
+       interdat )
   
   if ( allocated( ch2be_matrices ) ) then
      do i = 1,size(ch2be_matrices)
@@ -193,20 +198,26 @@
           region(isurf)%ptr, &
           'dev_intersection_surface_surface/tree_' // strnum // '.dat' )
 
-     call free_region_tree( region(isurf)%ptr )
-     call free_polynomial( region(isurf)%ptr%poly(1)%ptr )
-     call free_polynomial( region(isurf)%ptr%poly(2)%ptr )
-     deallocate( region(isurf)%ptr%poly )
+     IF (.true.) THEN
+        call free_polynomial( region(isurf)%ptr%poly(1)%ptr )
+        call free_polynomial( region(isurf)%ptr%poly(2)%ptr )
+        deallocate( region(isurf)%ptr%poly(1)%ptr, region(isurf)%ptr%poly(2)%ptr )
+        deallocate( region(isurf)%ptr%poly )
+        call free_region_tree( region(isurf)%ptr )
 
-     call free_polynomial( surf(isurf)%x )
-     call free_polynomial( surf(isurf)%xu )
-     call free_polynomial( surf(isurf)%xv )
-     call free_polynomial( surf(isurf)%xuu )
-     call free_polynomial( surf(isurf)%xuv )
-     call free_polynomial( surf(isurf)%xvv )
+        call free_polynomial( surf(isurf)%x )
+        call free_polynomial( surf(isurf)%xu )
+        call free_polynomial( surf(isurf)%xv )
+        call free_polynomial( surf(isurf)%xuu )
+        call free_polynomial( surf(isurf)%xuv )
+        call free_polynomial( surf(isurf)%xvv )
 
-     !deallocate( root(isurf)%uvbox )
+        !deallocate( root(isurf)%uvbox )
+     END IF
   end do
+
+
+
 
 contains
 
@@ -215,11 +226,11 @@ contains
 
   subroutine cheb2bern_poly( c, b )
     implicit none
-    type(type_polynomial), intent(in)  :: c
-    type(type_polynomial), intent(out) :: b
-    real(kind=fp)                      :: au(c%degr(1)+1,c%degr(1)+1)
-    real(kind=fp)                      :: av(c%degr(2)+1,c%degr(2)+1)
-    integer                            :: i
+    type(type_polynomial), intent(in)    :: c
+    type(type_polynomial), intent(inout) :: b
+    real(kind=fp)                        :: au(c%degr(1)+1,c%degr(1)+1)
+    real(kind=fp)                        :: av(c%degr(2)+1,c%degr(2)+1)
+    integer                              :: i
 
     if ( c%base /= 1 ) STOP 'cheb2bern_poly : input polynomial not in Chebyshev basis'
 

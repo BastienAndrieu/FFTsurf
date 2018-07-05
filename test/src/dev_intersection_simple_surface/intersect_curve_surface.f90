@@ -60,6 +60,8 @@ recursive subroutine intersect_curve_surface( &
           sharedpts )
      if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)
   end if
+  !PRINT *,'N_SHAREDPTS =',n_sharedpts
+  !IF ( N_SHAREDPTS > 0 ) PRINT *,sharedpts
 
 
   IF (.FALSE.) THEN
@@ -181,6 +183,9 @@ recursive subroutine intersect_curve_surface( &
           stat_newpoint, &                                                                                                    !
           xyz )                                                                                                               !
      !PRINT *,'----------------------'                                                                                        !
+     !IF ( STAT_NEWPOINT == 0 ) THEN
+     !   PRINT *,'CONVERGED TO ', tuv, xyz
+     !END IF
      !PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT                                                                                 !
      !                                                                                                                        !
      ! if we just found a degenerate point, return and report degeneracy                                                      !
@@ -327,9 +332,10 @@ recursive subroutine intersect_curve_surface( &
      PRINT *,N_SHAREDPTS,' SHARED POINTS'
      IF ( N_SHAREDPTS > 0) CALL PRINT_MAT( TRANSPOSE( COORDS(:,SHAREDPTS(1:N_SHAREDPTS) ) ) )
      PRINT *,'INTERIOR?',INTERIOR
+     PRINT *,'separable?',separable
      PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT
      STAT_NEWPOINT = 99
-     PRINT *,'NO MORE SUBDIVISION !!!!!'
+     PRINT *,'intersect_curve_surface : NO MORE SUBDIVISION !!!!!'
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%ptr, 'dev_intersection_simple_surface/region_c_bezier.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%ptr, 'dev_intersection_simple_surface/region_s_bezier.bern' )
      IF ( ASSOCIATED( REGION_C%XYZBOX ) ) THEN

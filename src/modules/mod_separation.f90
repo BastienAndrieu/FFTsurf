@@ -1,6 +1,8 @@
 module mod_separation
 
+  USE MOD_UTIL
   use mod_math
+  use mod_tolerances
 
   implicit none
 
@@ -128,7 +130,8 @@ contains
        m(2) = min( maxval( xyz1(:,iaxe) ), &
             maxval( xyz2(:,iaxe) ) ) ! min(max)
 
-       if ( ( m(2) < m(1) ) .and. ( m(2)*m(1) < 0._fp ) ) then
+       !if ( ( m(2) < m(1) ) .and. ( m(2)*m(1) < 0._fp ) ) then
+       if ( m(2) < -EPSfp .and. m(1) > EPSfp ) then
           ! separating cartesian plane found 
           vec(:) = 0._fp
           vec(iaxe) = 1._fp
@@ -153,6 +156,7 @@ contains
     ! strictly sepatates two sets of points of coords. 'xyz1' and 'xyz2'. 
     ! Returns a unit normal vector 'vec' of such a plane (if any).
     implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,           intent(in)  :: n1, n2
     real(kind=fp),     intent(in)  :: xyz1(n1,3)
     real(kind=fp),     intent(in)  :: xyz2(n2,3)
@@ -166,9 +170,15 @@ contains
     separable = .false.
 
     loop_axes : do iaxe = 1,3
+       
        if ( present( mask_axes ) ) then
           if ( .not.mask_axes(iaxe) ) cycle
        end if
+
+       IF (DEBUG) THEN
+          PRINT *,''
+          PRINT *,'IAXE =',IAXE
+       END IF
 
        IF (.false.) THEN
           call minimal_2d_wedge( &
@@ -180,7 +190,7 @@ contains
                n2, &
                wedge(:,2) )
           do iset = 1,2
-             if ( wedge(2,iset) >= 0.5_fp * MATHpi ) then
+             if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSfp ) then
                 !PRINT *,'WEDGE',ISET,' WIDER THAN PI'
                 cycle loop_axes
              end if
@@ -199,19 +209,25 @@ contains
                wedge(:,2), &
                bounded )
           if ( .not.bounded ) cycle loop_axes
+          
+          IF (DEBUG) THEN
+             PRINT *,'BOUNDING SECTORS ='
+             CALL PRINT_MAT( WEDGE )
+          END IF
+
        END IF
 
 
        d = diff_angle( wedge(1,1), wedge(1,2) )
        alpha = 0.5_fp * ( abs(d) - sum(wedge(2,:)) )
-       !PRINT *,'ALPHA',REAL(ALPHA)
-       if ( alpha > MATHeps ) then
-          if ( alpha + 2._fp*wedge(2,1) > MATHpi ) then
-             angv = wedge(1,1) + 0.5_fp * MATHpi
-          elseif ( alpha + 2._fp*wedge(2,2) > MATHpi ) then
-             angv = wedge(1,2) + 0.5_fp * MATHpi
+       IF (DEBUG) PRINT *,'ALPHA',ALPHA
+       if ( alpha > EPSfp ) then
+          if ( alpha + 2._fp*wedge(2,1) > CSTpi + EPSfp ) then
+             angv = wedge(1,1) + 0.5_fp * CSTpi
+          elseif ( alpha + 2._fp*wedge(2,2) > CSTpi + EPSfp ) then
+             angv = wedge(1,2) + 0.5_fp * CSTpi
           else
-             if ( d > 0._fp ) then
+             if ( d > EPSfp ) then
                 iset = 1
              else
                 iset = 2
@@ -224,6 +240,30 @@ contains
           vec(1+mod(iaxe,3)) = -sin( angv )
           vec(1+mod(iaxe+1,3)) = cos( angv )
           separable = .true.
+          
+          IF (DEBUG) THEN
+             PRINT *,'SEPARABLE AROUND AXIS #', IAXE
+
+             CALL WRITE_MATRIX( &
+                  xyz1(1:n1,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+                  N1, &
+                  2, &
+                  '/stck/bandrieu/Bureau/CYPRES/Intersections/separation/xy1.dat' )
+             CALL WRITE_MATRIX( &
+                  xyz2(1:n2,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+                  N2, &
+                  2, &
+                  '/stck/bandrieu/Bureau/CYPRES/Intersections/separation/xy2.dat' )
+
+             CALL WRITE_MATRIX( &
+                  WEDGE, &
+                  2, &
+                  2, &
+                  '/stck/bandrieu/Bureau/CYPRES/Intersections/separation/wedges.dat' )
+          END IF
+
+          
+
           return
 
        end if
@@ -265,8 +305,8 @@ contains
 
     wedge(2) = 0.5_fp * ( e(2) - e(1) )
     wedge(1) = mean_angle( meanang + e )
-    if ( e(2) - e(1) > MATHpi ) then
-       if ( wedge(1) > 0._fp ) then
+    if ( e(2) - e(1) > CSTpi + EPSfp ) then
+       if ( wedge(1) > EPSfp ) then
           wedge(1) = wedge(1) + MATHpi
        else
           wedge(1) = wedge(1) - MATHpi
@@ -286,52 +326,80 @@ contains
        bounded )
     use mod_geometry
     implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,       intent(in)   :: n
     real(kind=fp), intent(in)   :: xy(n,2)
     real(kind=fp), intent(out)  :: wedge(2)
     logical,       intent(out)  :: bounded
     integer                     :: hull(n), nhull
-    real(kind=fp), dimension(2) :: xy1, xy2
+    real(kind=fp), dimension(2) :: xy1, xy2, rng
     real(kind=fp)               :: ang(n), mnmx(2), mnpmxn(2)
     integer                     :: i
 
-    call convex_hull_2d( &
-         transpose(xy), &
+
+    rng = maxval( xy, dim=1 ) - minval( xy, dim=1 )
+    IF (DEBUG) PRINT *,'RANGES =',RNG
+    where( rng < EPSfp ) rng = 1._fp
+
+    !call convex_hull_2d( &
+    !     transpose(xy), &
+    !     n, &
+    !     hull, &
+    !     nhull )
+    call quickhull( &
+         matmul( diag(1._fp/rng), transpose(xy) ), &
          n, &
          hull, &
          nhull )
-    
+
+    IF (DEBUG) PRINT *,'HULL =',HULL(1:NHULL)
+
     bounded = .false.
-    check_boundedness : do i = 1,nhull
-       xy1 = xy(hull(i),:)
-       xy2 = xy(hull(1+mod(i,nhull)),:)
-       if ( xy1(1) * ( xy2(2) - xy1(2) ) + &
-            xy1(2) * ( xy1(1) - xy2(1) ) < -MATHeps ) then
-          bounded = .true.
-          exit check_boundedness
-       end if
-    end do check_boundedness
+    ! Check whether the origin is inside the convex hull :
+    ! A point is inside a convex polygon if it lies on the left of each of 
+    ! the counter-clockwise directed edges.
+    ! The vector ni = (y_i - y_{i+1} , x_{i+1} - x_i) is normal to the edge e_i = [p_i, p_{i+1}]
+    ! and points towards the interior of the polygon.
+    ! The point z = (x,y) is strictly on the right of e_i if ( z - p_i ).n_i < 0.
+    ! If z = (0,0) this reduces to x_i*(y_i - y_{i+1} + y_i*( x_{i+1} - x_i) > 0.
+    if ( nhull == 1 ) then
+       bounded = ( sum( xy(hull(1),:)**2 ) > 2._fp*EPSfp )
+    elseif ( nhull == 2 ) then
+       bounded = ( abs(distance_from_line( [0._fp, 0._fp], xy(hull(1),:), xy(hull(2),:) )) > EPSfp )
+    else
+       check_boundedness : do i = 1,nhull
+          xy1 = xy(hull(i),:)
+          xy2 = xy(hull(1+mod(i,nhull)),:)
+
+          IF (DEBUG) PRINT *,&
+               xy1(1) * ( xy1(2) - xy2(2) ) + &
+               xy1(2) * ( xy2(1) - xy1(1) )
+
+          if ( xy1(1) * ( xy1(2) - xy2(2) ) + &
+               xy1(2) * ( xy2(1) - xy1(1) ) > EPSfp ) then
+             bounded = .true.
+             exit check_boundedness
+          end if
+       end do check_boundedness
+    end if
+
+    IF (DEBUG) PRINT *,'BOUNDED?',BOUNDED
 
     if ( .not.bounded ) return
 
     ang(1:nhull) = atan2( xy(hull(1:nhull),2), xy(hull(1:nhull),1) )
     
-    !if ( maxval( xy(hull(1:nhull),1) ) < 0._fp .and. &
-    !     maxval( xy(hull(1:nhull),2) ) * minval( xy(hull(1:nhull),2) ) < 0._fp ) then
-    !   mnmx(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
-    !   mnmx(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
-    !else
-    !   mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
-    !end if
     mnmx = [ minval(ang(1:nhull)), maxval(ang(1:nhull)) ]
-    if ( mnmx(1) < 0._fp .and. mnmx(2) > 0._fp ) then
-       mnpmxn(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0) )
-       mnpmxn(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0) )
+    if ( mnmx(1) < -EPSfp .and. mnmx(2) > EPSfp ) then
+       mnpmxn(1) = minval( ang(1:nhull), MASK=(ang(1:nhull) > 0._fp) )
+       mnpmxn(2) = maxval( ang(1:nhull), MASK=(ang(1:nhull) < 0._fp) )
        if ( diff_angle( mnpmxn(2), mnpmxn(1) ) > 0._fp ) mnmx = mnpmxn
     end if
 
     wedge(1) = mean_angle( mnmx )
     wedge(2) = diff_angle( mnmx(2), wedge(1) )
+    IF (DEBUG) PRINT *,'WEDGE =',WEDGE
+
 
   end subroutine minimal_bounding_sector
 
@@ -363,8 +431,9 @@ contains
     real(kind=fp), intent(out) :: vec(3)
     logical,       intent(out) :: separable
     integer                    :: stat
-    real(kind=fp)              :: LPmat( 3 + n1 + n2, 4 )
-    integer                    :: i
+    integer                    :: perm(n1+n2)
+    real(kind=fp)              :: LPmat( 6 + n1 + n2, 4 )
+    integer                    :: i, l
 
     ! assemble the matrix of linear constraints
     LPmat(:,:) = 0._fp
@@ -373,22 +442,47 @@ contains
     do i = 1,3
        LPmat(i,i) = 1._fp
     end do
-    LPmat(1:3,4) = -1._fp
+    do i = 1,3
+       LPmat(3+i,i) = -1._fp
+    end do
+    l = 6! l = 3
+    LPmat(1:l,4) = 1._fp
 
     ! primary constraints
-    LPmat(4:3+n1,1:3) = -xyz1
-    LPmat(4+n1:3+n1+n2,1:3) = xyz2
+    LPmat( (l+1)   :(l+n1)   , 1:3 ) =  xyz1
+    LPmat( (l+n1+1):(l+n1+n2), 1:3 ) = -xyz2
 
-    LPmat(4:,4) = EPSlpsep
+    LPmat(l+1:,4) = -EPSlpsep
+
+    ! permute randomly the LP constraints
+    call randperm( perm, n1+n2 )
+    LPmat((l+1):(l+n1+n2),:) = LPmat(l+perm,:)
+
+    !PRINT *,'LP_MAT ='
+    !CALL PRINT_MAT( LPMAT(1:(l+n1+n2),1:4) )
+    !PRINT *,''
+    !CALL WRITE_MATRIX( LPMAT(1:(l+n1+n2),1:4), l+n1+n2, 4, 'linearprogramming/lpmat.dat' )
 
     ! solve the linear programming problem
-    call lpsolve( &
+    vec = real( [1, 1, 1], kind=fp ) / sqrt( 3._fp )
+    call lp_solve( &
          vec, &
          stat, &
-         LPmat, &
-         real( [0, 0, 0], kind=fp ) )
+         LPmat(1:(l+n1+n2),1:4), &
+         [0._fp, 0._fp, 0._fp], &
+         3, &
+         l+n1+n2 )
+    !call lpsolve( &
+    !     vec, &
+    !     stat, &
+    !     LPmat, &
+    !     real( [0, 0, 0], kind=fp ) )
 
     separable = ( stat == 0 )
+    !IF ( SEPARABLE ) THEN
+    !   PRINT *,'VEC = ',VEC
+    !   PRINT *,'LPRES =',MINVAL( MATMUL( LPMAT(:,1:3), VEC ) - LPMAT(:,4) )
+    !END IF
 
     if ( stat < 0 ) then
        PRINT *,'separation_linearprogramming : problème réalisable non borné'

@@ -20,7 +20,7 @@ subroutine intersect_curve_surface_elsewhere( &
   integer                            :: nbcps, nc, ns
 
   call rearrange_for_separability_test( &
-       b_c%coef(1:b_c%degr(1)+1,1:b_c%dim,1), &
+       b_c%coef(1:b_c%degr(1)+1,1:3,1), &
        b_c%degr(1)+1, &
        xyzinter, & ! pivot
        xyzinter, & ! origin
@@ -29,7 +29,7 @@ subroutine intersect_curve_surface_elsewhere( &
 
   nbcps = ( b_s%degr(1) + 1 ) * ( b_s%degr(2) + 1 )
   call rearrange_for_separability_test( &
-       reshape( b_s%coef(1:b_s%degr(1)+1,1:b_s%degr(2)+1,1:b_s%dim), [nbcps,3] ), &
+       reshape( b_s%coef(1:b_s%degr(1)+1,1:b_s%degr(2)+1,1:3), [nbcps,3] ), &
        nbcps, &
        xyzinter, & ! pivot
        xyzinter, & ! origin
@@ -42,11 +42,11 @@ subroutine intersect_curve_surface_elsewhere( &
      if ( present(randomize) ) then
         if ( randomize ) then
            call random_rotation_matrix3d( rot )
-           !IF ( .false. ) THEN
-           !   PRINT *,'';PRINT *,'';PRINT *,''
-           !   PRINT *,'RANDOM ROTATION MATRIX ='
-           !   CALL PRINT_MAT( ROT )
-           !END IF
+           IF ( .false. ) THEN
+              PRINT *,'';PRINT *,'';PRINT *,''
+              PRINT *,'RANDOM ROTATION MATRIX ='
+              CALL PRINT_MAT( ROT )
+           END IF
            sep_c(1:nc,:) = matmul( sep_c(1:nc,:), rot )
            sep_s(1:ns,:) = matmul( sep_s(1:ns,:), rot )
         end if
@@ -60,13 +60,18 @@ subroutine intersect_curve_surface_elsewhere( &
           vec, &
           separable )
 
-     !IF ( .FALSE. ) THEN!.NOT.SEPARABLE ) THEN
-     !   PRINT *,'';PRINT *,'';PRINT *,''
-     !   PRINT *,'XYZ_SEP (C) ='
-     !   CALL PRINT_MAT( SEP_C(1:NC,:) )
-     !   PRINT *,'XYZ_SEP (S) ='
-     !   CALL PRINT_MAT( SEP_S(1:NS,:) )     
-     !END IF
+     IF ( .NOT.SEPARABLE ) THEN
+        !PRINT *,'';PRINT *,'';PRINT *,''
+        !PRINT *,'-----------------------------'
+        !PRINT *,'XYZ_SEP (C) ='
+        !CALL PRINT_MAT( SEP_C(1:NC,:) )
+        !PRINT *,'XYZ_SEP (S) ='
+        !CALL PRINT_MAT( SEP_S(1:NS,:) )     
+        !PRINT *,'-----------------------------'
+        CALL WRITE_MATRIX( SEP_C(1:NC,1:3), NC, 3, 'dev_intersection_simple_surface/sepc.dat' )
+        CALL WRITE_MATRIX( SEP_S(1:NS,1:3), NS, 3, 'dev_intersection_simple_surface/seps.dat' )
+        CALL WRITE_MATRIX( ROT, 3, 3, 'dev_intersection_simple_surface/rot.dat' )
+     END IF
   end if
 
 end subroutine intersect_curve_surface_elsewhere

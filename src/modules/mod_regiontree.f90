@@ -36,11 +36,8 @@ contains
     real(kind=fp),     intent(in)    :: uvbox(2*dim)
     integer                          :: i
 
-    !if ( allocated(region%uvbox) ) then
-    !   if ( size(region%uvbox) < 2*dim ) deallocate( region%uvbox )
-    !end if
-    if ( allocated(region%uvbox) ) deallocate( region%uvbox )
     region%dim = dim
+    if ( allocated(region%uvbox) ) deallocate( region%uvbox )
     if ( .not.allocated(region%uvbox) ) allocate( region%uvbox(2*dim) )
     region%uvbox(1:2*dim) = uvbox
 
@@ -49,10 +46,6 @@ contains
     if ( allocated(region%ipts) )    deallocate( region%ipts )
     region%npts = 0
 
-    !if ( associated(region%poly) ) then
-    !   call free_polynomial( region%poly )
-    !   deallocate( region%poly )
-    !end if
     if ( allocated(region%poly) ) then
        do i = 1,size(region%poly)
           if ( associated(region%poly(i)%ptr) ) then
@@ -96,7 +89,7 @@ contains
        ! check for possibly "degenerate" dimensions
        degenerate(idim) = ( &
             abs( uvs(idim) - region%uvbox(2*idim-1) ) < EPSregion .or. &
-            abs( uvs(idim) - region%uvbox(2*idim) ) < EPSregion )
+            abs( uvs(idim) - region%uvbox(2*idim) )   < EPSregion )
     end do
 
     stat = count(degenerate)
@@ -143,20 +136,18 @@ contains
     if ( allocated(region%uvbox) )   deallocate( region%uvbox )
     if ( associated(region%xyzbox) ) deallocate( region%xyzbox )
     if ( allocated(region%ipts) )    deallocate( region%ipts )
-    if ( associated(region%parent) ) then
-       !if ( associated(region%poly) ) then
-       !   call free_polynomial( region%poly )
-       !   deallocate( region%poly )
-       !end if
-       if ( allocated(region%poly) ) then
-          do i = 1,size(region%poly)
-             if ( associated(region%poly(i)%ptr) ) then
-                call free_polynomial( region%poly(i)%ptr )
-                deallocate( region%poly(i)%ptr )
-             end if
-          end do
-       end if
+
+    !if ( associated(region%parent) ) then
+    if ( allocated(region%poly) ) then
+       do i = 1,size(region%poly)
+          if ( associated(region%poly(i)%ptr) ) then
+             call free_polynomial( region%poly(i)%ptr )
+             deallocate( region%poly(i)%ptr )
+          end if
+       end do
+       deallocate( region%poly )
     end if
+    !end if
 
     if ( associated(region%child) ) then
        do ichild = 1,size(region%child)
@@ -279,6 +270,7 @@ contains
     !     region%ipts, &
     !     region%npts, &
     !     ipt )
+    PRINT *,'ADD BOTTOM-UP :',IPT,' TO REGION',REGION%UVBOX(1:2*REGION%DIM)
     call append_n( &
          region%ipts, &
          region%npts, &

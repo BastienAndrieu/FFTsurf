@@ -21,28 +21,7 @@ subroutine find_collineal_corners( &
   integer                       :: i, j, k, l
 
   stat = 1
-  IF (.FALSE.)  THEN
-     DO I = 1,2
-        PRINT *,'SURF #',I
-        IF ( ALLOCATED(REGION(I)%PTR%POLY) ) THEN
-           DO J = 1,SIZE(REGION(I)%PTR%POLY)
-              PRINT *,'    POLY #',J
-              !WRITE (*,FMT='(L1,1X)',ADVANCE='NO') ASSOCIATED( REGION(I)%PTR%POLY(J)%PTR )
-              PRINT *,REGION(I)%PTR%POLY(J)%PTR%DEGR + 1, &
-                   SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,1), &
-                   SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,2), &
-                   SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,3)
-              PRINT *,ALLOCATED(REGION(I)%PTR%POLY(J)%PTR%COEF)
-           END DO
-           !PRINT *,''
-        END IF
-        !IF ( SIZE(REGION(I)%PTR%POLY) /= 2 ) THEN
-        !   PRINT *,'??? SIZE(REGION%PTR%POLY) =',SIZE(REGION(I)%PTR%POLY)
-        !   STOP
-        !END IF
-     END DO
-  END IF
-
+  
   do l = 1,2 ! <----------------------------------------------------------------------------------+
      do k = 1,2 ! <----------------------------------------------------------------------------+  !
         !                                                                                      !  !
@@ -77,6 +56,7 @@ subroutine find_collineal_corners( &
               !PRINT *,'I,J,K,L ',I,J,K,L
               !PRINT *,'UV =',region(1)%ptr%uvbox([i,2+j]),region(2)%ptr%uvbox([k,2+l])
               !PRINT *,NORM2( CROSS(N(:,1),R) ), NORM2( CROSS(N(:,1),N(:,2)) )
+              !PRINT *,I,J,K,L,NORM2( CROSS(N(:,1),R) ), NORM2( CROSS(N(:,1),N(:,2)) )
               if ( sum( cross( n(:,1), r )**2 ) + &                                      !  !  !  !
                    sum( cross( n(:,1), n(:,2) )**2 ) < EPScollinealsqr ) then ! <---+    !  !  !  !
                  if ( sum(r**2) < EPSxyzsqr ) then ! <-------------------------+    !    !  !  !  !

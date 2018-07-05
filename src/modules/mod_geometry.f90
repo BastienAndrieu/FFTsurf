@@ -16,8 +16,8 @@ contains
   end function angle_between_vectors_2d
   ! ---------------------------------------------------------*
 
-  
-  
+
+
   ! ---------------------------------------------------------
   function rotation_matrix2d( angle ) result( R )
     ! Matrice de rotation en 2d
@@ -50,7 +50,7 @@ contains
     integer,       intent(out) :: nhull   ! nombre de points sur l'enveloppe convexe
     real(kind=fp)              :: dxy(2), dxy_prev(2), angle, anglenext, dist, distnext
     integer                    :: i, first, next
-    
+
     !PRINT *,'';PRINT *,'';PRINT *,'';
 
     ! Cas particuliers n = 0, 1 ou 2
@@ -87,11 +87,11 @@ contains
           first = i
        end if
     end do
-    
+
     ! on ajoute ce premier point à l'enveloppe convexe
     nhull = 1
     hull(1) = first   
-    
+
     ! Construction incrémentale de l'enveloppe convexe :
     ! connaissant $p_{i-1}$ et $p_{i}$, on cherche le point 
     ! $p_{i+1}$ qui maximise $\angle p_{i-1} p_{i} p_{i+1} $.
@@ -107,7 +107,7 @@ contains
           dxy = xy(:,i) - xy(:,hull(nhull))
           dist = sum( dxy**2 )
           if ( dist < MATHeps**2 ) cycle ! points coincidents
-          
+
           angle = angle_between_vectors_2d( dxy_prev, dxy )
           !PRINT *,'I =',I
           !PRINT *,'    DIST =',DIST
@@ -143,16 +143,16 @@ contains
        END IF
        hull(nhull) = next
        dxy_prev = xy(:,hull(nhull-1)) - xy(:,next)
-       
+
     end do
-    
+
   end subroutine convex_hull_2d
-! ---------------------------------------------------------
+  ! ---------------------------------------------------------
 
 
 
 
-! ---------------------------------------------------------
+  ! ---------------------------------------------------------
   subroutine minimum_area_OBB_2d( &
        xy, &
        n, &
@@ -173,21 +173,21 @@ contains
     real(kind=fp), allocatable :: xy_rot(:,:)
     real(kind=fp)              :: mn(2), mx(2), ranges_tmp(2)
     integer                    :: i
-    
+
     ! enveloppe convexe de l'ensemble des points
     call convex_hull_2d( xy, n, hull, nhull )
-    
+
     ! cas particuliers nhull = 0, 1 ou 2
     if ( nhull < 1 ) then
        center(:) = 0._fp
        ranges(:) = 0._fp
-       axes = rotation_matrix2d( 0._fp )
+       axes = identity_matrix(2) ! rotation_matrix2d( 0._fp )
        return
 
     elseif ( nhull == 1 ) then
        center = xy(:,hull(1))
        ranges(:) = 0._fp
-       axes = rotation_matrix2d( 0._fp )
+       axes = identity_matrix(2) ! rotation_matrix2d( 0._fp )
        return
 
     elseif( nhull == 2 ) then
@@ -207,7 +207,7 @@ contains
     do i = 1,nhull
        ! i-ème arête de l'enveloppe convexe
        vec = xy(:,hull( 1+mod(i,nhull) )) - xy(:,hull(i))
-       
+
        ! rotation pour aligner l'arête avec l'axe x
        rot = rotation_matrix2d( atan2( vec(2), vec(1) ) )
        xy_rot = matmul( rot, xy(:,hull(1:nhull)) )
@@ -217,7 +217,7 @@ contains
        mx = maxval( xy_rot, 2 )
        ranges_tmp = mx - mn
        area_tmp = ranges_tmp(1) * ranges_tmp(2)
-       
+
        if ( area_tmp < area ) then
           area = area_tmp
           ! rotation vers le repère initial
@@ -225,7 +225,7 @@ contains
           ! coordonnées du centre de la boîte dans le repère initial
           center = matmul( rot, 0.5_fp * (mn + mx) )
           ! on ordonne les axes pour avoir ranges(1) >= ranges(2)
-          if ( ranges_tmp(2) > 1 ) then
+          if ( ranges_tmp(2) > ranges_tmp(1) ) then
              ranges = 0.5_fp * ranges_tmp([2,1])
              axes(:,1) = rot(:,2)
              axes(:,2) = -rot(:,1)
@@ -240,7 +240,7 @@ contains
     deallocate( xy_rot )
 
   end subroutine minimum_area_OBB_2d
-! ---------------------------------------------------------
+  ! ---------------------------------------------------------
 
 
 
@@ -261,7 +261,7 @@ contains
     real(kind=fp), intent(in)  :: t(n)
     real(kind=fp), intent(out) :: p(3,n)
     real(kind=fp)              :: r0, r1, a, s
-    
+
     r0 = norm2(p0) 
     r1 = norm2(p1)
 
@@ -278,23 +278,275 @@ contains
   end subroutine slerp
 
 
-  
-  
+
+
   ! ---------------------------------------------------------
   subroutine random_rotation_matrix3d( R )
     implicit none
     real(kind=fp), intent(out) :: R(3,3)
-    
+
     call random_number( R(:,1) )
     R(:,1) = R(:,1) / norm2( R(:,1) )
     R(:,2) = 0._fp
     R(minloc(abs(R(:,1))),2) = 1._fp
     R(:,2) = R(:,2) - dot_product( R(:,2), R(:,1) ) * R(:,1)
+    R(:,2) = R(:,2) / norm2( R(:,2) )
     R(:,3) = cross( R(:,1), R(:,2) )
 
   end subroutine random_rotation_matrix3d
   ! ---------------------------------------------------------
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine quickhull( &
+       xy, &
+       nxy, &
+       hull, &
+       nhull )
+    use mod_tolerances
+    implicit none
+    integer,       intent(in)  :: nxy
+    real(kind=fp), intent(in)  :: xy(2,nxy)
+    integer,       intent(out) :: hull(nxy)
+    integer,       intent(out) :: nhull
+    integer                    :: a, b, i
+    integer                    :: part(nxy), npart
+
+    IF ( .false. ) THEN
+       PRINT *,'XY ='
+       CALL PRINT_MAT( TRANSPOSE(XY) )
+    END IF
+
+    if ( nxy < 2 ) then
+       nhull = nxy
+       hull = 1
+       return
+    end if
+
+    ! find leftmost (a) and rightmost (b) points
+    a = 1
+    b = 1
+    do i = 2,nxy
+       if ( xy(1,i) < xy(1,a) .or. &
+            xy(1,i) < xy(1,a) + EPSfp .and. xy(2,i) < xy(2,a) ) then
+          a = i
+       elseif ( xy(1,i) > xy(1,b) .or. &
+            xy(1,i) > xy(1,b) - epsilon(1._fp) .and. xy(2,i) > xy(2,b) ) then
+          b = i
+       end if
+       !if ( xy(1,i) < xy(1,a) - EPSfp .or. &
+       !     xy(1,i) < xy(1,a) + EPSfp .and. xy(2,i) < xy(2,a) - EPSfp ) then
+       !   a = i
+       !elseif ( xy(1,i) > xy(1,b) + EPSfp .or. &
+       !     xy(1,i) > xy(1,b) - EPSfp .and. xy(2,i) > xy(2,b) + EPSfp ) then
+       !   b = i
+       !end if
+    end do
+
+    !PRINT *,'XYA =', XY(:,A)
+    !PRINT *,'XYB =', XY(:,B)
+
+    ! partition into two 
+    nhull = 1
+    hull(nhull) = a
+
+    call points_right_to_line( &
+         xy(:,a), &
+         xy(:,b), &
+         xy, &
+         nxy, &
+         part, &
+         npart )
+    call quickhull_partition( &
+         xy, &
+         nxy, &
+         part, &
+         npart, &
+         a, &
+         b, &
+         hull, &
+         nhull )
+
+    nhull = nhull + 1
+    hull(nhull) = b
+
+    call points_right_to_line( &
+         xy(:,b), &
+         xy(:,a), &
+         xy, &
+         nxy, &
+         part, &
+         npart )
+    call quickhull_partition( &
+         xy, &
+         nxy, &
+         part, &
+         npart, &
+         b, &
+         a, &
+         hull, &
+         nhull )
+
+  end subroutine quickhull
+
+
+
+
+  recursive subroutine quickhull_partition( &
+       xy, &
+       nxy, &
+       part, &
+       npart, &
+       a, &
+       b, &
+       hull, &
+       nhull )
+    use mod_tolerances
+    implicit none
+    integer,       intent(in)    :: nxy
+    real(kind=fp), intent(in)    :: xy(2,nxy)
+    integer,       intent(in)    :: part(nxy)
+    integer,       intent(in)    :: npart
+    integer,       intent(in)    :: a, b
+    integer,       intent(inout) :: hull(nxy)
+    integer,       intent(inout) :: nhull
+    integer                      :: newpart(nxy)
+    integer                      :: nnewpart
+    real(kind=fp)                :: abn(2), distp, distc
+    integer                      :: c, p, i
+
+    if ( npart < 1 ) return    
+
+    ! find the point c with maximal distance from the line [ab]
+    abn(1) = xy(2,a) - xy(2,b)
+    abn(2) = xy(1,b) - xy(1,a) 
+    c = 0
+    distc = 0._fp
+    do i = 1,npart
+       p = part(i)
+       if ( p == a .or. p == b ) cycle
+       distp = &
+            ( xy(1,a) - xy(1,p) ) * abn(1) + &
+            ( xy(2,a) - xy(2,p) ) * abn(2)
+       if ( distp > distc ) then!+ EPSfp ) then
+          c = p
+          distc = distp
+       end if
+    end do
+
+    ! recursion on new partitions:
+    ! 1) points right to [ac]
+    call points_right_to_line( &
+         xy(:,a), &
+         xy(:,c), &
+         xy, &
+         nxy, &
+         newpart, &
+         nnewpart )
+    call quickhull_partition( &
+         xy, &
+         nxy, &
+         newpart, &
+         nnewpart, &
+         a, &
+         c, &
+         hull, &
+         nhull )
+
+    nhull = nhull + 1
+    hull(nhull) = c
+
+    ! 2) points right to [cb]
+    call points_right_to_line( &
+         xy(:,c), &
+         xy(:,b), &
+         xy, &
+         nxy, &
+         newpart, &
+         nnewpart )
+    call quickhull_partition( &
+         xy, &
+         nxy, &
+         newpart, &
+         nnewpart, &
+         c, &
+         b, &
+         hull, &
+         nhull )
+
+  end subroutine quickhull_partition
+
+
+
+
+
+
+  subroutine points_right_to_line( &
+       xya, &
+       xyb, &
+       xy, &
+       nxy, &
+       list, &
+       nlist )
+    use mod_tolerances
+    implicit none
+    real(kind=fp), intent(in)  :: xya(2), xyb(2)
+    integer,       intent(in)  :: nxy
+    real(kind=fp), intent(in)  :: xy(2,nxy)
+    integer,       intent(out) :: list(nxy)
+    integer,       intent(out) :: nlist
+    real(kind=fp)              :: abn(2), dist
+    integer                    :: i
+
+    abn(1) = xya(2) - xyb(2)
+    abn(2) = xyb(1) - xya(1) 
+
+    nlist = 0
+    do i = 1,nxy
+       dist = &
+            ( xy(1,i) - xya(1) ) * abn(1) + &
+            ( xy(2,i) - xya(2) ) * abn(2)
+       if ( dist < -EPSfp ) then
+          nlist = nlist + 1
+          list(nlist) = i
+       end if
+    end do
+
+  end subroutine points_right_to_line
+
+
+
+
+
+
+  function distance_from_line( &
+       p, &
+       a, &
+       b )
+    implicit none
+    real(kind=fp), dimension(2), intent(in) :: p, a, b
+    real(kind=fp)                           :: distance_from_line
+    real(kind=fp)                           :: m(2,2)
+
+    m(:,1) = p - a
+    m(:,2) = [ a(2) - b(2) , b(1) - a(1) ]
+
+    distance_from_line = ( m(1,1)*m(2,2) - m(1,2)*m(2,1) ) / norm2( b - a )
+
+  end function distance_from_line
 
 
 end module mod_geometry

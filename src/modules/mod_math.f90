@@ -552,7 +552,7 @@ contains
   
     lambda = 1._fp
     do idim = 1,size(x)
-       if ( abs(dx(idim)) < MATHeps ) cycle
+       if ( abs(dx(idim)) < EPSmath ) cycle
        if ( dx(idim) < 0._fp ) then
           lambda = min( lambda, (lowerb(idim) - x(idim)) / dx(idim) )
        else
@@ -798,13 +798,22 @@ contains
 
 
 
-  function is_in_interval( x, a, b )
+  function is_in_interval( x, a, b, tolerance )
     ! Returns .true. if a <= x <= b, .false. if x < a or x > b
     implicit none
-    real(kind=fp), intent(in) :: x, a, b
-    logical                   :: is_in_interval
+    real(kind=fp),           intent(in) :: x, a, b
+    real(kind=fp), optional, intent(in) :: tolerance
+    real(kind=fp)                       :: tol
+    logical                             :: is_in_interval
     
-    is_in_interval = ( x >= a .and. x <= b )
+    if ( present(tolerance) ) then
+       tol = tolerance
+    else
+       tol = epsilon(1._fp)
+    end if
+
+    !is_in_interval = ( x >= a .and. x <= b )
+    is_in_interval = ( x >= a - tol .and. x <= b + tol )
 
   end function is_in_interval
 
@@ -818,6 +827,7 @@ contains
     logical                   :: is_in_interval_strict
 
     is_in_interval_strict = ( x > a .and. x < b )
+    !is_in_interval_strict = ( x > a + epsilon(1._fp) .and. x < b - epsilon(1._fp) )
 
   end function is_in_interval_strict
 
@@ -834,6 +844,155 @@ contains
        identity_matrix(i,i) = 1._fp
     end do
   end function identity_matrix
+
+
+
+  function diag( v )
+    implicit none
+    real(kind=fp), intent(in) :: v(:)
+    real(kind=fp)             :: diag(size(v), size(v))
+    integer                   :: i
+    diag(:,:) = 0._fp
+    do i = 1,size(v)
+       diag(i,i) = v(i)
+    end do
+  end function diag
+
+
+
+
+  subroutine linsolve( &
+       x, &
+       A, &
+       b, &
+       m, &
+       n, &
+       p, &
+       rank, &
+       cond )
+    implicit none
+    integer                              :: m, n, p
+    real(kind=fp), intent(in)            :: A(m,n)
+    real(kind=fp), intent(in)            :: b(m,p)
+    real(kind=fp), intent(out)           :: x(n,p)
+    integer,       intent(out)           :: rank
+    real(kind=fp), intent(out), optional :: cond
+    real(kind=fp)                        :: Q(m,m)
+    real(kind=fp)                        :: R(m,n)
+    real(kind=fp)                        :: Perm(n,n)
+    real(kind=fp)                        :: c(m,p)
+    real(kind=fp)                        :: y(n,p)
+    integer                              :: i
+
+    if (m < n) STOP 'linsolve : underdetermined systems not supported (m < n)'
+
+    ! QR factorization with column pivoting
+    call QR_colpiv( &
+         A, &
+         Q, &
+         R, &
+         Perm, &
+         rank )
+
+    if ( present(cond) ) then
+       cond = 0.5_fp * real(rank,kind=fp) * abs( R(1,1) / R(rank,rank) )
+    end if
+
+    c = matmul( transpose(Q), b )
+
+    if ( rank == n ) then ! rank == min(m,n)
+       ! A has full rank
+       do i = 1,p
+          call solve_up_tri( &
+               y(1:n,i), &
+               R(1:n,1:n), &
+               c(1:n,i), &
+               n, &
+               n )
+       end do
+    else
+       ! A is rank-deficient
+       call linsolve_rank_deficient( &
+            y, &
+            R(1:rank,1:n), &
+            c(1:rank,1:p), &
+            n, &
+            p, &
+            rank )
+            
+    end if
+
+    x = matmul( Perm, y )
+
+  end subroutine linsolve
+
+
+
+
+  subroutine linsolve_rank_deficient( &
+       y, &
+       R, &
+       c, &
+       n , &
+       p, &
+       rank )
+    implicit none
+    integer,       intent(in)  :: n, p, rank
+    real(kind=fp), intent(in)  :: R(rank,n)
+    real(kind=fp), intent(in)  :: c(rank,p)
+    real(kind=fp), intent(out) :: y(n,p)
+    real(kind=fp)              :: y1(rank)
+    real(kind=fp)              :: y2(n-rank,p)
+    real(kind=fp)              :: S(n,n-rank)
+    real(kind=fp)              :: t(n,p)
+    integer                    :: rankS
+    integer                    :: i
+
+    S(:,:) = 0._fp
+    do i = 1,n-rank
+       call solve_up_tri( &
+            S(1:rank,i), &
+            R(1:rank,1:rank), &
+            R(1:rank,rank+i), &
+            rank, &
+            rank )
+       S(rank+i,i) = 1._fp
+    end do
+
+    do i = 1,p
+       call solve_up_tri( &
+            t(1:rank,i), &
+            R(1:rank,1:rank), &
+            c(1:rank,i), &
+            rank, &
+            rank )
+    end do
+    t(rank+1:n,1:p) = 0._fp
+    
+    call linsolve( &
+         y2, &
+         S, &
+         t, &
+         n, &
+         n-rank, &
+         p, &
+         rankS )
+
+    if ( rankS < n ) STOP 'linsolve_rank_deficient : rank(S) < n'
+
+    do i = 1,p
+       call solve_up_tri( &
+            y1, &
+            R(1:rank,1:rank), &
+            c(1:rank,i) - matmul( R(1:rank,rank+1:n), y2(:,i) ), &
+            rank, &
+            rank )
+       y(1:rank,i) = y1
+    end do
+    y(rank+1:n,1:p) = y2
+
+  end subroutine linsolve_rank_deficient
+
 
 
 end module mod_math

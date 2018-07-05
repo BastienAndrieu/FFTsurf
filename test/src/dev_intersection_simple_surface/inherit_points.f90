@@ -22,7 +22,8 @@ subroutine inherit_points( &
         if ( .not.is_in_interval( &
              coords(idim,ipt), &
              region%uvbox(2*idim-1), &
-             region%uvbox(2*idim) ) ) then
+             region%uvbox(2*idim), &
+             tolerance=EPSregion) ) then
            mask(jpt) = .false.
            cycle outer
         end if

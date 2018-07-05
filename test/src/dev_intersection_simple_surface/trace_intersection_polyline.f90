@@ -9,8 +9,8 @@ subroutine trace_intersection_polyline( &
   use mod_math
   use mod_diffgeom2
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false.
-  real(kind=fp), parameter                        :: tolchord = real( 1e-4, kind=fp )
+  LOGICAL, PARAMETER :: DEBUG = .FALSE.
+  real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
   real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
   real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
   real(kind=fp), parameter                        :: tolhsqr = tolh**2
@@ -30,6 +30,7 @@ subroutine trace_intersection_polyline( &
   integer                                         :: stat
   integer                                         :: ipt
   
+  IF ( DEBUG) PRINT *,'P =', PARAM_VECTOR
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
 
@@ -60,6 +61,8 @@ subroutine trace_intersection_polyline( &
         END SELECT
         STOP
      end if
+
+     IF ( DEBUG) PRINT *,'XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
      
      ! target segment length
      h = FRACcurvature_radius / curvature(1)
@@ -120,7 +123,61 @@ subroutine trace_intersection_polyline( &
         end if
         
         h = FRACbacktrack * h
-        if ( h < EPSh ) STOP 'trace_intersection_polyline : h << h0, indefinite backtracking'
+        if ( h < EPSh ) then
+           CALL WRITE_POLYNOMIAL( surf(1)%ptr%x, 'trace_intersection_polyline/c1.cheb' )
+           CALL WRITE_POLYNOMIAL( surf(2)%ptr%x, 'trace_intersection_polyline/c2.cheb' )
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE' )
+           WRITE (13,*) 'UV_ENDPOINTS'
+           DO IPT = 1,2
+              WRITE (13,*) uv_endpoints(:,1,ipt)
+              WRITE (13,*) uv_endpoints(:,2,ipt)
+           END DO
+           WRITE (13,*) 'XYZ_ENDPOINTS'
+           DO IPT = 1,2
+              WRITE (13,*) xyz_endpoints(:,ipt)
+           END DO
+           WRITE (13,*) 'PARAM_VECTOR'
+           WRITE (13,*) param_vector
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/xyz_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              WRITE (13,*) POLYLINE%XYZ(:,IPT)
+           END DO
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/uv_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              WRITE (13,*) POLYLINE%UV(:,:,IPT)
+           END DO
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/tangent_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              call diffgeom_intersection_curve( &
+                   surf, &
+                   polyline%uv(:,:,ipt), &
+                   uv_s, &
+                   xyz_s, &
+                   stat, &
+                   curvature )
+              WRITE (13,*) xyz_s(:,1), uv_s(:,1,:)
+           END DO
+           CLOSE(13)
+
+           
+           call diffgeom_intersection_curve( &
+                surf, &
+                uv_endpoints(:,:,2), &
+                uv_s, &
+                xyz_s, &
+                stat, &
+                curvature )
+           PRINT *,'AT 2ND ENDPOINT, XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
+
+           STOP 'trace_intersection_polyline : h << h0, indefinite backtracking'
+        end if
 
      end do inner_while
      
@@ -149,7 +206,24 @@ subroutine trace_intersection_polyline( &
        polyline )  
 
 
-  IF ( DEBUG ) THEN
+  IF ( .false. ) THEN !( DEBUG ) THEN
+     CALL WRITE_POLYNOMIAL( surf(1)%ptr%x, 'trace_intersection_polyline/c1.cheb' )
+     CALL WRITE_POLYNOMIAL( surf(2)%ptr%x, 'trace_intersection_polyline/c2.cheb' )
+
+     OPEN( UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE' )
+     WRITE (13,*) 'UV_ENDPOINTS'
+     DO IPT = 1,2
+        WRITE (13,*) uv_endpoints(:,1,ipt)
+        WRITE (13,*) uv_endpoints(:,2,ipt)
+     END DO
+     WRITE (13,*) 'XYZ_ENDPOINTS'
+     DO IPT = 1,2
+        WRITE (13,*) xyz_endpoints(:,ipt)
+     END DO
+     WRITE (13,*) 'PARAM_VECTOR'
+     WRITE (13,*) param_vector
+     CLOSE(13)
+
      OPEN( UNIT=13, FILE='trace_intersection_polyline/xyz_polyline.dat', ACTION='WRITE' )
      DO IPT = 1,POLYLINE%NP
         WRITE (13,*) POLYLINE%XYZ(:,IPT)
@@ -161,7 +235,26 @@ subroutine trace_intersection_polyline( &
         WRITE (13,*) POLYLINE%UV(:,:,IPT)
      END DO
      CLOSE(13)
+
+     OPEN( UNIT=13, FILE='trace_intersection_polyline/tangent_polyline.dat', ACTION='WRITE' )
+     DO IPT = 1,POLYLINE%NP
+        call diffgeom_intersection_curve( &
+          surf, &
+          polyline%uv(:,:,ipt), &
+          uv_s, &
+          xyz_s, &
+          stat, &
+          curvature )
+        WRITE (13,*) xyz_s(:,1), uv_s(:,1,:)
+     END DO
+     CLOSE(13)
+     
      STOP
+  END IF
+
+
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,''; PRINT *,'';
   END IF
 
 end subroutine trace_intersection_polyline

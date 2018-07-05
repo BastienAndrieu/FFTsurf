@@ -1,5 +1,9 @@
 clc; clear; close all
 
+addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
+addpath('/stck/bandrieu/Bureau/CYPRES/FourierContinuation/Chebyshev/Bezier/');
+addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
+
 cl = ['b','r'];
 
 bc = readCoeffs1('region_c_bezier.bern');

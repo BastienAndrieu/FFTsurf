@@ -163,6 +163,7 @@ subroutine intersect_border_surface( &
   !IF ( NUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:NUVXYZ)) )
 
   call free_polynomial( region_c%poly(1)%ptr )
+  deallocate( region_c%poly(1)%ptr )
   deallocate( region_c%poly )
 
   nullify( region_s%poly(1)%ptr )

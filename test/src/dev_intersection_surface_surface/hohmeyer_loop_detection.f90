@@ -30,6 +30,9 @@ subroutine hohmeyer_loop_detection( &
   allocate( sep1(n1,3), sep2(n2,3) )
   sep1 = reshape( bpn1%coef(1:bpn1%degr(1)+1,1:bpn1%degr(2)+1,1:3), [n1,3] )
   sep2 = reshape( bpn2%coef(1:bpn2%degr(1)+1,1:bpn2%degr(2)+1,1:3), [n2,3] )
+  
+  sep1 = sep1 / spread( sqrt( sum( sep1**2, 2 ) ), dim=2, ncopies=3 )
+  sep2 = sep2 / spread( sqrt( sum( sep2**2, 2 ) ), dim=2, ncopies=3 )
 
   ! search for a vector vec1 such that vec1.n1 < 0 and vec1.n2 > 0
   ! for all ni in pnbox(i)
@@ -40,6 +43,13 @@ subroutine hohmeyer_loop_detection( &
           normal_collineal, &
           vec1, &
           separable )
+     !PRINT *,'HKTI SEPARABLE?',separable
+     !IF ( .NOT.SEPARABLE ) THEN
+        !CALL WRITE_POLYNOMIAL( BPN1, 'dev_intersection_surface_surface/bpn1.bern' )
+        !CALL WRITE_POLYNOMIAL( BPN2, 'dev_intersection_surface_surface/bpn2.bern' )
+        !CALL WRITE_MATRIX( normal_collineal, 1, 3, 'dev_intersection_surface_surface/norcol.dat' )
+     !   STOP '>>> DEBUG'
+     !END IF
   else
      call separating_plane( &
           sep1(1:n1,1:3), &
@@ -48,6 +58,15 @@ subroutine hohmeyer_loop_detection( &
           n2, &
           vec1, &
           separable )
+
+     IF ( .false. ) THEN
+        PRINT *,'SEPARABLE?',separable
+        CALL WRITE_MATRIX( SEP1(1:N1,1:3), N1, 3, 'trace_intersection_polyline/sep1.dat' )
+        CALL WRITE_MATRIX( SEP2(1:N2,1:3), N2, 3, 'trace_intersection_polyline/sep2.dat' )
+        PRINT *,'***'
+        STOP
+     END IF
+
   end if
   !IF (VERBOSE) PRINT *,separable
 
@@ -65,13 +84,25 @@ subroutine hohmeyer_loop_detection( &
 
   if ( separable ) then
      IF (VERBOSE) PRINT *,'VEC2 =',REAL(VEC2)
+
      vec = cross( vec1, vec2 )
      normvec = norm2( vec )
-     if ( normvec < MATHeps ) then
-        STOP 'hohmeyer_loop_detection : normvec << 1'
+     if ( normvec < EPSmath ) then
+        PRINT *,'VEC1 =', VEC1
+        PRINT *,'VEC2 =', VEC2
+        stat = -1
+        return
+        !STOP 'hohmeyer_loop_detection : normvec << 1'
      else
         vec = vec / normvec
         stat = 0
+
+        IF ( VERBOSE ) THEN
+           PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
+           PRINT *,'VEC1 =', VEC1
+           PRINT *,'VEC2 =', VEC2
+           PRINT *,'   P =', VEC
+        END IF
      end if
   else
      ! which surface has the "largest" Gauss map?
@@ -84,7 +115,7 @@ subroutine hohmeyer_loop_detection( &
           sep2(1:n2,1:3), &
           coneaxe, &
           gaussmapsize(2) )
-     IF (VERBOSE) PRINT *,'   GAUSS MAP SIZE / PI =',REAL( GAUSSMAPSIZE / MATHPI )
+     IF (VERBOSE) PRINT *,'   GAUSS MAP SIZE / PI =',REAL( GAUSSMAPSIZE / CSTPI )
 
      if ( all( gaussmapsize > 0.4_fp * MATHpi ) ) then
         stat = 3

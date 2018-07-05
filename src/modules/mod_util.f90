@@ -467,19 +467,54 @@ contains
    integer,      intent(in) :: m, n
    real*8,       intent(in) :: a(m,n)
    character(*), intent(in) :: filename
-   integer                  :: fileunit, i
+   integer                  :: fileunit, i, j
 
    call get_free_unit( fileunit )
    open( unit=fileunit, file=filename, action='write' )
    do i = 1,m
-      write ( unit=fileunit, fmt=* ) a(i,:)
+      !write ( unit=fileunit, fmt=* ) a(i,:)
+      do j = 1,n
+         write ( unit=fileunit, fmt='(ES22.15,1x)', advance='no' ) a(i,j)
+      end do
+      write ( unit=fileunit, fmt=* )
    end do
    close( fileunit )
  end subroutine write_matrix
 
 
- 
 
+
+
+ subroutine randperm( perm, n )
+   implicit none
+   integer, intent(in)  :: n
+   integer, intent(out) :: perm(n)
+   integer              :: i, j, t
+
+   perm = [ ( i, i=1,n ) ]
+
+   do i = n,2,-1
+      call random_integer( j, i-1 )
+      j = j + 1
+      t = perm(j)
+      perm(j) = perm(i)
+      perm(i) = t
+   end do
+
+ end subroutine randperm
+
+
+
+subroutine random_integer( i, imax )
+  implicit none
+  integer, intent(in)  :: imax
+  integer, intent(out) :: i
+  real                 :: r 
+
+  call random_number( r )
+  i = nint( real(imax) * r )
+
+end subroutine random_integer
 
 
 end module mod_util

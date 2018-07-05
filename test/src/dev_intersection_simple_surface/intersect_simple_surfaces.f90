@@ -11,6 +11,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_diffgeom2
   use mod_regiontree
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = .FALSE.
   integer, parameter                          :: nuvxyz_init = 10
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
@@ -214,16 +215,20 @@ recursive subroutine intersect_simple_surfaces( &
         if ( nuvxyz == 2 ) then ! <----------------------------+                     !     !
            if ( product(stat_point) < 0 ) then ! <----------+  !                     !     !
               ! trace courbe...                             !  !                     !     !
-              PRINT *,'1 CURVE :)' 
-              CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
-
+              IF ( DEBUG ) THEN
+                 PRINT *,'1 CURVE :)' 
+                 CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
+                 PRINT *,'UVBOXES ='
+                 DO ISURF = 1,2
+                    PRINT *,REGION(ISURF)%PTR%UVBOX
+                 END DO
+              END IF
               !listcurv%nc = listcurv%nc + 1                    !** à supprimer
               !listcurv%curve(listcurv%nc)%uvxyz = uvxyz(:,1:2) !** à supprimer
 
               interdat%nc = interdat%nc + 1              
               do isurf = 1,2
                  interdat%curves(interdat%nc)%surf(isurf)%ptr => surfroot(isurf)%ptr
-                 !interdat%curves(interdat%nc)%region(isurf)%ptr => region(isurf)%ptr
                  interdat%curves(interdat%nc)%uvbox(:,:,isurf) = reshape( region(isurf)%ptr%uvbox, [2,2] )
               end do
 
@@ -247,6 +252,7 @@ recursive subroutine intersect_simple_surfaces( &
 
               ! re-order the endpoints from entering to exiting
               if ( stat_point(1) < 0 ) then
+                 IF ( DEBUG ) PRINT *,'REVERSE...'
                  order = [2,1]
               else
                  order = [1,2]
@@ -291,13 +297,21 @@ recursive subroutine intersect_simple_surfaces( &
                    interdat%curves(interdat%nc)%param_vector, &
                    interdat%curves(interdat%nc)%polyline, &
                    HMIN=REAL(1.E-3,KIND=FP), &
-                   HMAX=REAL(2.E-1,KIND=FP) )  
+                   HMAX=REAL(1.E-1,KIND=FP) )  
 
            elseif ( all(stat_point == 0) ) then ! ----------+  !                     !     !
               ! 2 points isolés...                          !  !                     !     !
               PRINT *,'2 ISOLATED POINTS ...'
               CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
-              STOP
+              do ipt = 1,2
+                 call add_intersection_point( &
+                      reshape( uvxyz(1:4,ipt), [2,2] ), &
+                      uvxyz(5:7,ipt), &
+                      surfroot, &
+                      interdat, &
+                      idnewpoint(ipt) )
+              end do
+              !STOP
            else ! ------------------------------------------+  !                     !     !
               ! erreur                                      !  !                     !     !
               stat_degeneracy = 555                         !  !                     !     !
@@ -320,7 +334,13 @@ recursive subroutine intersect_simple_surfaces( &
               ! 1 point isolé...                            !  !                     !     !
               PRINT *,'1 ISOLATED POINT ...'
               PRINT *, UVXYZ(:,1)
-              STOP
+              call add_intersection_point( &
+                   reshape( uvxyz(1:4,1), [2,2] ), &
+                   uvxyz(5:7,1), &
+                   surfroot, &
+                   interdat, &
+                   idnewpoint(1) )
+              !STOP
            else ! ------------------------------------------+  !                     !     !
               ! erreur                                      !  !                     !     !
               stat_degeneracy = 666                         !  !                     !     !

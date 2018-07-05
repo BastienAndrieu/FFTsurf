@@ -11,7 +11,7 @@ class intersection_curve:
 
 
 ##########################################################
-
+show_curve_uvbox = False
 
 nv = 0
 
@@ -63,10 +63,11 @@ lw_curve = 1.0
 cl_tree = '0.7'#'k'
 cl_curve = 'r'
 cl_point = 'r'
-cl_box = 'y'
+cl_box = '#FCF3AC' #'y'
 
 for isurf in range(2):
     tree = np.loadtxt( 'tree_' + str(isurf+1) + '.dat' )
+    print tree.shape
     if len(tree.shape) < 2:
         rect = patches.Rectangle( ( tree[0], tree[2] ), # lower-left corner
                                   tree[1] - tree[0],    # u-extent
@@ -84,14 +85,16 @@ for isurf in range(2):
                                       ec = cl_tree,
                                       lw = lw_tree )
             axes[isurf].add_patch( rect )
+    
     for ic in range(nc):
-        rect = patches.Rectangle( curves[ic].uvbox[0,:,isurf],                               # lower-left corner
-                                  curves[ic].uvbox[1,0,isurf] - curves[ic].uvbox[0,0,isurf], # u-extent
-                                  curves[ic].uvbox[1,1,isurf] - curves[ic].uvbox[0,1,isurf], # v-extent                    
-                                  fc = cl_box,
-                                  ec ='none',
-                                  alpha = 0.2 )
-        axes[isurf].add_patch( rect )
+        if show_curve_uvbox:
+            rect = patches.Rectangle( curves[ic].uvbox[0,:,isurf],                               # lower-left corner
+                                      curves[ic].uvbox[1,0,isurf] - curves[ic].uvbox[0,0,isurf], # u-extent
+                                      curves[ic].uvbox[1,1,isurf] - curves[ic].uvbox[0,1,isurf], # v-extent                    
+                                      fc = cl_box,
+                                      ec ='none',
+                                      alpha = 1 )
+            axes[isurf].add_patch( rect )
         axes[isurf].plot( curves[ic].uv[:,isurf,0], curves[ic].uv[:,isurf,1], 
                           color = cl_curve, 
                           linewidth = lw_curve )
