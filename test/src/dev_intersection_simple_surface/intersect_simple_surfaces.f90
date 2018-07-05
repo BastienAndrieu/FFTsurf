@@ -38,11 +38,11 @@ recursive subroutine intersect_simple_surfaces( &
 
   if ( stat_degeneracy > 1 ) return
 
-  !PRINT *,'';PRINT *,'';PRINT *,'';
-  !PRINT *,'UVBOXES ='
-  !DO ISURF = 1,2
-  !   PRINT *,REGION(ISURF)%PTR%UVBOX
-  !END DO
+  PRINT *,'';PRINT *,'';PRINT *,'';
+  PRINT *,'UVBOXES ='
+  DO ISURF = 1,2
+     PRINT *,REGION(ISURF)%PTR%UVBOX
+  END DO
 
   ! intersect the 4 borders of each surface with the other surface
   !nuvxyz = 0

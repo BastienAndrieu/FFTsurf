@@ -270,7 +270,6 @@ contains
     !     region%ipts, &
     !     region%npts, &
     !     ipt )
-    PRINT *,'ADD BOTTOM-UP :',IPT,' TO REGION',REGION%UVBOX(1:2*REGION%DIM)
     call append_n( &
          region%ipts, &
          region%npts, &

@@ -34,13 +34,13 @@ recursive subroutine intersect_surface_surface( &
 
   if ( stat_degeneracy > 1 ) return
 
-  IF ( DEBUG ) THEN
-     PRINT *,''; PRINT *,''; PRINT *,''
-     PRINT *,'UVBOXES ='
-     DO ISURF = 1,2
-        PRINT *,REGION(ISURF)%PTR%UVBOX
-     END DO
-  END IF
+  IF ( DEBUG ) THEN ! <-------------------+
+     PRINT *,''; PRINT *,''; PRINT *,''   !
+     PRINT *,'UVBOXES ='                  !
+     DO ISURF = 1,2 ! <-----------------+ !
+        PRINT *,REGION(ISURF)%PTR%UVBOX ! !
+     END DO ! <-------------------------+ !
+  END IF ! <------------------------------+
 
   ! compute bounding boxes for each region...
   do isurf = 1,2 ! <------------------------------------------------------+
@@ -68,31 +68,40 @@ recursive subroutine intersect_surface_surface( &
        uv_collineal, &
        normal_collineal, &
        stat_collineal )
-  IF ( DEBUG ) THEN
-     PRINT *,'COLLINEAL CORNERS?', (STAT_COLLINEAL <= 0)
-     IF ( STAT_COLLINEAL <= 0 ) THEN
-        PRINT *,' UV =',uv_collineal
-     END IF
-  END IF
+  IF ( DEBUG ) THEN ! <-----------------------------------+
+     PRINT *,'COLLINEAL CORNERS?', (STAT_COLLINEAL <= 0)  !
+     IF ( STAT_COLLINEAL <= 0 ) THEN ! <---+              !
+        PRINT *,' UV =',uv_collineal       !              !
+     END IF ! <----------------------------+              !
+  END IF ! <----------------------------------------------+
 
-  if ( stat_collineal < 0 ) then
-     call eval( &
-          xyz_collineal, &
-          surfroot(1)%ptr, &
-          uv_collineal(:,1) )
-     call intersect_surface_surface_elsewhere( &
-          region(1)%ptr%poly(1)%ptr, &
-          region(2)%ptr%poly(1)%ptr, &
-          xyz_collineal, &
-          separable, &
-          randomize=.true. )
-     PRINT *,'SEPARABLE ?',SEPARABLE
-     !IF ( .NOT.SEPARABLE ) STOP 'debug'
-     if ( separable ) return
-  end if
-  !IF ( STAT_COLLINEAL > 0 ) THEN
-  !   PRINT *,'NO PAIR OF COLLINEAL CORNERS'
-  !END IF
+  if ( stat_collineal <= 0 ) then ! <----------------------------+
+     ! we will subdivide at parametric center point              !
+     do isurf = 1,2 ! <----------------------------+             !
+        uv_subdiv(:,isurf) = 0.5_fp * ( &          !             !
+             region(isurf)%ptr%uvbox([1,3]) + &    !             !
+             region(isurf)%ptr%uvbox([2,4]) )      !             !
+     end do ! <------------------------------------+             !
+     if ( stat_collineal < 0 ) then ! <-----------------------+  !
+        ! there is a singular intersection point located at   !  !
+        ! a corner in both surfaces, we now check if the pair !  !
+        ! of surfaces can intersect at other points           !  !
+        call eval( &                                          !  !
+             xyz_collineal, &                                 !  !
+             surfroot(1)%ptr, &                               !  !
+             uv_collineal(:,1) )                              !  !
+        !                                                     !  !
+        call intersect_surface_surface_elsewhere( &           !  !
+             region(1)%ptr%poly(1)%ptr, &                     !  !
+             region(2)%ptr%poly(1)%ptr, &                     !  !
+             xyz_collineal, &                                 !  !
+             separable, &                                     !  !
+             randomize=.true. )                               !  !
+        IF ( DEBUG ) PRINT *,'SEPARABLE ?',SEPARABLE          !  !
+        if ( separable ) return                               !  !
+        !                                                     !  !
+     end if ! <-----------------------------------------------+  !
+  end if ! <-----------------------------------------------------+
 
   ! use Hohmeyer's loop detection technique
   call hohmeyer_loop_detection( &
@@ -104,90 +113,76 @@ recursive subroutine intersect_surface_surface( &
        normal_collineal )
 
   IF ( DEBUG ) PRINT *,'STAT_LOOPDETECTION =',STAT_LOOPDETECTION
-  IF ( STAT_LOOPDETECTION < 0 ) THEN
-     DO ISURF = 1,2
-        PRINT *,'SURF #',ISURF
-        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX
-        WRITE (STR1,'(I1)') ISURF
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(1)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(2)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )
-        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN
-           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'
-           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)
-              WRITE (STR2,'(I1)') ICHILD
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )
-           END DO
-        END IF
-     END DO
-     STOP
-  END IF
+  IF ( STAT_LOOPDETECTION < 0 ) THEN ! <-------------------------------------------------------------+
+     ! in case an unexpected error has been encountered in hohmeyer_loop_detection                   !
+     DO ISURF = 1,2                                                                                  !
+        PRINT *,'SURF #',ISURF                                                                       !
+        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX                                                    !
+        WRITE (STR1,'(I1)') ISURF                                                                    !
+        CALL WRITE_POLYNOMIAL( &                                                                     !
+             REGION(ISURF)%PTR%POLY(1)%PTR, &                                                        !
+             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )                       !
+        CALL WRITE_POLYNOMIAL( &                                                                     !
+             REGION(ISURF)%PTR%POLY(2)%PTR, &                                                        !
+             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )                      !
+        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN                                              !
+           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'                                         !
+           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)                                               !
+              WRITE (STR2,'(I1)') ICHILD                                                             !
+              CALL WRITE_POLYNOMIAL( &                                                               !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &                                    !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )   !
+              CALL WRITE_POLYNOMIAL( &                                                               !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &                                    !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )  !
+           END DO                                                                                    !
+        END IF                                                                                       !
+     END DO                                                                                          !
+     STOP                                                                                            !
+  END IF ! <-----------------------------------------------------------------------------------------+
 
   ! if the loop detection criterion IS satisfied, there can be no singular
   ! intersection point, or closed intersection curve. 
   ! Run the algorithm for finding the potential simple intersection branches.
   if ( stat_loopdetection == 0 ) then ! <---------------------------------+
-     IF ( .false. ) THEN
-        PRINT *,'INTERSECT SIMPLE SURFACES, P =',PARAM_VECTOR
-     ELSE
-        !IF ( INTERDAT%NC > 0 ) STOP 'DEBUG PARAM_VECTOR'
-        IF (.FALSE.) THEN
-           PRINT *,'INTERSECT SIMPLE SURFACES, P =',PARAM_VECTOR
-           PRINT *,'UVBOXES ='
-           DO ISURF = 1,2
-              PRINT *,REGION(ISURF)%PTR%UVBOX
-           END DO
-           CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'trace_intersection_polyline/x1.bern' )
-           CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'trace_intersection_polyline/x2.bern' )
-           CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(2)%PTR, 'trace_intersection_polyline/pn1.bern' )
-           CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(2)%PTR, 'trace_intersection_polyline/pn2.bern' )
-        END IF
-
-        do isurf = 1,2
-           allocate( newregion(isurf)%ptr )
-           call copy_region( &
-                region(isurf)%ptr, &
-                newregion(isurf)%ptr )
-        end do
-
-        nuvxyz = 0
-        call intersect_simple_surfaces( &                                    !
-             surfroot, &                                                     !
-             newregion, &                                                    !
-             param_vector, &                                                 !
-             interdat, &                                                     !
-             uvxyz, &                                                        !
-             nuvxyz, &                                                       !
-             stat_degeneracy )                                               !
-        if ( allocated(uvxyz) ) deallocate( uvxyz )                          !
-
-        do isurf = 1,2
-           if ( newregion(isurf)%ptr%npts > 0 ) then
-              call append_n( &
-                   region(isurf)%ptr%ipts, &
-                   region(isurf)%ptr%npts, &
-                   newregion(isurf)%ptr%ipts(1:newregion(isurf)%ptr%npts), &
-                   2, &
-                   unique=.true. )
-           end if
-           nullify( &
-                newregion(isurf)%ptr%xyzbox,      &
-                newregion(isurf)%ptr%poly(1)%ptr, &
-                newregion(isurf)%ptr%poly(2)%ptr )
-           deallocate( newregion(isurf)%ptr%poly )
-           call free_region_tree( newregion(isurf)%ptr )
-           deallocate( newregion(isurf)%ptr )
-        end do
-        !PRINT *,'';PRINT *,'';PRINT *,''
-     END IF
+     !                                                                    !
+        do isurf = 1,2 ! <-------------------+                            !
+           allocate( newregion(isurf)%ptr )  !                            !
+           call copy_region( &               !                            !
+                region(isurf)%ptr, &         !                            !
+                newregion(isurf)%ptr )       !                            !
+        end do ! <---------------------------+                            !
+        !                                                                 !
+        nuvxyz = 0                                                        !
+        call intersect_simple_surfaces( &                                 !
+             surfroot, &                                                  !
+             newregion, &                                                 !
+             param_vector, &                                              !
+             interdat, &                                                  !
+             uvxyz, &                                                     !
+             nuvxyz, &                                                    !
+             stat_degeneracy )                                            !
+        if ( allocated(uvxyz) ) deallocate( uvxyz )                       !
+        !                                                                 !
+        do isurf = 1,2 ! <---------------------------------------+        !                       
+           if ( newregion(isurf)%ptr%npts > 0 ) then ! <----+    !        !
+              call append_n( &                              !    !        !
+                   region(isurf)%ptr%ipts, &                !    !        !
+                   region(isurf)%ptr%npts, &                !    !        !
+                   newregion(isurf)%ptr%ipts(&              !    !        !
+                   1:newregion(isurf)%ptr%npts), &          !    !        !
+                   2, &                                     !    !        !
+                   unique=.true. )                          !    !        !
+           end if ! <---------------------------------------+    !        !
+           nullify( &                                            !        !
+                newregion(isurf)%ptr%xyzbox,      &              !        !
+                newregion(isurf)%ptr%poly(1)%ptr, &              !        !
+                newregion(isurf)%ptr%poly(2)%ptr )               !        !
+           deallocate( newregion(isurf)%ptr%poly )               !        !
+           call free_region_tree( newregion(isurf)%ptr )         !        !
+           deallocate( newregion(isurf)%ptr )                    !        !
+        end do ! <-----------------------------------------------+        !
+        !PRINT *,'';PRINT *,'';PRINT *,''                                 !
      return                                                               !
   end if ! <--------------------------------------------------------------+
 
@@ -195,15 +190,21 @@ recursive subroutine intersect_surface_surface( &
   if ( stat_collineal <= 0 ) then ! <-------------------------------------+
      ! the pair of collineal points discovered is a pair of corners, so   !
      ! we subividide each region at its center point                      !
-     do isurf = 1,2 ! <------------------------------------------+        !
-        uv_subdiv(:,isurf) = 0.5_fp * ( &                        !        !
-             region(isurf)%ptr%uvbox([1,3]) + &                  !        !
-             region(isurf)%ptr%uvbox([2,4]) )                    !        !
-     end do ! <--------------------------------------------------+        !
+     !do isurf = 1,2 ! <------------------------------------------+        !
+     !   !uv_collineal(:,isurf) = 0.5_fp * ( &                     !        !
+     !   !     region(isurf)%ptr%uvbox([1,3]) + &                  !        !
+     !   !     region(isurf)%ptr%uvbox([2,4]) )                    !        !
+     !   uv_subdiv(:,isurf) = 0.5_fp * ( &                        !        !
+     !        region(isurf)%ptr%uvbox([1,3]) + &                  !        !
+     !        region(isurf)%ptr%uvbox([2,4]) )                    !        !
+     !end do ! <--------------------------------------------------+        !
+     PRINT *,'UV_COL =',UV_COLLINEAL
+     PRINT *,'UV_SUB =',UV_SUBDIV
   else ! -----------------------------------------------------------------+
      ! ... if no pair of collineal corners, run Newton-Raphson algorithm. !
      ! Define feasible region for the Newton algorithm ( uvboxes of the   !
      ! surface regions )                                                  !
+     ! set initial iterate to the parametric center of both regions       !
      do isurf = 1,2 ! <------------------------------------------+        !
         uv_collineal(:,isurf) = 0.5_fp * ( &                     !        !
              region(isurf)%ptr%uvbox([1,3]) + &                  !        !
@@ -224,15 +225,17 @@ recursive subroutine intersect_surface_surface( &
           lowerb, &                                                       !
           upperb, &                                                       !
           stat_collineal )                                                !
-
-     if ( stat_collineal <= 0 ) uv_subdiv = uv_collineal
-     IF ( DEBUG ) THEN
-        PRINT *,'COLLINEAL INTERIOR POINTS?', (STAT_COLLINEAL == 0)
-        IF ( STAT_COLLINEAL == 0 ) PRINT *,UV_COLLINEAL
-     END IF
+     IF ( DEBUG ) THEN                                                    !
+        PRINT *,'COLLINEAL INTERIOR POINTS?', (STAT_COLLINEAL <= 0)       !
+        IF ( STAT_COLLINEAL == 0 ) PRINT *,UV_COLLINEAL                   !
+     END IF                                                               !
+     ! we discovered a pair of collineal points interior to either or     !
+     ! both the surfaces, we will subdivide either/both the surfaces      !
+     ! at that collineal points                                           !
+     if ( stat_collineal <= 0 ) uv_subdiv = uv_collineal                  !
   end if ! <--------------------------------------------------------------+
 
-  !PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
+  PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
   !IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
   if ( stat_collineal > 0 ) then ! <-------------------------------------------------------------------------+
@@ -243,7 +246,7 @@ recursive subroutine intersect_surface_surface( &
      ! the new pairs of surface regions                                                                      !
      ! ( with no additions to the 'intersection_data' structure )                                            !
      do isurf = 1,2 ! <------------------------------------------+                                           !
-        uv_subdiv(:,isurf) = 0.5_fp * ( &                     !                                           !
+        uv_subdiv(:,isurf) = 0.5_fp * ( &                        !                                           !
              region(isurf)%ptr%uvbox([1,3]) + &                  !                                           !
              region(isurf)%ptr%uvbox([2,4]) )                    !                                           !
      end do ! <--------------------------------------------------+                                           !
@@ -263,7 +266,6 @@ recursive subroutine intersect_surface_surface( &
      !                            - if boundary => ignore (safe?)                                            !
      !  - TANGENTIAL INTERSECTION CURVE => error (should have been detected in the intial set of surfaces)   !
      !  - HIGHER ORDER CONTACT POINT: ???                                                                    !
-     !                                                                                                       !
      !                                                                                                       !
      ! compute tangent and normal vectors, required for singular point characterization                      !
      do isurf = 1,2 ! <-------------------------------------+                                                !
@@ -285,22 +287,22 @@ recursive subroutine intersect_surface_surface( &
           dxyz_ds, &                                                                                         !
           stat_singularpoint )                                                                               !
      !                                                                                                       !
-     call eval( &
-          xyz_collineal, &
-          surfroot(1)%ptr, &
-          uv_collineal(:,1) )
-     call add_intersection_point( &
-          uv_collineal, &
-          xyz_collineal, &
-          surfroot, &
-          interdat, &
-          idpt )
+     call eval( &                                                                                            !
+          xyz_collineal, &                                                                                   !
+          surfroot(1)%ptr, &                                                                                 !
+          uv_collineal(:,1) )                                                                                !
+     call add_intersection_point( &                                                                          !
+          uv_collineal, &                                                                                    !
+          xyz_collineal, &                                                                                   !
+          surfroot, &                                                                                        !
+          interdat, &                                                                                        !
+          idpt )                                                                                             !
      SELECT CASE (stat_singularpoint)                                                                        !
      CASE (0)                                                                                                !
         PRINT *,'>>> tangential intersection curve <<<'                                                      !
      CASE (1)                                                                                                !
         PRINT *,'>>> branch point <<<'                                                                       !
-        stat_loopdetection = 3
+        stat_loopdetection = 3 ! force subdivision of BOTH surfaces                                          !
      CASE (2)                                                                                                !
         PRINT *,'>>> isolated tangential contact point <<<'                                                  !
      CASE (3)                                                                                                !
@@ -309,37 +311,34 @@ recursive subroutine intersect_surface_surface( &
      !                                                                                                       !
   else ! ----------------------------------------------------------------------------------------------------+
      ! (stat_collineal = 0)                                                                                  !
-     !stat_loopdetection = 0
-     !do isurf = 1,2
-     !   if ( maxval(region(isurf)%ptr%poly(2)%ptr%degr) > 0 ) then
-     !      stat_loopdetection = stat_loopdetection + isurf
-     !   end if
-     !end do
-     uv_subdiv = uv_collineal
-     if ( stat_loopdetection /= 3 ) then
-        isurf = stat_loopdetection
-        do ivar = 1,2
-           isonboundary(ivar) = ( &
-                abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar-1) ) < EPSregion .or. &
-                abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar) )   < EPSregion )
-        end do
-        if ( all(isonboundary) ) then
-           uv_subdiv(:,isurf) = 0.5_fp * ( region(isurf)%ptr%uvbox([1,3]) + region(isurf)%ptr%uvbox([2,4]) )
-        end if
-     end if
+     if ( stat_loopdetection /= 3 ) then ! <-------------------------------------------------------------+   !
+        !uv_subdiv = uv_collineal                                                                         !   !
+        isurf = stat_loopdetection                                                                       !   !
+        do ivar = 1,2 ! < -----------------------------------------------------------------------------+ !   !
+           isonboundary(ivar) = ( &                                                                    ! !   !
+                abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar-1) ) < EPSregion .or. & ! !   !
+                abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar) )   < EPSregion )      ! !   !
+        end do ! <-------------------------------------------------------------------------------------+ !   !
+        PRINT *,'ISONBOUNDARY ?',ISONBOUNDARY
+        if ( all(isonboundary) ) then ! <-----------------------------------------+                      !   !
+           uv_subdiv(:,isurf) = 0.5_fp * ( &                                      !                      !   !
+                region(isurf)%ptr%uvbox([1,3]) + &                                !                      !   !
+                region(isurf)%ptr%uvbox([2,4]) )                                  !                      !   !
+        end if ! <----------------------------------------------------------------+                      !   !
+     end if ! <------------------------------------------------------------------------------------------+   !
   end if ! <-------------------------------------------------------------------------------------------------+
 
 
   ! subdivide both surfaces/gauss maps ...
-  !PRINT *,'SUBDIVIDE AT UV =',UV_COLLINEAL
+  PRINT *,'SUBDIVIDE AT UV =',UV_SUBDIV
   nchild(:) = 1
   do isurf = 1,2 ! <-------------------------------------------------------------------------------------------------+
      if ( stat_loopdetection == isurf .or. stat_loopdetection == 3 ) then ! <-------------------------------------+  !
         call subdiv_region( &                                                                                     !  !
              region(isurf)%ptr, &                                                                                 !  !
-             uv_subdiv(:,isurf), &                                                                             !  !
+             uv_subdiv(:,isurf), &                                                                                !  !
              stat_subdiv )                                                                                        !  !
-        !PRINT *,'SURF #',ISURF,', STAT_SUBDIV =',STAT_SUBDIV
+        !PRINT *,'SURF #',ISURF,', STAT_SUBDIV =',STAT_SUBDIV                                                     !  !
         !                                                                                                         !  !
         if ( stat_subdiv == 2 ) then ! <-----------------------------------------------------------------------+  !  !
            ! the subdivision point is at one of the surface's corners                                          !  !  !
@@ -348,9 +347,9 @@ recursive subroutine intersect_surface_surface( &
            ! the subdivision point is interior to the surface                                                  !  !  !
            nchild(isurf) = size(region(isurf)%ptr%child)                                                       !  !  !
            do ivar = 1,2 ! <-------------------------------------+                                             !  !  !
-              uv_subdiv(ivar,isurf) = 0.5_fp * ( 1._fp + &    !                                             !  !  !
+              uv_subdiv(ivar,isurf) = 0.5_fp * ( 1._fp + &       !                                             !  !  !
                    ab2n1p1( &                                    !                                             !  !  !
-                   uv_subdiv(ivar,isurf), &                   !                                             !  !  !
+                   uv_subdiv(ivar,isurf), &                      !                                             !  !  !
                    region(isurf)%ptr%uvbox(2*ivar-1), &          !                                             !  !  !
                    region(isurf)%ptr%uvbox(2*ivar) ) )           !                                             !  !  !
            end do ! <--------------------------------------------+                                             !  !  !
@@ -365,7 +364,7 @@ recursive subroutine intersect_surface_surface( &
                    region(isurf)%ptr%child(3)%poly(1)%ptr, region(isurf)%ptr%child(4)%poly(1)%ptr )         !  !  !  !
               call subdiv_bezier2( &                                                                        !  !  !  !
                    region(isurf)%ptr%poly(1)%ptr, &                                                         !  !  !  !
-                   uv_subdiv(:,isurf), &                                                                 !  !  !  !
+                   uv_subdiv(:,isurf), &                                                                    !  !  !  !
                    bsw=region(isurf)%ptr%child(1)%poly(1)%ptr, &                                            !  !  !  !
                    bse=region(isurf)%ptr%child(2)%poly(1)%ptr, &                                            !  !  !  !
                    bnw=region(isurf)%ptr%child(3)%poly(1)%ptr, &                                            !  !  !  !
@@ -376,7 +375,7 @@ recursive subroutine intersect_surface_surface( &
                    region(isurf)%ptr%child(3)%poly(2)%ptr, region(isurf)%ptr%child(4)%poly(2)%ptr )         !  !  !  !
               call subdiv_bezier2( &                                                                        !  !  !  !
                    region(isurf)%ptr%poly(2)%ptr, &                                                         !  !  !  !
-                   uv_subdiv(:,isurf), &                                                                 !  !  !  !
+                   uv_subdiv(:,isurf), &                                                                    !  !  !  !
                    bsw=region(isurf)%ptr%child(1)%poly(2)%ptr, &                                            !  !  !  !
                    bse=region(isurf)%ptr%child(2)%poly(2)%ptr, &                                            !  !  !  !
                    bnw=region(isurf)%ptr%child(3)%poly(2)%ptr, &                                            !  !  !  !
@@ -391,23 +390,23 @@ recursive subroutine intersect_surface_surface( &
                    region(isurf)%ptr%uvbox(1) + EPSregion ) then ! <-------------------------+              !  !  !  !
                  call subdiv_bezier2_only_v( &                                               !              !  !  !  !
                       region(isurf)%ptr%poly(1)%ptr, &                                       !              !  !  !  !
-                      v=uv_subdiv(2,isurf), &                                             !              !  !  !  !
+                      v=uv_subdiv(2,isurf), &                                                !              !  !  !  !
                       bs=region(isurf)%ptr%child(1)%poly(1)%ptr, &                           !              !  !  !  !
                       bn=region(isurf)%ptr%child(2)%poly(1)%ptr )                            !              !  !  !  !
                  call subdiv_bezier2_only_v( &                                               !              !  !  !  !
                       region(isurf)%ptr%poly(2)%ptr, &                                       !              !  !  !  !
-                      v=uv_subdiv(2,isurf), &                                             !              !  !  !  !
+                      v=uv_subdiv(2,isurf), &                                                !              !  !  !  !
                       bs=region(isurf)%ptr%child(1)%poly(2)%ptr, &                           !              !  !  !  !
                       bn=region(isurf)%ptr%child(2)%poly(2)%ptr )                            !              !  !  !  !
               else ! ------------------------------------------------------------------------+              !  !  !  !
                  call subdiv_bezier2_only_u( &                                               !              !  !  !  !
                       region(isurf)%ptr%poly(1)%ptr, &                                       !              !  !  !  !
-                      u=uv_subdiv(1,isurf), &                                             !              !  !  !  !
+                      u=uv_subdiv(1,isurf), &                                                !              !  !  !  !
                       bw=region(isurf)%ptr%child(1)%poly(1)%ptr, &                           !              !  !  !  !
                       be=region(isurf)%ptr%child(2)%poly(1)%ptr )                            !              !  !  !  !
                  call subdiv_bezier2_only_u( &                                               !              !  !  !  !
                       region(isurf)%ptr%poly(2)%ptr, &                                       !              !  !  !  !
-                      u=uv_subdiv(1,isurf), &                                             !              !  !  !  !
+                      u=uv_subdiv(1,isurf), &                                                !              !  !  !  !
                       bw=region(isurf)%ptr%child(1)%poly(2)%ptr, &                           !              !  !  !  !
                       be=region(isurf)%ptr%child(2)%poly(2)%ptr )                            !              !  !  !  !
               end if ! <---------------------------------------------------------------------+              !  !  !  !
@@ -418,36 +417,36 @@ recursive subroutine intersect_surface_surface( &
      end if ! <---------------------------------------------------------------------------------------------------+  !
   end do ! <---------------------------------------------------------------------------------------------------------+
 
-  if ( all( nchild < 2 ) ) then
-     PRINT *,'intersect_surface_surface : NO MORE SUBDIVISIONS...'
-     stat_degeneracy = 111
-
-     DO ISURF = 1,2
-        PRINT *,'SURF #',ISURF
-        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX
-        WRITE (STR1,'(I1)') ISURF
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(1)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(2)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )
-        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN
-           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'
-           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)
-              WRITE (STR2,'(I1)') ICHILD
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )
-           END DO
-        END IF
-     END DO
-
-     RETURN
-  end if
+  if ( all( nchild < 2 ) ) then ! <-----------------------------------------------------------------------+
+     PRINT *,'intersect_surface_surface : NO MORE SUBDIVISIONS...'                                        !
+     stat_degeneracy = 111                                                                                !
+     !                                                                                                    !
+     DO ISURF = 1,2                                                                                       !
+        PRINT *,'SURF #',ISURF                                                                            !
+        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX                                                         !
+        WRITE (STR1,'(I1)') ISURF                                                                         !
+        CALL WRITE_POLYNOMIAL( &                                                                          !
+             REGION(ISURF)%PTR%POLY(1)%PTR, &                                                             !
+             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )                            !
+        CALL WRITE_POLYNOMIAL( &                                                                          !
+             REGION(ISURF)%PTR%POLY(2)%PTR, &                                                             !
+             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )                           !
+        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN                                                   !
+           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'                                              !
+           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)                                                    !
+              WRITE (STR2,'(I1)') ICHILD                                                                  !
+              CALL WRITE_POLYNOMIAL( &                                                                    !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &                                         !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )        !
+              CALL WRITE_POLYNOMIAL( &                                                                    !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &                                         !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )       !
+           END DO                                                                                         !
+        END IF                                                                                            !
+     END DO                                                                                               !
+     !                                                                                                    !
+     RETURN                                                                                               !
+  end if ! <----------------------------------------------------------------------------------------------+
 
 
 
@@ -455,33 +454,33 @@ recursive subroutine intersect_surface_surface( &
 
 
   ! *** DEBUG *******************************
-  IF ( .false. ) THEN
-     !IF ( ASSOCIATED(REGION(1)%PTR%PARENT) .AND. ASSOCIATED(REGION(2)%PTR%PARENT) ) THEN
-     DO ISURF = 1,2
-        PRINT *,'SURF #',ISURF
-        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX
-        WRITE (STR1,'(I1)') ISURF
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(1)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )
-        CALL WRITE_POLYNOMIAL( &
-             REGION(ISURF)%PTR%POLY(2)%PTR, &
-             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )
-        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN
-           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'
-           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)
-              WRITE (STR2,'(I1)') ICHILD
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )
-              CALL WRITE_POLYNOMIAL( &
-                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &
-                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )
-           END DO
-        END IF
-     END DO
-     STOP '---> DEBUG SUBDIV'
-  END IF
+  IF ( .false. ) THEN ! <---------------------------------------------------------------------------------+
+     !IF ( ASSOCIATED(REGION(1)%PTR%PARENT) .AND. ASSOCIATED(REGION(2)%PTR%PARENT) ) THEN                 !
+     DO ISURF = 1,2                                                                                       !
+        PRINT *,'SURF #',ISURF                                                                            !
+        PRINT *,'UVBOX =',REGION(ISURF)%PTR%UVBOX                                                         !
+        WRITE (STR1,'(I1)') ISURF                                                                         !
+        CALL WRITE_POLYNOMIAL( &                                                                          !
+             REGION(ISURF)%PTR%POLY(1)%PTR, &                                                             !
+             'dev_intersection_surface_surface/region_' // str1 // '_x.bern' )                            !
+        CALL WRITE_POLYNOMIAL( &                                                                          !
+             REGION(ISURF)%PTR%POLY(2)%PTR, &                                                             !
+             'dev_intersection_surface_surface/region_' // str1 // '_pn.bern' )                           !
+        IF ( ASSOCIATED(REGION(ISURF)%PTR%CHILD) ) THEN                                                   !
+           PRINT *,SIZE(REGION(ISURF)%PTR%CHILD),' CHILDREN'                                              !
+           DO ICHILD = 1,SIZE(REGION(ISURF)%PTR%CHILD)                                                    !
+              WRITE (STR2,'(I1)') ICHILD                                                                  !
+              CALL WRITE_POLYNOMIAL( &                                                                    !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(1)%PTR, &                                         !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_x.bern' )        !
+              CALL WRITE_POLYNOMIAL( &                                                                    !
+                   REGION(ISURF)%PTR%CHILD(ICHILD)%POLY(2)%PTR, &                                         !
+                   'dev_intersection_surface_surface/child_' // str1 // '_' // str2 // '_pn.bern' )       !
+           END DO                                                                                         !
+        END IF                                                                                            !
+     END DO                                                                                               !
+     STOP '---> DEBUG SUBDIV'                                                                             !
+  END IF ! <----------------------------------------------------------------------------------------------+
   ! *****************************************
 
 

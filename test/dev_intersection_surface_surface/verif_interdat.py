@@ -67,8 +67,12 @@ cl_box = '#FCF3AC' #'y'
 
 for isurf in range(2):
     tree = np.loadtxt( 'tree_' + str(isurf+1) + '.dat' )
-    print tree.shape
-    if len(tree.shape) < 2:
+    if ( len(tree.shape) < 2 ):
+        nreg = 1
+    else:
+        nreg = tree.shape[0]
+    print "Surface #" + str(isurf+1) + " : " + str(nreg) + " region(s)"
+    if nreg == 1:
         rect = patches.Rectangle( ( tree[0], tree[2] ), # lower-left corner
                                   tree[1] - tree[0],    # u-extent
                                   tree[3] - tree[2],    # v-extent
