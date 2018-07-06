@@ -53,7 +53,8 @@ for ic in range(nc):
     for i, ip in enumerate(curves[ic].endpoints):
         j = i * (len(curves[ic].uv) - 1)
         uv[ip-1,:,:] = curves[ic].uv[j,:,:]
-
+print 'uv_endpoints ='
+print uv
 
 ##########################################################
 

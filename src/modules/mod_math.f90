@@ -860,6 +860,18 @@ contains
 
 
 
+  
+  elemental function is_zero( x )
+    implicit none
+    real(kind=fp), intent(in) :: x
+    logical                   :: is_zero
+
+    is_zero = abs(x) < epsilon(1._fp)
+  end function is_zero
+
+
+
+
 
   subroutine linsolve( &
        x, &

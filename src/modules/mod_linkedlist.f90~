@@ -1,0 +1,138 @@
+! Integer linked-lists
+module mod_list
+
+  implicit none
+
+  type type_list
+     integer                  :: i
+     type(type_list), pointer :: next => null()
+  end type type_list
+
+contains
+
+  subroutine init_list( &
+       self, &
+       i )
+    implicit none
+    type(type_list), pointer              :: self
+    integer,         intent(in), optional :: i
+    
+    allocate( self )
+    nullify( self%next )
+
+    if ( present(i) ) self%i = i
+
+  end subroutine init_list
+
+
+
+
+  subroutine free_list( &
+       self )
+    implicit none
+    type(type_list), pointer :: self
+    type(type_list), pointer :: current, next
+    
+    current => self
+    do while ( associated(current) )
+       next => current%next
+       deallocate( current )
+       nullify( current )
+       current => next
+    end do
+
+  end subroutine free_list
+  
+
+
+  
+  subroutine insert_after( &
+       self, &
+       i )
+    implicit none
+    type(type_list), pointer              :: self
+    integer,         intent(in), optional :: i
+    type(type_list), pointer              :: next
+
+    allocate( next )
+
+    if ( present(i) ) next%i = i
+
+    next%next => self%next
+    self%next => next
+
+  end subroutine insert_after
+
+
+
+  
+  recursive subroutine list_length( &
+       self, &
+       length )
+    implicit none
+     type(type_list), pointer       :: self
+     integer,         intent(inout) :: length
+
+     if ( .not.associated(self) ) return
+     length = length + 1
+     call list_length( &
+          self%next, &
+          length )
+     
+  end subroutine list_length
+
+
+
+  subroutine list2array( &
+       list, &
+       array, &
+       n_opt )
+    implicit none
+    type(type_list), pointer          :: list
+    integer, allocatable, intent(out) :: array(:)
+    integer, optional,    intent(in)  :: n_opt
+    integer                           :: n, i
+    type(type_list), pointer          :: current
+
+    if ( present(n_opt) ) then
+       n = n_opt
+    else
+       call list_length( list, n )
+    end if
+    
+    allocate( array(n) )
+    current => list
+    do i = 1,n
+       array(i) = current%i
+       current => current%next
+    end do
+
+  end subroutine list2array
+
+
+
+  subroutine array2list( &
+       array, &
+       list )
+    implicit none
+    integer,         intent(in) :: array(:)
+    type(type_list), pointer    :: list
+    type(type_list), pointer    :: current
+    integer                     :: i
+
+    call init_list( &
+         list, &
+         array(1) )
+
+    current => list
+    do i = 2,size(array)
+       call insert_after( &
+            current, &
+            array(i) )
+       current => current%next
+    end do
+
+  end subroutine array2list
+
+
+end module mod_list

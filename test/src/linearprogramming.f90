@@ -2,7 +2,7 @@ program linearprogramming
 
   use mod_util
   use mod_math
-  use mod_linearprogramming
+  use mod_linprog
 
   implicit none
   

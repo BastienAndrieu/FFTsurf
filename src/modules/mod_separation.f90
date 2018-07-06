@@ -420,7 +420,7 @@ contains
        n2, &
        vec, &
        separable )
-    use mod_linearprogramming
+    use mod_linprog
     ! Searches for a plane that strictly sepatates two sets of points 
     ! of coords. 'xyz1' and 'xyz2' by solving a linear programming problem.
     ! Returns a unit normal vector 'vec' of such a plane (if any).
