@@ -273,7 +273,7 @@ contains
 
 
 
-  subroutine linsolve_qr2( &
+  subroutine linsolve_qr( &
        x, &
        A, &
        b, &
@@ -298,7 +298,9 @@ contains
          Q, &
          R, &
          Perm, &
-         rnk )
+         rnk, &
+         m, &
+         n )
     if ( present(rank) ) rank = rnk
 
     c = matmul( transpose(Q), b )
@@ -326,7 +328,7 @@ contains
 
     x = matmul( Perm, y )
 
-  end subroutine linsolve_qr2
+  end subroutine linsolve_qr
 
 
 
@@ -370,7 +372,7 @@ contains
     end do
     t(rank+1:n,1:p) = 0._fp
 
-    call linsolve_qr2( &
+    call linsolve_qr( &
          y2, &
          S, &
          t, &
@@ -393,6 +395,99 @@ contains
     y(rank+1:n,1:p) = y2
 
   end subroutine linsolve_qr_rankdef
+
+
+
+
+  subroutine qr_colpiv( &
+       A, &
+       Q, &
+       R, &
+       P, &
+       rank, &
+       m, &
+       n )
+    implicit none
+    integer,       intent(in)  :: m, n
+    real(kind=fp), intent(in)  :: A(m,n)
+    real(kind=fp), intent(out) :: Q(m,m)
+    real(kind=fp), intent(out) :: R(m,n)
+    real(kind=fp), intent(out) :: P(n,n)
+    integer,       intent(out) :: rank
+    real(kind=fp)              :: tol
+    real(kind=fp)              :: lens(n)
+    real(kind=fp)              :: v(m)
+    real(kind=fp)              :: vvT(m,m)
+    integer                    :: i, i_max
+
+    tol = max( m, n ) * epsilon(1._fp) !MATHeps*1.d2
+
+    ! initialize Q,R,P
+    Q = identity_matrix( m )
+    R = A
+    P = identity_matrix( n )
+
+    do i = 1,n
+       lens(i) = sum( R(:,i)**2 )
+    end do
+
+    do i = 1,n
+       i_max = maxloc( abs(lens(i:n)), 1 )
+       i_max = i_max + i - 1
+
+       ! column permutation
+       R(:,[i,i_max]) = R(:,[i_max,i])
+       P(:,[i,i_max]) = P(:,[i_max,i])
+       lens([i,i_max]) = lens([i_max,i])
+
+       call householder_vector( R(:,i), i, m, v, m )
+
+       vvT = outer_product( v, v )
+
+       R = R - matmul( vvT, R )
+       Q = Q - matmul( Q, vvT )
+
+       R(i+1:m,i) = 0._fp
+
+       lens(i+1:n) = lens(i+1:n) - R(1,i+1:n)**2
+
+    end do
+
+    ! compute rank
+    rank = 0
+    do i = min(m,n),1,-1
+       if ( abs(R(i,i)) > tol ) then
+          rank = i
+          exit
+       end if
+    end do
+
+  end subroutine qr_colpiv
+
+
+
+  subroutine householder_vector( &
+       x, &
+       i, &
+       j, &
+       v, &
+       n )
+    ! Householder reflexion vector
+    implicit none
+    integer,       intent(in)  :: n
+    real(kind=fp), intent(in)  :: x(n)
+    integer,       intent(in)  :: i, j
+    real(kind=fp), intent(out) :: v(n)
+
+    v(:) = 0._fp
+    v(i:j) = x(i:j)
+
+    v(i) = v(i) + sign( 1._fp, x(i) ) * sqrt( sum(x(i:j)**2) )
+
+    if ( dot_product(v,v) > epsilon(1._fp) ) v = v * sqrt( 2._fp / dot_product(v,v) )
+
+  end subroutine householder_vector
+
 
 
 

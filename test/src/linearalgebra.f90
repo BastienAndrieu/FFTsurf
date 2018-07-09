@@ -80,7 +80,7 @@ program linearalgebra
 
   allocate( q(m,m), r(m,n), p(n,n) )
   !call system_clock( tic, count_rate )
-  !call QR_colpiv( a, q, r, p, rank)
+  !call qr_colpiv( a, q, r, p, rank, m, n )
   !call system_clock( toc )
   !print *,'elapsed :', real(toc - tic) / real(count_rate)
 
@@ -120,7 +120,7 @@ call system_clock( tic, count_rate )
   print *,''
   print *,'linsolve_qr'
   call system_clock( tic, count_rate )
-  call linsolve_qr2( &
+  call linsolve_qr( &
        x, &
        A, &
        b, &
@@ -200,12 +200,14 @@ if ( TEST_SCALING ) then
       
       call system_clock( tic, count_rate )
       do i = 1,repeat
-         call QR_colpiv( &
+         call qr_colpiv( &
               a, &
               q, &
               r, &
               p, &
-              rank )
+              rank, &
+              m, &
+              n )
       end do
       call system_clock( toc )
       timer(in,4) = real( toc - tic ) / real( count_rate )
@@ -214,7 +216,7 @@ if ( TEST_SCALING ) then
       
       call system_clock( tic, count_rate )
       do i = 1,repeat
-         call linsolve_qr2( &
+         call linsolve_qr( &
               x, &
               A, &
               b, &

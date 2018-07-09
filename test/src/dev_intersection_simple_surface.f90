@@ -483,6 +483,7 @@ subroutine intersect_border_surface( &
   !IF ( NUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:NUVXYZ)) )
 
   call free_polynomial( region_c%poly(1)%ptr )
+  deallocate( region_c%poly(1)%ptr )
   deallocate( region_c%poly )
 
   nullify( region_s%poly(1)%ptr )
@@ -553,7 +554,7 @@ subroutine intersect_curve_surface_elsewhere( &
   integer                            :: nbcps, nc, ns
 
   call rearrange_for_separability_test( &
-       b_c%coef(1:b_c%degr(1)+1,1:b_c%dim,1), &
+       b_c%coef(1:b_c%degr(1)+1,1:3,1), &
        b_c%degr(1)+1, &
        xyzinter, & ! pivot
        xyzinter, & ! origin
@@ -562,7 +563,7 @@ subroutine intersect_curve_surface_elsewhere( &
 
   nbcps = ( b_s%degr(1) + 1 ) * ( b_s%degr(2) + 1 )
   call rearrange_for_separability_test( &
-       reshape( b_s%coef(1:b_s%degr(1)+1,1:b_s%degr(2)+1,1:b_s%dim), [nbcps,3] ), &
+       reshape( b_s%coef(1:b_s%degr(1)+1,1:b_s%degr(2)+1,1:3), [nbcps,3] ), &
        nbcps, &
        xyzinter, & ! pivot
        xyzinter, & ! origin
@@ -575,11 +576,11 @@ subroutine intersect_curve_surface_elsewhere( &
      if ( present(randomize) ) then
         if ( randomize ) then
            call random_rotation_matrix3d( rot )
-           !IF ( .false. ) THEN
-           !   PRINT *,'';PRINT *,'';PRINT *,''
-           !   PRINT *,'RANDOM ROTATION MATRIX ='
-           !   CALL PRINT_MAT( ROT )
-           !END IF
+           IF ( .false. ) THEN
+              PRINT *,'';PRINT *,'';PRINT *,''
+              PRINT *,'RANDOM ROTATION MATRIX ='
+              CALL PRINT_MAT( ROT )
+           END IF
            sep_c(1:nc,:) = matmul( sep_c(1:nc,:), rot )
            sep_s(1:ns,:) = matmul( sep_s(1:ns,:), rot )
         end if
@@ -593,13 +594,18 @@ subroutine intersect_curve_surface_elsewhere( &
           vec, &
           separable )
 
-     !IF ( .FALSE. ) THEN!.NOT.SEPARABLE ) THEN
-     !   PRINT *,'';PRINT *,'';PRINT *,''
-     !   PRINT *,'XYZ_SEP (C) ='
-     !   CALL PRINT_MAT( SEP_C(1:NC,:) )
-     !   PRINT *,'XYZ_SEP (S) ='
-     !   CALL PRINT_MAT( SEP_S(1:NS,:) )     
-     !END IF
+     IF ( .NOT.SEPARABLE ) THEN
+        !PRINT *,'';PRINT *,'';PRINT *,''
+        !PRINT *,'-----------------------------'
+        !PRINT *,'XYZ_SEP (C) ='
+        !CALL PRINT_MAT( SEP_C(1:NC,:) )
+        !PRINT *,'XYZ_SEP (S) ='
+        !CALL PRINT_MAT( SEP_S(1:NS,:) )     
+        !PRINT *,'-----------------------------'
+        CALL WRITE_MATRIX( SEP_C(1:NC,1:3), NC, 3, 'dev_intersection_simple_surface/sepc.dat' )
+        CALL WRITE_MATRIX( SEP_S(1:NS,1:3), NS, 3, 'dev_intersection_simple_surface/seps.dat' )
+        CALL WRITE_MATRIX( ROT, 3, 3, 'dev_intersection_simple_surface/rot.dat' )
+     END IF
   end if
 
 end subroutine intersect_curve_surface_elsewhere
@@ -624,14 +630,18 @@ subroutine rearrange_for_separability_test( &
   real(kind=fp), intent(in)  :: origin(3)
   real(kind=fp), intent(out) :: sep(nbcp,3)
   integer,       intent(out) :: nsep
+  real(kind=fp)              :: vec(3), vecsqr
   integer                    :: i
 
   nsep = 0
   do i = 1,nbcp
-     if ( sum( (bcp(i,:) - pivot)**2 ) > EPSxyzsqr ) then
-        nsep = nsep + 1
-        sep(nsep,:) = bcp(i,:) - origin
-     end if
+     if ( sum( (bcp(i,:) - pivot)**2 ) <= EPSxyzsqr ) cycle
+     nsep = nsep + 1
+     !sep(nsep,:) = bcp(i,:) - origin
+     vec = bcp(i,:) - origin
+     vecsqr = sum( vec**2 )
+     if ( vecsqr > 3._fp*EPSfpsqr ) vec = vec / sqrt( vecsqr )
+     sep(nsep,:) = vec
   end do
 
 end subroutine rearrange_for_separability_test
@@ -649,6 +659,7 @@ subroutine newton_curve_surface( &
      stat, &
      xyz )
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances    
   ! stat = 0 : converged
@@ -675,8 +686,9 @@ subroutine newton_curve_surface( &
   real(kind=fp), dimension(3)       :: tuvtmp, dtuv
   real(kind=fp)                     :: rescheck, res, restmp
   real(kind=fp)                     :: jac(3,3), lambda
-  logical                           :: singular
+  !logical                           :: singular
   integer                           :: rank
+  real(kind=fp)                     :: cond
   integer                           :: it
 
   ! Feasible t,u,v-domain
@@ -727,13 +739,30 @@ subroutine newton_curve_surface( &
      call evald1( jac(:,3), surf, tuv(2:3), 2 )
 
      ! solve for Newton step
-     call linsolve_QR( &
+     !!call linsolve_qr( &
+     !!     dtuv, &
+     !!     jac, &
+     !!     -r, &
+     !!     3, &
+     !!     3, &
+     !!     singular, &
+     !!     rank )
+     !call linsolve_qr( &
+     !     dtuv, &
+     !     jac, &
+     !     -r, &
+     !     3, &
+     !     3, &
+     !     1, &
+     !     rank )
+     call linsolve_svd( &
           dtuv, &
           jac, &
           -r, &
           3, &
           3, &
-          singular, &
+          1, &
+          cond, &
           rank )
 
      if ( rank < 3 ) then ! degeneracy
@@ -794,6 +823,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = .false.
   type(type_curve),           intent(in)            :: root_c
   type(type_surface),         intent(in)            :: root_s
   type(type_region),          intent(inout), target :: region_c
@@ -814,10 +844,12 @@ recursive subroutine intersect_curve_surface( &
 
   if ( stat_degeneracy > 1 ) return
 
-  !PRINT *,''
-  !PRINT *,''
-  !PRINT *,' TBOX =',REGION_C%UVBOX
-  !PRINT *,'UVBOX =',REGION_S%UVBOX
+  IF ( DEBUG ) THEN
+     PRINT *,''
+     PRINT *,''
+     PRINT *,' TBOX =',REGION_C%UVBOX
+     PRINT *,'UVBOX =',REGION_S%UVBOX
+  END IF
 
   ! inherit from parents all already discovered points contained inside the current regions
   if ( npts > 0 ) then
@@ -841,20 +873,24 @@ recursive subroutine intersect_curve_surface( &
           sharedpts )
      if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)
   end if
+  !PRINT *,'N_SHAREDPTS =',n_sharedpts
+  !IF ( N_SHAREDPTS > 0 ) PRINT *,sharedpts
 
 
-  IF (.FALSE.) THEN
+  IF (.true.) THEN
      if ( n_sharedpts == 0 ) then
         ! check endpoint/corner pairs for possible intersection point
         do k = 1,region_s%poly(1)%ptr%degr(2)+1,region_s%poly(1)%ptr%degr(2)
            do j = 1,region_s%poly(1)%ptr%degr(1)+1,region_s%poly(1)%ptr%degr(1)
               do i = 1,region_c%poly(1)%ptr%degr(1)+1,region_c%poly(1)%ptr%degr(1)
+                 !PRINT *,I,J,K,sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ),EPSxyzsqr
                  if ( sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ) < EPSxyzsqr ) then
+                    IF (DEBUG) PRINT *,'+1 INTERSECTION POINT ENDPOINT/CORNER'
                     xyz = 0.5_fp * ( region_c%poly(1)%ptr%coef(i,:,1) + region_s%poly(1)%ptr%coef(j,k,:) )
                     tuv(1) = real( i-1, kind=fp ) / real( region_c%poly(1)%ptr%degr(1), kind=fp )
                     tuv(2) = real( j-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(1), kind=fp )
                     tuv(3) = real( k-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(2), kind=fp )
-                    tuv = -1._fp + 2._fp * tuv
+                    tuv = -1._fp + 2._fp * tuv ! map from [0,1] to [-1,1]
 
                     call append_vector( &
                          [tuv,xyz], &
@@ -866,6 +902,7 @@ recursive subroutine intersect_curve_surface( &
                          sharedpts, &
                          npts, &
                          newlength=n_sharedpts )
+                    PRINT *,'SHAREDPTS =',SHAREDPTS
 
                     call add_point_bottom_up( region_c, npts )
                     call add_point_bottom_up( region_s, npts )
@@ -962,6 +999,9 @@ recursive subroutine intersect_curve_surface( &
           stat_newpoint, &                                                                                                    !
           xyz )                                                                                                               !
      !PRINT *,'----------------------'                                                                                        !
+     !IF ( STAT_NEWPOINT == 0 ) THEN
+     !   PRINT *,'CONVERGED TO ', tuv, xyz
+     !END IF
      !PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT                                                                                 !
      !                                                                                                                        !
      ! if we just found a degenerate point, return and report degeneracy                                                      !
@@ -1108,9 +1148,10 @@ recursive subroutine intersect_curve_surface( &
      PRINT *,N_SHAREDPTS,' SHARED POINTS'
      IF ( N_SHAREDPTS > 0) CALL PRINT_MAT( TRANSPOSE( COORDS(:,SHAREDPTS(1:N_SHAREDPTS) ) ) )
      PRINT *,'INTERIOR?',INTERIOR
+     PRINT *,'separable?',separable
      PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT
      STAT_NEWPOINT = 99
-     PRINT *,'NO MORE SUBDIVISION !!!!!'
+     PRINT *,'intersect_curve_surface : NO MORE SUBDIVISION !!!!!'
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%ptr, 'dev_intersection_simple_surface/region_c_bezier.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%ptr, 'dev_intersection_simple_surface/region_s_bezier.bern' )
      IF ( ASSOCIATED( REGION_C%XYZBOX ) ) THEN
@@ -1184,7 +1225,8 @@ subroutine inherit_points( &
         if ( .not.is_in_interval( &
              coords(idim,ipt), &
              region%uvbox(2*idim-1), &
-             region%uvbox(2*idim) ) ) then
+             region%uvbox(2*idim), &
+             tolerance=EPSregion) ) then
            mask(jpt) = .false.
            cycle outer
         end if
@@ -1219,6 +1261,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_diffgeom2
   use mod_regiontree
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = .FALSE.
   integer, parameter                          :: nuvxyz_init = 10
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
@@ -1245,11 +1288,11 @@ recursive subroutine intersect_simple_surfaces( &
 
   if ( stat_degeneracy > 1 ) return
 
-  !PRINT *,'';PRINT *,'';PRINT *,'';
-  !PRINT *,'UVBOXES ='
-  !DO ISURF = 1,2
-  !   PRINT *,REGION(ISURF)%PTR%UVBOX
-  !END DO
+  PRINT *,'';PRINT *,'';PRINT *,'';
+  PRINT *,'UVBOXES ='
+  DO ISURF = 1,2
+     PRINT *,REGION(ISURF)%PTR%UVBOX
+  END DO
 
   ! intersect the 4 borders of each surface with the other surface
   !nuvxyz = 0
@@ -1422,16 +1465,20 @@ recursive subroutine intersect_simple_surfaces( &
         if ( nuvxyz == 2 ) then ! <----------------------------+                     !     !
            if ( product(stat_point) < 0 ) then ! <----------+  !                     !     !
               ! trace courbe...                             !  !                     !     !
-              PRINT *,'1 CURVE :)' 
-              CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
-
+              IF ( DEBUG ) THEN
+                 PRINT *,'1 CURVE :)' 
+                 CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
+                 PRINT *,'UVBOXES ='
+                 DO ISURF = 1,2
+                    PRINT *,REGION(ISURF)%PTR%UVBOX
+                 END DO
+              END IF
               !listcurv%nc = listcurv%nc + 1                    !** à supprimer
               !listcurv%curve(listcurv%nc)%uvxyz = uvxyz(:,1:2) !** à supprimer
 
               interdat%nc = interdat%nc + 1              
               do isurf = 1,2
                  interdat%curves(interdat%nc)%surf(isurf)%ptr => surfroot(isurf)%ptr
-                 !interdat%curves(interdat%nc)%region(isurf)%ptr => region(isurf)%ptr
                  interdat%curves(interdat%nc)%uvbox(:,:,isurf) = reshape( region(isurf)%ptr%uvbox, [2,2] )
               end do
 
@@ -1455,6 +1502,7 @@ recursive subroutine intersect_simple_surfaces( &
 
               ! re-order the endpoints from entering to exiting
               if ( stat_point(1) < 0 ) then
+                 IF ( DEBUG ) PRINT *,'REVERSE...'
                  order = [2,1]
               else
                  order = [1,2]
@@ -1499,13 +1547,21 @@ recursive subroutine intersect_simple_surfaces( &
                    interdat%curves(interdat%nc)%param_vector, &
                    interdat%curves(interdat%nc)%polyline, &
                    HMIN=REAL(1.E-3,KIND=FP), &
-                   HMAX=REAL(2.E-1,KIND=FP) )  
+                   HMAX=REAL(1.E-1,KIND=FP) )  
 
            elseif ( all(stat_point == 0) ) then ! ----------+  !                     !     !
               ! 2 points isolés...                          !  !                     !     !
               PRINT *,'2 ISOLATED POINTS ...'
               CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:2)) )
-              STOP
+              do ipt = 1,2
+                 call add_intersection_point( &
+                      reshape( uvxyz(1:4,ipt), [2,2] ), &
+                      uvxyz(5:7,ipt), &
+                      surfroot, &
+                      interdat, &
+                      idnewpoint(ipt) )
+              end do
+              !STOP
            else ! ------------------------------------------+  !                     !     !
               ! erreur                                      !  !                     !     !
               stat_degeneracy = 555                         !  !                     !     !
@@ -1528,7 +1584,13 @@ recursive subroutine intersect_simple_surfaces( &
               ! 1 point isolé...                            !  !                     !     !
               PRINT *,'1 ISOLATED POINT ...'
               PRINT *, UVXYZ(:,1)
-              STOP
+              call add_intersection_point( &
+                   reshape( uvxyz(1:4,1), [2,2] ), &
+                   uvxyz(5:7,1), &
+                   surfroot, &
+                   interdat, &
+                   idnewpoint(1) )
+              !STOP
            else ! ------------------------------------------+  !                     !     !
               ! erreur                                      !  !                     !     !
               stat_degeneracy = 666                         !  !                     !     !
@@ -1946,6 +2008,9 @@ subroutine add_intersection_point( &
   if ( .not.allocated(interdat%points) ) allocate(interdat%points(PARAM_xtra_np) )
 
   ! this is a new point
+  PRINT *,'ADDING INTERSECTION POINT :'
+  PRINT *,'XYZ =',XYZ
+  PRINT *,' UV =',UV
   interdat%np = interdat%np + 1
   id = interdat%np
   if ( id > size(interdat%points) ) then ! <---------------------------+
@@ -2126,8 +2191,8 @@ subroutine trace_intersection_polyline( &
   use mod_math
   use mod_diffgeom2
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false.
-  real(kind=fp), parameter                        :: tolchord = real( 1e-4, kind=fp )
+  LOGICAL, PARAMETER :: DEBUG = .FALSE.
+  real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
   real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
   real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
   real(kind=fp), parameter                        :: tolhsqr = tolh**2
@@ -2147,6 +2212,7 @@ subroutine trace_intersection_polyline( &
   integer                                         :: stat
   integer                                         :: ipt
   
+  IF ( DEBUG) PRINT *,'P =', PARAM_VECTOR
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
 
@@ -2177,6 +2243,8 @@ subroutine trace_intersection_polyline( &
         END SELECT
         STOP
      end if
+
+     IF ( DEBUG) PRINT *,'XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
      
      ! target segment length
      h = FRACcurvature_radius / curvature(1)
@@ -2237,7 +2305,61 @@ subroutine trace_intersection_polyline( &
         end if
         
         h = FRACbacktrack * h
-        if ( h < EPSh ) STOP 'trace_intersection_polyline : h << h0, indefinite backtracking'
+        if ( h < EPSh ) then
+           CALL WRITE_POLYNOMIAL( surf(1)%ptr%x, 'trace_intersection_polyline/c1.cheb' )
+           CALL WRITE_POLYNOMIAL( surf(2)%ptr%x, 'trace_intersection_polyline/c2.cheb' )
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE' )
+           WRITE (13,*) 'UV_ENDPOINTS'
+           DO IPT = 1,2
+              WRITE (13,*) uv_endpoints(:,1,ipt)
+              WRITE (13,*) uv_endpoints(:,2,ipt)
+           END DO
+           WRITE (13,*) 'XYZ_ENDPOINTS'
+           DO IPT = 1,2
+              WRITE (13,*) xyz_endpoints(:,ipt)
+           END DO
+           WRITE (13,*) 'PARAM_VECTOR'
+           WRITE (13,*) param_vector
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/xyz_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              WRITE (13,*) POLYLINE%XYZ(:,IPT)
+           END DO
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/uv_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              WRITE (13,*) POLYLINE%UV(:,:,IPT)
+           END DO
+           CLOSE(13)
+
+           OPEN( UNIT=13, FILE='trace_intersection_polyline/tangent_polyline.dat', ACTION='WRITE' )
+           DO IPT = 1,POLYLINE%NP
+              call diffgeom_intersection_curve( &
+                   surf, &
+                   polyline%uv(:,:,ipt), &
+                   uv_s, &
+                   xyz_s, &
+                   stat, &
+                   curvature )
+              WRITE (13,*) xyz_s(:,1), uv_s(:,1,:)
+           END DO
+           CLOSE(13)
+
+           
+           call diffgeom_intersection_curve( &
+                surf, &
+                uv_endpoints(:,:,2), &
+                uv_s, &
+                xyz_s, &
+                stat, &
+                curvature )
+           PRINT *,'AT 2ND ENDPOINT, XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
+
+           STOP 'trace_intersection_polyline : h << h0, indefinite backtracking'
+        end if
 
      end do inner_while
      
@@ -2266,7 +2388,24 @@ subroutine trace_intersection_polyline( &
        polyline )  
 
 
-  IF ( DEBUG ) THEN
+  IF ( .false. ) THEN !( DEBUG ) THEN
+     CALL WRITE_POLYNOMIAL( surf(1)%ptr%x, 'trace_intersection_polyline/c1.cheb' )
+     CALL WRITE_POLYNOMIAL( surf(2)%ptr%x, 'trace_intersection_polyline/c2.cheb' )
+
+     OPEN( UNIT=13, FILE='trace_intersection_polyline/data.dat', ACTION='WRITE' )
+     WRITE (13,*) 'UV_ENDPOINTS'
+     DO IPT = 1,2
+        WRITE (13,*) uv_endpoints(:,1,ipt)
+        WRITE (13,*) uv_endpoints(:,2,ipt)
+     END DO
+     WRITE (13,*) 'XYZ_ENDPOINTS'
+     DO IPT = 1,2
+        WRITE (13,*) xyz_endpoints(:,ipt)
+     END DO
+     WRITE (13,*) 'PARAM_VECTOR'
+     WRITE (13,*) param_vector
+     CLOSE(13)
+
      OPEN( UNIT=13, FILE='trace_intersection_polyline/xyz_polyline.dat', ACTION='WRITE' )
      DO IPT = 1,POLYLINE%NP
         WRITE (13,*) POLYLINE%XYZ(:,IPT)
@@ -2278,7 +2417,26 @@ subroutine trace_intersection_polyline( &
         WRITE (13,*) POLYLINE%UV(:,:,IPT)
      END DO
      CLOSE(13)
+
+     OPEN( UNIT=13, FILE='trace_intersection_polyline/tangent_polyline.dat', ACTION='WRITE' )
+     DO IPT = 1,POLYLINE%NP
+        call diffgeom_intersection_curve( &
+          surf, &
+          polyline%uv(:,:,ipt), &
+          uv_s, &
+          xyz_s, &
+          stat, &
+          curvature )
+        WRITE (13,*) xyz_s(:,1), uv_s(:,1,:)
+     END DO
+     CLOSE(13)
+     
      STOP
+  END IF
+
+
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,''; PRINT *,'';
   END IF
 
 end subroutine trace_intersection_polyline
@@ -2297,6 +2455,7 @@ subroutine newton_intersection_polyline( &
      xyz, &
      stat )     
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances
   implicit none
@@ -2314,7 +2473,8 @@ subroutine newton_intersection_polyline( &
   real(kind=fp), dimension(3)      :: r1, r2
   real(kind=fp)                    :: resx, resh
   real(kind=fp)                    :: jac(4,4), duv(4)!, lambda
-  logical                          :: singular
+  !logical                          :: singular
+  integer                          :: rank
   integer                          :: it, isurf, ivar
 
   stat = 1
@@ -2365,15 +2525,23 @@ subroutine newton_intersection_polyline( &
      end do
      
      ! solve for Newton step
-     call linsolve_QR( &
-          duv, &
-          jac, &
-          -[r1,resh], &
-          4, &
-          4, &
-          singular )
+     !call linsolve_QR( &
+     !     duv, &
+     !     jac, &
+     !     -[r1,resh], &
+     !     4, &
+     !     4, &
+     !     singular )
+     call linsolve_qr( &
+       duv, &
+       jac, &
+       -[r1,resh], &
+       4, &
+       4, &
+       1, &
+       rank )
      
-     if ( singular ) then
+     if ( rank < 4 ) then !( singular ) then
         ! singular Jacobian matrix (should not happen)
         stat = 2
         return

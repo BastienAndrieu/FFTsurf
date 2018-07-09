@@ -6,6 +6,7 @@ subroutine find_collineal_points( &
     upperb, &
     stat )
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances
   ! Searches for a pair of collineal points on two rectangular parametric surfaces
@@ -28,7 +29,8 @@ subroutine find_collineal_points( &
   real(kind=fp)                    :: s(3,2), s1(3,2,2), s2(3,3,2)
   real(kind=fp)                    :: n(3), r(3)
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
-  logical                          :: singular
+  !logical                          :: singular
+  integer                          :: rank
   real(kind=fp)                    :: lambda
   integer                          :: it, isurf, ivar
 
@@ -113,19 +115,28 @@ subroutine find_collineal_points( &
      end do
 
      ! solve for Newton step
-     call linsolve_QR( &
-          duv, &
-          jac, &
-          -f, &
-          4, &
-          4, &
-          singular )
+     !call linsolve_QR( &
+     !     duv, &
+     !     jac, &
+     !     -f, &
+     !     4, &
+     !     4, &
+     !     singular )
+     call linsolve_qr( &
+       duv, &
+       jac, &
+       -f, &
+       4, &
+       4, &
+       1, &
+       rank )
+
      !PRINT *,'JAC='
      !CALL PRINT_MAT( REAL(JAC) )
      !PRINT *,'  F=', REAL(F)
      !PRINT *,'DUV=', REAL(DUV)
 
-     if ( singular ) then
+     if ( rank < 4 ) then!( singular ) then
         IF (VERBOSE) PRINT *,' find_collineal_points : singular jacobian matrix'
         stat = 2
         return

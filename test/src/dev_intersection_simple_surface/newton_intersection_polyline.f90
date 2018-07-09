@@ -8,6 +8,7 @@ subroutine newton_intersection_polyline( &
      xyz, &
      stat )     
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances
   implicit none
@@ -25,7 +26,8 @@ subroutine newton_intersection_polyline( &
   real(kind=fp), dimension(3)      :: r1, r2
   real(kind=fp)                    :: resx, resh
   real(kind=fp)                    :: jac(4,4), duv(4)!, lambda
-  logical                          :: singular
+  !logical                          :: singular
+  integer                          :: rank
   integer                          :: it, isurf, ivar
 
   stat = 1
@@ -76,15 +78,23 @@ subroutine newton_intersection_polyline( &
      end do
      
      ! solve for Newton step
-     call linsolve_QR( &
-          duv, &
-          jac, &
-          -[r1,resh], &
-          4, &
-          4, &
-          singular )
+     !call linsolve_QR( &
+     !     duv, &
+     !     jac, &
+     !     -[r1,resh], &
+     !     4, &
+     !     4, &
+     !     singular )
+     call linsolve_qr( &
+       duv, &
+       jac, &
+       -[r1,resh], &
+       4, &
+       4, &
+       1, &
+       rank )
      
-     if ( singular ) then
+     if ( rank < 4 ) then !( singular ) then
         ! singular Jacobian matrix (should not happen)
         stat = 2
         return

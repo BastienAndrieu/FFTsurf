@@ -7,6 +7,7 @@ subroutine newton_curve_surface( &
      stat, &
      xyz )
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances    
   ! stat = 0 : converged
@@ -33,8 +34,9 @@ subroutine newton_curve_surface( &
   real(kind=fp), dimension(3)       :: tuvtmp, dtuv
   real(kind=fp)                     :: rescheck, res, restmp
   real(kind=fp)                     :: jac(3,3), lambda
-  logical                           :: singular
+  !logical                           :: singular
   integer                           :: rank
+  real(kind=fp)                     :: cond
   integer                           :: it
 
   ! Feasible t,u,v-domain
@@ -85,13 +87,30 @@ subroutine newton_curve_surface( &
      call evald1( jac(:,3), surf, tuv(2:3), 2 )
 
      ! solve for Newton step
-     call linsolve_QR( &
+     !!call linsolve_qr( &
+     !!     dtuv, &
+     !!     jac, &
+     !!     -r, &
+     !!     3, &
+     !!     3, &
+     !!     singular, &
+     !!     rank )
+     !call linsolve_qr( &
+     !     dtuv, &
+     !     jac, &
+     !     -r, &
+     !     3, &
+     !     3, &
+     !     1, &
+     !     rank )
+     call linsolve_svd( &
           dtuv, &
           jac, &
           -r, &
           3, &
           3, &
-          singular, &
+          1, &
+          cond, &
           rank )
 
      if ( rank < 3 ) then ! degeneracy

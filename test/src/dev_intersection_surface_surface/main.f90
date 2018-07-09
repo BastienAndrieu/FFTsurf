@@ -113,8 +113,7 @@
      write (strnum,'(I1)') isurf
      call read_polynomial( &
           surf(isurf)%x, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
-                                !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
           nvar=2, &
           base=1 )
 

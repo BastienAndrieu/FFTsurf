@@ -114,8 +114,7 @@ program dev_intersection_surface_surface
      write (strnum,'(I1)') isurf
      call read_polynomial( &
           surf(isurf)%x, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
-                                !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
           nvar=2, &
           base=1 )
 
@@ -659,6 +658,7 @@ subroutine newton_curve_surface( &
      stat, &
      xyz )
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances    
   ! stat = 0 : converged
@@ -685,8 +685,9 @@ subroutine newton_curve_surface( &
   real(kind=fp), dimension(3)       :: tuvtmp, dtuv
   real(kind=fp)                     :: rescheck, res, restmp
   real(kind=fp)                     :: jac(3,3), lambda
-  logical                           :: singular
+  !logical                           :: singular
   integer                           :: rank
+  real(kind=fp)                     :: cond
   integer                           :: it
 
   ! Feasible t,u,v-domain
@@ -737,13 +738,30 @@ subroutine newton_curve_surface( &
      call evald1( jac(:,3), surf, tuv(2:3), 2 )
 
      ! solve for Newton step
-     call linsolve_QR( &
+     !!call linsolve_qr( &
+     !!     dtuv, &
+     !!     jac, &
+     !!     -r, &
+     !!     3, &
+     !!     3, &
+     !!     singular, &
+     !!     rank )
+     !call linsolve_qr( &
+     !     dtuv, &
+     !     jac, &
+     !     -r, &
+     !     3, &
+     !     3, &
+     !     1, &
+     !     rank )
+     call linsolve_svd( &
           dtuv, &
           jac, &
           -r, &
           3, &
           3, &
-          singular, &
+          1, &
+          cond, &
           rank )
 
      if ( rank < 3 ) then ! degeneracy
@@ -2436,6 +2454,7 @@ subroutine newton_intersection_polyline( &
      xyz, &
      stat )     
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances
   implicit none
@@ -2453,7 +2472,8 @@ subroutine newton_intersection_polyline( &
   real(kind=fp), dimension(3)      :: r1, r2
   real(kind=fp)                    :: resx, resh
   real(kind=fp)                    :: jac(4,4), duv(4)!, lambda
-  logical                          :: singular
+  !logical                          :: singular
+  integer                          :: rank
   integer                          :: it, isurf, ivar
 
   stat = 1
@@ -2504,15 +2524,23 @@ subroutine newton_intersection_polyline( &
      end do
      
      ! solve for Newton step
-     call linsolve_QR( &
-          duv, &
-          jac, &
-          -[r1,resh], &
-          4, &
-          4, &
-          singular )
+     !call linsolve_QR( &
+     !     duv, &
+     !     jac, &
+     !     -[r1,resh], &
+     !     4, &
+     !     4, &
+     !     singular )
+     call linsolve_qr( &
+       duv, &
+       jac, &
+       -[r1,resh], &
+       4, &
+       4, &
+       1, &
+       rank )
      
-     if ( singular ) then
+     if ( rank < 4 ) then !( singular ) then
         ! singular Jacobian matrix (should not happen)
         stat = 2
         return
@@ -3292,6 +3320,7 @@ subroutine find_collineal_points( &
     upperb, &
     stat )
   use mod_math
+  use mod_linalg
   use mod_diffgeom2
   use mod_tolerances
   ! Searches for a pair of collineal points on two rectangular parametric surfaces
@@ -3314,7 +3343,8 @@ subroutine find_collineal_points( &
   real(kind=fp)                    :: s(3,2), s1(3,2,2), s2(3,3,2)
   real(kind=fp)                    :: n(3), r(3)
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
-  logical                          :: singular
+  !logical                          :: singular
+  integer                          :: rank
   real(kind=fp)                    :: lambda
   integer                          :: it, isurf, ivar
 
@@ -3399,19 +3429,28 @@ subroutine find_collineal_points( &
      end do
 
      ! solve for Newton step
-     call linsolve_QR( &
-          duv, &
-          jac, &
-          -f, &
-          4, &
-          4, &
-          singular )
+     !call linsolve_QR( &
+     !     duv, &
+     !     jac, &
+     !     -f, &
+     !     4, &
+     !     4, &
+     !     singular )
+     call linsolve_qr( &
+       duv, &
+       jac, &
+       -f, &
+       4, &
+       4, &
+       1, &
+       rank )
+
      !PRINT *,'JAC='
      !CALL PRINT_MAT( REAL(JAC) )
      !PRINT *,'  F=', REAL(F)
      !PRINT *,'DUV=', REAL(DUV)
 
-     if ( singular ) then
+     if ( rank < 4 ) then!( singular ) then
         IF (VERBOSE) PRINT *,' find_collineal_points : singular jacobian matrix'
         stat = 2
         return
