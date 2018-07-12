@@ -567,13 +567,13 @@ contains
 
 
 
-  function is_in_interval( x, a, b, tolerance )
+  function is_in_closed_interval( x, a, b, tolerance )
     ! Returns .true. if a <= x <= b, .false. if x < a or x > b
     implicit none
     real(kind=fp),           intent(in) :: x, a, b
     real(kind=fp), optional, intent(in) :: tolerance
     real(kind=fp)                       :: tol
-    logical                             :: is_in_interval
+    logical                             :: is_in_closed_interval
     
     if ( present(tolerance) ) then
        tol = tolerance
@@ -581,24 +581,32 @@ contains
        tol = epsilon(1._fp)
     end if
 
-    !is_in_interval = ( x >= a .and. x <= b )
-    is_in_interval = ( x >= a - tol .and. x <= b + tol )
+    !is_in_closed_interval = ( x >= a .and. x <= b )
+    is_in_closed_interval = ( x >= a - tol .and. x <= b + tol )
 
-  end function is_in_interval
-
-
+  end function is_in_closed_interval
 
 
-  function is_in_interval_strict( x, a, b )
+
+
+  function is_in_open_interval( x, a, b, tolerance )
     ! Returns .true. if a < x < b, .false. if x <= a or x >= b
     implicit none
-    real(kind=fp), intent(in) :: x, a, b
-    logical                   :: is_in_interval_strict
+    real(kind=fp), intent(in)           :: x, a, b
+    real(kind=fp), optional, intent(in) :: tolerance
+    real(kind=fp)                       :: tol
+    logical                             :: is_in_open_interval
 
-    is_in_interval_strict = ( x > a .and. x < b )
-    !is_in_interval_strict = ( x > a + epsilon(1._fp) .and. x < b - epsilon(1._fp) )
+    if ( present(tolerance) ) then
+       tol = tolerance
+    else
+       tol = epsilon(1._fp)
+    end if
 
-  end function is_in_interval_strict
+    !is_in_open_interval = ( x > a .and. x < b )
+    is_in_open_interval = ( x > a + tol .and. x < b - tol )
+
+  end function is_in_open_interval
 
   
 

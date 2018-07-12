@@ -47,7 +47,7 @@ for ic = 1:nc
     plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), 'k-')
 end
 
-plot3( points(:,1), points(:,2), points(:,3), 'k.', 'markersize', 8 );
+plot3( points(:,1), points(:,2), points(:,3), 'k.', 'markersize', 6 );
 
 
 axis image vis3d

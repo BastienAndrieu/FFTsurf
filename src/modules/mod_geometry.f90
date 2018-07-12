@@ -280,6 +280,24 @@ contains
 
 
 
+  subroutine complete_orthonormal_basis( u, v, w )
+    ! given a unit 3-vector u, returns 3-vectors v and w such
+    ! that (u,v,w) is a direct orthonormal basis 
+    implicit none
+    real(kind=fp), intent(in)  :: u(3)
+    real(kind=fp), intent(out) :: v(3), w(3)
+    
+    v(:) = 0._fp
+    v(minloc(u,1)) = 1._fp
+    v = v - dot_product( u, v ) * u
+    v = v / norm2(v)
+
+    w = cross(u, v)    
+
+  end subroutine complete_orthonormal_basis
+
+
+
   ! ---------------------------------------------------------
   subroutine random_rotation_matrix3d( R )
     implicit none
@@ -287,11 +305,12 @@ contains
 
     call random_number( R(:,1) )
     R(:,1) = R(:,1) / norm2( R(:,1) )
-    R(:,2) = 0._fp
-    R(minloc(abs(R(:,1))),2) = 1._fp
-    R(:,2) = R(:,2) - dot_product( R(:,2), R(:,1) ) * R(:,1)
-    R(:,2) = R(:,2) / norm2( R(:,2) )
-    R(:,3) = cross( R(:,1), R(:,2) )
+    !R(:,2) = 0._fp
+    !R(minloc(abs(R(:,1))),2) = 1._fp
+    !R(:,2) = R(:,2) - dot_product( R(:,2), R(:,1) ) * R(:,1)
+    !R(:,2) = R(:,2) / norm2( R(:,2) )
+    !R(:,3) = cross( R(:,1), R(:,2) )
+    call complete_orthonormal_basis( R(:,1), R(:,2), R(:,3) )
 
   end subroutine random_rotation_matrix3d
   ! ---------------------------------------------------------

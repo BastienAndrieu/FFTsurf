@@ -116,8 +116,7 @@
      write (strnum,'(I1)') isurf
      call read_polynomial( &
           surf(isurf)%x, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
-                                !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
           nvar=2, &
           base=1 )
 
@@ -248,9 +247,10 @@
           region(isurf)%ptr, &
           'dev_intersection_simple_surface/tree_' // strnum // '.dat' )
 
-     call free_region_tree( region(isurf)%ptr )
      call free_polynomial( region(isurf)%ptr%poly(1)%ptr )
+     deallocate( region(isurf)%ptr%poly(1)%ptr )
      deallocate( region(isurf)%ptr%poly )
+     call free_region_tree( region(isurf)%ptr )
 
      call free_polynomial( surf(isurf)%x )
      call free_polynomial( surf(isurf)%xu )

@@ -3,6 +3,23 @@ module mod_errors_intersection
   use mod_util
   implicit none
 
+
+  integer, parameter :: ERR = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   character(200) :: working_directory_errors = ''
   
 contains

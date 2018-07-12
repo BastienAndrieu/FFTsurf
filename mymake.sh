@@ -7,7 +7,7 @@ python src/bernstein/makemodule.py
 # modules
 for f in src/modules/*.f90
 do
-    gfortran -g -O0 -Wall -Wextra -fbounds-check -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
+    gfortran -g -Wall -Wextra -fbounds-check -Iobj/ -Jobj/ -c $f -o obj/$(basename $f .f90).o
     if $verbose; then
 	echo "Compiling $(basename $f)"
     fi
@@ -93,8 +93,8 @@ gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection_sur
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection_surface_surface.out test/obj/dev_intersection_surface_surface.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o obj/mod_diffgeom2.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
 
 
-#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/newton_curve_surface_singular.f90 -o test/obj/newton_curve_surface_singular.o
-#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/newton_curve_surface_singular.out test/obj/newton_curve_surface_singular.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o obj/mod_diffgeom2.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/newton_curve_surface_singular.f90 -o test/obj/newton_curve_surface_singular.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/newton_curve_surface_singular.out test/obj/newton_curve_surface_singular.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o obj/mod_diffgeom2.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
 
 
 #gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/separation.f90 -o test/obj/separation.o
@@ -114,3 +114,9 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/convex_hull.out tes
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/linearalgebra.f90 -o test/obj/linearalgebra.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/linearalgebra.out test/obj/linearalgebra.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o
 
+
+
+
+
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection.f90 -o test/obj/dev_intersection.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.out test/obj/dev_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o obj/mod_diffgeom2.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o -Lsrc/dfftpack -ldfftpack

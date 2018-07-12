@@ -14,12 +14,13 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.e-2, kind=fp)
   real(kind=fp), parameter          :: EPS = real(1.e-12, kind=fp)
   real(kind=fp), parameter          :: TOL = EPSxyz
   real(kind=fp), parameter          :: EPSsqr = EPS**2
   real(kind=fp), parameter          :: TOLsqr = TOL**2
-  integer, parameter                :: nitmax = ceiling(-log10(EPS))
+  integer, parameter                :: nitmax = 40!ceiling(-log10(EPS))
   integer, parameter                :: nitcheck = 5
 
   type(type_curve),   intent(in)    :: curv
@@ -29,25 +30,27 @@ subroutine newton_curve_surface( &
   real(kind=fp),      intent(inout) :: tuv(3)
   integer,            intent(out)   :: stat
   real(kind=fp),      intent(out)   :: xyz(3)
-  real(kind=fp), dimension(3)       :: lowerb, upperb, rng
+  real(kind=fp), dimension(3)       :: lowerb, upperb!, rng
   real(kind=fp), dimension(3)       :: xyz_c, xyz_s, r
   real(kind=fp), dimension(3)       :: tuvtmp, dtuv
   real(kind=fp)                     :: rescheck, res, restmp
   real(kind=fp)                     :: jac(3,3), lambda
   !logical                           :: singular
   integer                           :: rank
-  real(kind=fp)                     :: cond
+  real(kind=fp)                     :: cond, errtuv
   integer                           :: it
 
   ! Feasible t,u,v-domain
   lowerb = [ tbox(1), uvbox([1,3]) ]
   upperb = [ tbox(2), uvbox([2,4]) ]
-  rng = upperb - lowerb
-  lowerb = lowerb - EPsuv*rng
-  upperb = upperb + EPsuv*rng
+  !rng = upperb - lowerb
+  !lowerb = lowerb - EPsuv*rng
+  !upperb = upperb + EPsuv*rng
 
   stat = 1
   restmp = huge(1._fp)
+  errtuv = 0._fp
+
   newton_iteration : do it = 1,nitmax
 
      ! position vector
@@ -56,7 +59,7 @@ subroutine newton_curve_surface( &
 
      r = xyz_s - xyz_c ! residual vector
      res = sum( r**2 ) ! squared norm of residual vector
-     !PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R))
+     IF ( DEBUG ) PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R)), ', ERRTUV =',sqrt(errtuv)
      !PRINT *,NORM2(R)
 
      ! check signs of convergence
@@ -67,18 +70,26 @@ subroutine newton_curve_surface( &
      end if
 
      ! convergence criterion
-     if ( res < TOLsqr ) then
-        stat = 0
-        if ( res < restmp ) then
-           restmp = res
-           tuvtmp = tuv
+     IF (.TRUE.) THEN
+        if ( res < TOLsqr .and. errtuv < EPSuvsqr*cond**2 ) then
+           stat = 0
            xyz = 0.5_fp * ( xyz_s + xyz_c )
-        end if
-        if ( restmp < EPSsqr ) then
-           tuv = tuvtmp
            return
         end if
-     end if
+     ELSE
+        if ( res < TOLsqr ) then
+           stat = 0
+           if ( res < restmp ) then
+              restmp = res
+              tuvtmp = tuv
+              xyz = 0.5_fp * ( xyz_s + xyz_c )
+           end if
+           if ( restmp < EPSsqr ) then
+              tuv = tuvtmp
+              return
+           end if
+        end if
+     END IF
 
      ! Jacobian matrix
      call evald1( jac(:,1), curv, tuv(1) )
@@ -136,14 +147,15 @@ subroutine newton_curve_surface( &
           dtuv, &
           lambda )
 
-     if ( lambda < -EPSmath ) return ! negative damped factor
+     if ( lambda < epsilon(1._fp) ) return ! negative damped factor
 
      dtuv = lambda * dtuv
-     if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
-        ! damped Newton step is too small
-        !PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
-        return
-     end if
+     errtuv = sum( dtuv**2 )
+     !if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
+     !   ! damped Newton step is too small
+     !   !PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
+     !   return
+     !end if
 
      ! update solution
      tuv = tuv + lambda * dtuv

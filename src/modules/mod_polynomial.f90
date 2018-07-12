@@ -18,7 +18,7 @@ module mod_polynomial
      type(type_polynomial), pointer :: ptr => null()
   end type ptr_polynomial
 
-
+  type(type_matrix), allocatable    :: transformation_matrices(:)
 
 
 contains
@@ -875,5 +875,66 @@ contains
     end do
 
   end subroutine chgvar2
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine cheb2bern( &
+       c, &
+       b )
+    ! Transforms a polynomial from Chebyshev basis into Bernstein basis
+    implicit none
+    type(type_polynomial), intent(in)    :: c
+    type(type_polynomial), intent(inout) :: b
+    real(kind=fp)                        :: au(c%degr(1)+1,c%degr(1)+1)
+    real(kind=fp)                        :: av(c%degr(2)+1,c%degr(2)+1)
+    integer                              :: i
+
+    if ( c%base /= 1 ) STOP 'cheb2bern : input polynomial not in Chebyshev basis'
+
+    call reset_polynomial( poly=b, nvar=c%nvar, base=2, degr=c%degr(1:c%nvar), dim=c%dim )
+
+    if ( .not.allocated(transformation_matrices) ) allocate( transformation_matrices(32) )
+
+    call get_cheb2bern_mat_from_collection( &
+         transformation_matrices, &
+         c%degr(1)+1, &
+         au )
+
+   
+    if ( c%nvar == 1 ) then
+       ! univariate polynomial
+       b%coef(1:c%degr(1)+1,1:b%dim,1) = matmul( au, c%coef(1:c%degr(1)+1,1:c%dim,1) )
+
+    elseif ( c%nvar == 2 ) then
+       ! bivariate polynomial
+       call get_cheb2bern_mat_from_collection( &
+            transformation_matrices, &
+            c%degr(2)+1, &
+            av )
+       av = transpose( av )
+
+       do i = 1,c%dim
+          b%coef(1:c%degr(1)+1,1:c%degr(2)+1,i) = &
+               matmul( matmul( au, c%coef(1:c%degr(1)+1,1:c%degr(2)+1,i) ), av )
+       end do
+
+    else
+       ! error
+       STOP 'cheb2bern : nvar /= 1,2'
+
+    end if
+
+  end subroutine cheb2bern
+
+
 
 end module mod_polynomial

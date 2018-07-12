@@ -22,7 +22,7 @@ tuvxyz = importdata('tuv_xyz.dat');
 % tuvxyz = [1.66728459E-02   1.50055615E-02 -0.899999976       1.50055615E-02 -0.899999976       7.63869436E-13
 %     0.857568622      0.771811724     -0.899999976      0.771811724     -0.899999976       1.56260005E-10
 %     -0.874241471     -0.786817312     -0.899999976     -0.786817312     -0.899999976      -1.39424583E-11];
-
+% tuvxyz = [1.0000000000000000      -0.79304420220205951        1.0000000000000000      -0.78504420220205939       0.39652210110102981       0.19999999999999979        2.2876312018451341E-016];
 
 c = readCoeffs2('c_1.cheb');
 
@@ -149,9 +149,14 @@ for isurf = 1:2
     %     plot3( xyz(:,1,isurf), xyz(:,2,isurf), xyz(:,3,isurf), 'k.', 'markersize', 6 );
 end
 
+if ~isempty(tuvxyz)
+    plot3( tuvxyz(:,4), tuvxyz(:,5), tuvxyz(:,6), 'k*', 'markersize', 4 );
+end
 
 c = evalBernstein( bc, t );
 plot3( c(:,1), c(:,2), c(:,3), 'k-', 'linewidth', 1 );
+
+
 
 axis image vis3d
 %view(3)
@@ -162,3 +167,5 @@ camlight(30,30);
 
 
 % sqrt( sum( ( xyz(:,:,1) - xyz(:,:,2) ).^2, 2 ) )
+% c = readCoeffs2( sprintf('c_%d.cheb',2) );
+% x = ICT2unstr( c, tuvxyz(

@@ -11,7 +11,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_diffgeom2
   use mod_regiontree
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .FALSE.
+  LOGICAL, PARAMETER :: DEBUG = .false.
   integer, parameter                          :: nuvxyz_init = 10
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
@@ -38,11 +38,17 @@ recursive subroutine intersect_simple_surfaces( &
 
   if ( stat_degeneracy > 1 ) return
 
-  PRINT *,'';PRINT *,'';PRINT *,'';
-  PRINT *,'UVBOXES ='
-  DO ISURF = 1,2
-     PRINT *,REGION(ISURF)%PTR%UVBOX
-  END DO
+  IF ( DEBUG ) THEN
+     PRINT *,'';PRINT *,'';PRINT *,'';
+     PRINT *,'SIMPLE SURFACES'
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2
+        PRINT *,REGION(ISURF)%PTR%UVBOX
+     END DO
+
+     PRINT *,'NUVXYZ =',NUVXYZ
+     IF ( NUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,1:NUVXYZ)) )
+  END IF
 
   ! intersect the 4 borders of each surface with the other surface
   !nuvxyz = 0
@@ -146,11 +152,11 @@ recursive subroutine intersect_simple_surfaces( &
            newregion(2)%ptr => region(2)%ptr%child(jchild)                      !    !     ! 
            !                                                                    !    !     !     
            do ipt = 1,nuvxyz ! <---------------------------------------------+  !    !     !
-              if ( .not.is_in_interval( &                                    !  !    !     !
+              if ( .not.is_in_closed_interval( &                             !  !    !     !
                    uvxyz(3,ipt), &                                           !  !    !     !
                    newregion(2)%ptr%uvbox(1), &                              !  !    !     !
                    newregion(2)%ptr%uvbox(2) ) .or. &                        !  !    !     !
-                   .not.is_in_interval( &                                    !  !    !     !
+                   .not.is_in_closed_interval( &                             !  !    !     !
                    uvxyz(4,ipt), &                                           !  !    !     !
                    newregion(2)%ptr%uvbox(3), &                              !  !    !     !
                    newregion(2)%ptr%uvbox(4) ) ) mask(ipt,2) = .false.       !  !    !     !
@@ -162,11 +168,11 @@ recursive subroutine intersect_simple_surfaces( &
               newregion(1)%ptr => region(1)%ptr%child(ichild)                !  !    !     !
               !                                                              !  !    !     !
               do ipt = 1,nuvxyz ! <---------------------------------------+  !  !    !     !
-                 if ( .not.is_in_interval( &                              !  !  !    !     !
+                 if ( .not.is_in_closed_interval( &                       !  !  !    !     !
                       uvxyz(1,ipt), &                                     !  !  !    !     !
                       newregion(1)%ptr%uvbox(1), &                        !  !  !    !     !
                       newregion(1)%ptr%uvbox(2) ) .or. &                  !  !  !    !     !
-                      .not.is_in_interval( &                              !  !  !    !     !
+                      .not.is_in_closed_interval( &                       !  !  !    !     !
                       uvxyz(2,ipt), &                                     !  !  !    !     !
                       newregion(1)%ptr%uvbox(3), &                        !  !  !    !     !
                       newregion(1)%ptr%uvbox(4) ) ) mask(ipt,1) = .false. !  !  !    !     !

@@ -4,7 +4,7 @@ module mod_regiontree
   use mod_obb
   use mod_polynomial
 
-  real(kind=fp), parameter          :: EPSregion = real( 1.e-6, kind=fp ) ! minimal range along any dimension
+  real(kind=fp), parameter          :: EPSregion = real( 1.e-7, kind=fp ) ! minimal range along any dimension
 
   type type_region
      integer                        :: dim = 0
@@ -77,6 +77,7 @@ contains
     integer,           intent(out)           :: stat
     real(kind=fp)                            :: uvbox(2*region%dim)
     logical                                  :: degenerate(region%dim)
+    integer                                  :: stat_alloc
     integer                                  :: idim, nchild, jdim, ichild
 
     if ( associated(region%child) ) then
@@ -88,15 +89,18 @@ contains
     do idim = 1,region%dim
        ! check for possibly "degenerate" dimensions
        degenerate(idim) = ( &
-            abs( uvs(idim) - region%uvbox(2*idim-1) ) < EPSregion .or. &
-            abs( uvs(idim) - region%uvbox(2*idim) )   < EPSregion )
+            abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSregion .or. &
+            abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSregion )
     end do
 
     stat = count(degenerate)
     if ( stat >= region%dim ) return ! the subdivision point is located at one of the region's corners
 
-    nchild = 2**( region%dim - stat ) ! number of children
-    allocate( region%child(nchild) )
+    nchild = 2**(region%dim - stat) ! number of children
+    allocate(region%child(nchild), stat=stat_alloc)
+    if ( stat_alloc /= 0 ) then
+       STOP 'subdiv_region : could not allocate region%child'
+    end if
 
     ! get uvboxes of the children
     do ichild = 1,nchild ! loop over the children
@@ -107,10 +111,10 @@ contains
           else
              ! non-degenerate dimension
              jdim = jdim + 1 ! increment the counter of non-degenerate dimensions
-             if ( mod( (ichild-1)/(2**(jdim-1)), 2 ) == 0 ) then
-                uvbox(2*idim-[1,0]) = [ region%uvbox(2*idim-1), uvs(idim) ]
+             if ( mod((ichild-1)/(2**(jdim-1)), 2) == 0 ) then
+                uvbox(2*idim-[1,0]) = [region%uvbox(2*idim-1), uvs(idim)]
              else
-                uvbox(2*idim-[1,0]) = [ uvs(idim), region%uvbox(2*idim) ]
+                uvbox(2*idim-[1,0]) = [uvs(idim), region%uvbox(2*idim)]
              end if
           end if
        end do
@@ -284,6 +288,51 @@ contains
     end if
     
   end subroutine add_point_bottom_up
+
+
+
+
+  recursive subroutine add_points_bottom_up( &
+       region, &
+       ipts, &
+       npts )
+    use mod_util
+    implicit none
+    type(type_region), intent(inout) :: region
+    integer,           intent(in)    :: npts
+    integer,           intent(in)    :: ipts(npts)
+
+    call append_n( &
+         region%ipts, &
+         region%npts, &
+         ipts(1:npts), &
+         npts, &
+         unique=.true. )
+
+    IF ( .FALSE. ) THEN
+       PRINT *,'ADDPTSB->U >>>-----------------------'
+       PRINT *,'UBVOX =',REGION%UVBOX
+       PRINT *,'IPTS ='
+       IF ( REGION%NPTS < 1 ) THEN
+          PRINT *,'N/A'
+       ELSE
+          PRINT *,REGION%IPTS(1:REGION%NPTS)
+       END IF
+       PRINT *,'----------------------------------<<<'
+    END IF
+
+    if ( associated(region%parent) ) then
+       call add_points_bottom_up( &
+            region%parent, &
+            ipts(1:npts), &
+            npts )
+    end if
+
+  end subroutine add_points_bottom_up
+
+
+
+
 
 
 end module mod_regiontree

@@ -5,7 +5,7 @@ recursive subroutine intersect_curve_surface( &
      region_s, &
      coords, &
      npts, &
-     stat_newpoint )
+     stat_degeneracy )
   use mod_util    
   use mod_math
   use mod_diffgeom2
@@ -20,12 +20,13 @@ recursive subroutine intersect_curve_surface( &
   type(type_region),          intent(inout), target :: region_s
   real(kind=fp), allocatable, intent(inout)         :: coords(:,:) ! t,u,v,x,y,z
   integer,                    intent(inout)         :: npts
-  integer,                    intent(inout)         :: stat_newpoint
+  integer,                    intent(inout)         :: stat_degeneracy
   integer, allocatable                              :: sharedpts(:)
   integer                                           :: n_sharedpts
   logical                                           :: separable, overlap
   real(kind=fp)                                     :: tuv_subdiv(3)
   logical                                           :: interior(2)
+  integer                                           :: stat_newpoint
   real(kind=fp)                                     :: tuv(3), xyz(3)
   integer                                           :: stat_subdiv, nchild(2)
   type(type_region), pointer                        :: newregion_c
@@ -35,8 +36,8 @@ recursive subroutine intersect_curve_surface( &
   if ( stat_degeneracy > 1 ) return
 
   IF ( DEBUG ) THEN
-     PRINT *,''
-     PRINT *,''
+     PRINT *,''; PRINT *,''
+     PRINT *,'CURVE-SURFACE'
      PRINT *,' TBOX =',REGION_C%UVBOX
      PRINT *,'UVBOX =',REGION_S%UVBOX
   END IF
@@ -63,8 +64,11 @@ recursive subroutine intersect_curve_surface( &
           sharedpts )
      if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)
   end if
-  !PRINT *,'N_SHAREDPTS =',n_sharedpts
-  !IF ( N_SHAREDPTS > 0 ) PRINT *,sharedpts
+  IF ( DEBUG ) THEN
+     PRINT *,'N_SHAREDPTS =',n_sharedpts
+     !IF ( N_SHAREDPTS > 0 ) PRINT *,sharedpts
+     CALL PRINT_MAT( TRANSPOSE( COORDS(:,SHAREDPTS(1:N_SHAREDPTS)) ) )
+  END IF
 
 
   IF (.true.) THEN
@@ -75,12 +79,15 @@ recursive subroutine intersect_curve_surface( &
               do i = 1,region_c%poly(1)%ptr%degr(1)+1,region_c%poly(1)%ptr%degr(1)
                  !PRINT *,I,J,K,sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ),EPSxyzsqr
                  if ( sum( (region_c%poly(1)%ptr%coef(i,:,1) - region_s%poly(1)%ptr%coef(j,k,:))**2 ) < EPSxyzsqr ) then
-                    IF (DEBUG) PRINT *,'+1 INTERSECTION POINT ENDPOINT/CORNER'
                     xyz = 0.5_fp * ( region_c%poly(1)%ptr%coef(i,:,1) + region_s%poly(1)%ptr%coef(j,k,:) )
                     tuv(1) = real( i-1, kind=fp ) / real( region_c%poly(1)%ptr%degr(1), kind=fp )
                     tuv(2) = real( j-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(1), kind=fp )
                     tuv(3) = real( k-1, kind=fp ) / real( region_s%poly(1)%ptr%degr(2), kind=fp )
-                    tuv = -1._fp + 2._fp * tuv ! map from [0,1] to [-1,1]
+                    !tuv = -1._fp + 2._fp * tuv ! map from [0,1] to [-1,1]
+                    tuv(1) = ( 1._fp - tuv(1) ) * region_c%uvbox(1) + tuv(1) * region_c%uvbox(2)
+                    tuv(2) = ( 1._fp - tuv(2) ) * region_s%uvbox(1) + tuv(2) * region_s%uvbox(2)
+                    tuv(3) = ( 1._fp - tuv(3) ) * region_s%uvbox(3) + tuv(3) * region_s%uvbox(4)
+                    IF (DEBUG) PRINT *,'+1 INTERSECT. ENDPT/CORNER :', tuv, xyz
 
                     call append_vector( &
                          [tuv,xyz], &
@@ -106,21 +113,22 @@ recursive subroutine intersect_curve_surface( &
 
   if ( n_sharedpts == 1 ) then ! <--------------------------------------------------------------------------------------------+
      ipt = sharedpts(1)                                                                                                       !
-     interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )                               !
+     interior(1) = is_in_open_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )                                 !
      interior(2) = ( &                                                                                                        !
-          is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &                                !
-          is_in_interval_strict( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )                                      !
+          is_in_open_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &                                  !
+          is_in_open_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )                                        !
      !                                                                                                                        !
      if ( any(interior) ) then ! <--------------------------------------------------------------------+                       !
         separable = .false.                                                                           !                       !
      else ! ------------------------------------------------------------------------------------------+                       !
         ! check if the curve and surface regions can intersect at other (not yet discovered) points   !                       !
         call intersect_curve_surface_elsewhere( &                                                     !                       !
-             region_c%poly(1)%ptr, &                                                                         !                       !
-             region_s%poly(1)%ptr, &                                                                         !                       !
+             region_c%poly(1)%ptr, &                                                                  !                       !
+             region_s%poly(1)%ptr, &                                                                  !                       !
              coords(4:6,sharedpts(1)), &                                                              !                       !
              separable, &                                                                             !                       !
              randomize=.true. )                                                                       !                       !
+        IF ( DEBUG ) PRINT *,'SEPARABLE ?',SEPARABLE
      end if ! <---------------------------------------------------------------------------------------+                       !
      !                                                                                                                        !
      if ( separable ) return ! the pair of regions of curve-surface cannot intersect except at the point already discovered   !
@@ -130,10 +138,10 @@ recursive subroutine intersect_curve_surface( &
      ! are any of the already discovered points interior to the curve/surface region                                          !
      do jpt = 1,n_sharedpts ! <---------------------------------------------------------------------+                         !
         ipt = sharedpts(jpt)                                                                        !                         !
-        interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )  !                         !
+        interior(1) = is_in_open_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )    !                         !
         interior(2) = ( &                                                                           !                         !
-             is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &   !                         !
-             is_in_interval_strict( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )         !                         !
+             is_in_open_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &     !                         !
+             is_in_open_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )           !                         !
         if ( any(interior) ) then ! <-----------+                                                   !                         !
            tuv_subdiv(1) = coords(1,ipt)        !                                                   !                         !
            tuv_subdiv(2:3) = coords(2:3,ipt)    !                                                   !                         !
@@ -149,16 +157,16 @@ recursive subroutine intersect_curve_surface( &
      if ( .not.associated(region_c%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_c%xyzbox )                                                          !                                !
         call bernOBB1( &                                                                     !                                !
-             region_c%poly(1)%ptr%coef(1:region_c%poly(1)%ptr%degr(1)+1,1:3,1), &                          !                                !
-             region_c%poly(1)%ptr%degr(1), &                                                        !                                !
+             region_c%poly(1)%ptr%coef(1:region_c%poly(1)%ptr%degr(1)+1,1:3,1), &            !                                !
+             region_c%poly(1)%ptr%degr(1), &                                                 !                                !
              region_c%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
      if ( .not.associated(region_s%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_s%xyzbox )                                                          !                                !
         call bernOBB2( &                                                                     !                                !
-             region_s%poly(1)%ptr%coef(1:region_s%poly(1)%ptr%degr(1)+1,1:region_s%poly(1)%ptr%degr(2)+1,1:3), &  !                                !
-             region_s%poly(1)%ptr%degr, &                                                           !                                !
+             region_s%poly(1)%ptr%coef(1:region_s%poly(1)%ptr%degr(1)+1,1:region_s%poly(1)%ptr%degr(2)+1,1:3), &  !           !
+             region_s%poly(1)%ptr%degr, &                                                    !                                !
              region_s%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
@@ -167,6 +175,7 @@ recursive subroutine intersect_curve_surface( &
           region_c%xyzbox, &                                                                                                  !
           region_s%xyzbox, &                                                                                                  !
           overlap )                                                                                                           !
+     IF ( DEBUG ) PRINT *,'OBBs OVERLAP?', OVERLAP
      !                                                                                                                        !
      if ( .not.overlap ) return ! disjoint bounding boxes => empty intersection                                               !
      !                                                                                                                        !
@@ -178,8 +187,9 @@ recursive subroutine intersect_curve_surface( &
      tuv = 0.5_fp * [ &                                                                                                       !
           region_c%uvbox(1) + region_c%uvbox(2), &                                                                            !
           region_s%uvbox([1,3]) + region_s%uvbox([2,4]) ]                                                                     !
-     !PRINT *,'NEWTON <--- TUV0 =',TUV                                                                                        !
+     IF ( DEBUG )PRINT *,'NEWTON <--- TUV0 =',TUV                                                                                        !
      !PRINT *,'------- NEWTON -------'                                                                                        !
+     stat_degeneracy = 0
      call newton_curve_surface( &                                                                                             !
           root_c, &                                                                                                           !
           root_s, &                                                                                                           !
@@ -189,13 +199,16 @@ recursive subroutine intersect_curve_surface( &
           stat_newpoint, &                                                                                                    !
           xyz )                                                                                                               !
      !PRINT *,'----------------------'                                                                                        !
-     !IF ( STAT_NEWPOINT == 0 ) THEN
-     !   PRINT *,'CONVERGED TO ', tuv, xyz
-     !END IF
-     !PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT                                                                                 !
+     IF ( DEBUG ) THEN
+        PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT        
+        IF ( STAT_NEWPOINT == 0 ) PRINT *,'CONVERGED TO ', tuv, xyz
+     END IF
      !                                                                                                                        !
      ! if we just found a degenerate point, return and report degeneracy                                                      !
-     if ( stat_newpoint > 1 ) return                                                                                          !
+     if ( stat_newpoint > 1 ) then ! <---------------------------------+                                                      !
+        stat_degeneracy = stat_newpoint                                !                                                      !
+        return                                                         !                                                      !
+     end if ! <--------------------------------------------------------+                                                      !
      !                                                                                                                        !
      if ( stat_newpoint == 0 ) then ! <--------------------------------------------------------------------------------+      !
         ! check if the "new" point has not already been discovered                                                     !      !
@@ -240,7 +253,7 @@ recursive subroutine intersect_curve_surface( &
 
 
 
-  !PRINT *,'TUV_SUBDIV =',TUV_SUBDIV
+  IF ( DEBUG ) PRINT *,'SUBDIVIDE AT TUV =',TUV_SUBDIV
   !! Subdivide the curve region
   call subdiv_region( &
        region_c, &
@@ -340,7 +353,7 @@ recursive subroutine intersect_curve_surface( &
      PRINT *,'INTERIOR?',INTERIOR
      PRINT *,'separable?',separable
      PRINT *,'STAT_NEWPOINT =',STAT_NEWPOINT
-     STAT_NEWPOINT = 99
+     STAT_DEGENERACY = 99
      PRINT *,'intersect_curve_surface : NO MORE SUBDIVISION !!!!!'
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%ptr, 'dev_intersection_simple_surface/region_c_bezier.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%ptr, 'dev_intersection_simple_surface/region_s_bezier.bern' )

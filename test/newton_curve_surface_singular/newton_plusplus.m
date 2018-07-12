@@ -17,10 +17,12 @@ S.xv = d(:,:,:,2);
 
 %% initial iterate
 tuv0 = zeros(3,1);
-fid = fopen('tuv.dat','r');
-tuv0(1) = str2num(fgetl(fid));
-tuv0(2:3) = str2num(fgetl(fid))';
-fclose(fid);
+if 0
+    fid = fopen('tuv.dat','r');
+    tuv0(1) = str2num(fgetl(fid));
+    tuv0(2:3) = str2num(fgetl(fid))';
+    fclose(fid);
+end
 
 % perturbation
 tuv = [0;0;0];
@@ -57,7 +59,7 @@ err_inv = [];
 
 
 tuvit = [];
-
+p = 0;
 for it = 0:nitmax
     tuvit = [ tuvit, tuv ];
     err = [ err; norm( tuv - tuv0 ) ];
@@ -80,7 +82,7 @@ for it = 0:nitmax
     
     % convergence criterion
     if it > 1
-        if norm( r ) < EPSxyz && errtuv < condJ * EPSuv
+        if norm( r ) < EPSxyz && errtuv < TOLuv%condJ * EPSuv
             xyz = 0.5 * ( c + s );
             converged = 1;
             itconv = min(it,itconv);
@@ -89,7 +91,8 @@ for it = 0:nitmax
     end
     
     % solve for Newton step
-    dtuv = LSsolveQR( J, -r ); % s_k
+    %dtuv = LSsolveQR( J, -r ); % s_k
+    dtuv = LSsolveTSVD( J, -r, TOLuv ); % s_k
     
     
     err_inv = [ err_inv; norm( J*dtuv + r ) / ( norm(J) * norm(dtuv) ) ];

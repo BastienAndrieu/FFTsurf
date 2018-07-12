@@ -31,7 +31,7 @@ subroutine find_collineal_points( &
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
   !logical                          :: singular
   integer                          :: rank
-  real(kind=fp)                    :: lambda
+  real(kind=fp)                    :: lambda, cond, erruv
   integer                          :: it, isurf, ivar
 
   stat = 1
@@ -39,6 +39,8 @@ subroutine find_collineal_points( &
   !PRINT *,'LOWERB =', LOWERB
   !PRINT *,'UPPERB =', UPPERB
   !PRINT *,'   UV0 =', UV
+  erruv = 0._fp
+  cond = 1._fp 
 
   do it = 1,nitmax
      IF (VERBOSE) THEN
@@ -71,8 +73,10 @@ subroutine find_collineal_points( &
      f(3:4) = matmul( transpose(s1(:,:,1)), r )
      IF (VERBOSE) PRINT *,'    |F| =',REAL(NORM2(F))
 
+     IF (VERBOSE) PRINT *,'NEWTON CP, IT#',IT,', RES =',REAL(NORM2(F)), ', ERRTUV =',sqrt(erruv),', COND(J) =',cond
+
      ! convergence criterion
-     if ( sum(f**2) < EPScollinealsqr ) then
+     if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then
         IF (VERBOSE) PRINT *,'    CONVERGE |F|'
         if ( sum(r**2) < EPSxyzsqr ) then
            stat = -1
@@ -115,26 +119,30 @@ subroutine find_collineal_points( &
      end do
 
      ! solve for Newton step
-     !call linsolve_QR( &
-     !     duv, &
-     !     jac, &
-     !     -f, &
-     !     4, &
-     !     4, &
-     !     singular )
-     call linsolve_qr( &
-       duv, &
-       jac, &
-       -f, &
-       4, &
-       4, &
-       1, &
-       rank )
+     !call linsolve_qr( &
+     !  duv, &
+     !  jac, &
+     !  -f, &
+     !  4, &
+     !  4, &
+     !  1, &
+     !  rank )
+     call linsolve_svd( &
+          duv, &
+          jac, &
+          -f, &
+          4, &
+          4, &
+          1, &
+          cond, &
+          rank )
 
      !PRINT *,'JAC='
      !CALL PRINT_MAT( REAL(JAC) )
      !PRINT *,'  F=', REAL(F)
      !PRINT *,'DUV=', REAL(DUV)
+
+     erruv = sum( duv**2 )
 
      if ( rank < 4 ) then!( singular ) then
         IF (VERBOSE) PRINT *,' find_collineal_points : singular jacobian matrix'

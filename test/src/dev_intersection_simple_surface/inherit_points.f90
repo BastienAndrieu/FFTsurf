@@ -19,7 +19,7 @@ subroutine inherit_points( &
   outer : do jpt = 1,region%parent%npts
      ipt = region%parent%ipts(jpt)
      do idim = 1,region%dim
-        if ( .not.is_in_interval( &
+        if ( .not.is_in_closed_interval( &
              coords(idim,ipt), &
              region%uvbox(2*idim-1), &
              region%uvbox(2*idim), &

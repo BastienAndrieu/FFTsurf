@@ -4,30 +4,49 @@ recursive subroutine intersect_curve_surface( &
      region_c, &
      region_s, &
      tuvxyz, &
-     ntuvxyz )
-
+     ntuvxyz, &
+     stat_degeneracy )
+  use mod_util
+  use mod_math
+  use mod_bernstein2
+  use mod_polynomial
+  use mod_diffgeom2
+  use mod_obb
+  use mod_regiontree
+  use mod_tolerances
   implicit none
-  type(type_curve),           intent(in)            :: root_c
-  type(type_surface),         intent(in)            :: root_s
-  type(region),               intent(inout), target :: region_c
-  type(region),               intent(inout), target :: region_s
-  real(kind=fp), allocatable, intent(inout)         :: tuvxyz(:,:)
-  integer,                    intent(inout)         :: ntuvxyz
-  integer, allocatable                              :: ipts(:)
-  integer                                           :: npts
-  logical                                           :: overlap
-  logical                                           :: interior(2)
-  logical                                           :: separable
-  real(kind=fp), dimension(3)                       :: tuv, xyz, tuv_subdiv
-  integer                                           :: stat_newpoint
-  integer                                           :: stat_subdiv
-  integer                                           :: nchild(2)
-  type(region), pointer                             :: newregion_c
-  type(region), pointer                             :: newregion_s
-  integer                                           :: i, j, k, ipt, jpt, ichild, jchild
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  type(type_curve),           intent(in)    :: root_c
+  type(type_surface),         intent(in)    :: root_s
+  type(type_region), target,  intent(inout) :: region_c
+  type(type_region), target,  intent(inout) :: region_s
+  real(kind=fp), allocatable, intent(inout) :: tuvxyz(:,:)
+  integer,                    intent(inout) :: ntuvxyz
+  integer,                    intent(inout) :: stat_degeneracy
+  integer, allocatable                      :: ipts(:)
+  integer                                   :: npts
+  logical                                   :: overlap
+  logical                                   :: interior(2)
+  type(ptr_polynomial)                      :: poly(2)
+  logical                                   :: separable
+  real(kind=fp), dimension(3)               :: xyz_c, xyz_s
+  real(kind=fp), dimension(3)               :: tuv, xyz, tuv_subdiv
+  integer                                   :: stat_newpoint
+  integer                                   :: stat_subdiv
+  integer                                   :: nchild(2)
+  type(type_region), pointer                :: newregion_c
+  type(type_region), pointer                :: newregion_s
+  integer                                   :: i, j, k, ipt, jpt, ichild, jchild
 
   ! return if a degeneracy has been encountered previously
-  ! (...)
+  if ( stat_degeneracy /= 0 ) return
+
+  IF ( DEBUG ) THEN
+      PRINT *,''; PRINT *,'';
+      PRINT *,'INTERSECT_CURVE_SURFACE'
+      PRINT *,' TBOX =',REGION_C%UVBOX
+      PRINT *,'UVBOX =',REGION_S%UVBOX
+  END IF
 
   ! inherit from parents all the  points contained in the current regions
   if ( ntuvxyz > 0 ) then ! <-------------------------------------------------+
@@ -40,7 +59,6 @@ recursive subroutine intersect_curve_surface( &
           tuvxyz(2:3,1:ntuvxyz), &                                            !
           ntuvxyz )                                                           !
   end if ! <------------------------------------------------------------------+
-
 
   ! get list of already discovered points contained in both the current regions  
   npts = 0
@@ -55,7 +73,7 @@ recursive subroutine intersect_curve_surface( &
 
   ! if there are no already discovered points contained in both the current regions, check if 
   ! they intersect at endpoints/corners (2*4 tests)
-  if ( npts < 1 ) then ! <--------------------------------------------------------------------+
+  if ( npts == 0 ) then ! <-------------------------------------------------------------------+
      do k = 1,2 ! <----------------------------------------------------------------+          !
         do j = 1,2 ! <----------------------------------------------------------+  !          !
            xyz_s = region_s%poly(1)%ptr%coef( &                                 !  !          !
@@ -97,8 +115,8 @@ recursive subroutine intersect_curve_surface( &
      end do ! <--------------------------------------------------------------------+          !
   end if ! <----------------------------------------------------------------------------------+
 
-  ! if there are still no intersection points, check if the bounding boxes overlap
-  if ( npts < 1 ) then ! <--------------------------------------------------------------------+
+  if ( npts == 0 ) then ! <-------------------------------------------------------------------+
+     ! if there are still no intersection points, check if the bounding boxes overlap         !
      if ( .not.associated(region_c%xyzbox) ) then ! <--------+                                !
         allocate( region_c%xyzbox )                          !                                !
         call bernOBB1( &                                     !                                !
@@ -128,21 +146,23 @@ recursive subroutine intersect_curve_surface( &
      !                                                                                        !
      if ( .not.overlap ) return ! disjoint bounding boxes => empty intersection               !
      !                                                                                        !
-  else ! <------------------------------------------------------------------------------------+
-     ! ( npts > 0 )                                                                           !
-     ! are there any point interior the curve or surface region? ...                          !
+  elseif ( npts > 0 ) then ! <----------------------------------------------------------------+
+     ! are some of the already discovered points interior the curve or surface region?...     !
      do jpt = 1,npts  ! <------------------------------------------+                          !
         ipt = ipts(jpt)                                            !                          !
-        interior(1) = is_in_interval_strict( &                     !                          !
+        interior(1) = is_in_open_interval( &                       !                          !
              tuvxyz(1,ipt), &                                      !                          !
-             region_c%uvbox(1), region_c%uvbox(2) )                !                          !
+             region_c%uvbox(1), region_c%uvbox(2), &               !                          !
+             tolerance=EPSregion )                                 !                          !
         interior(2) = ( &                                          !                          !
-             is_in_interval_strict( &                              !                          !
+             is_in_open_interval( &                                !                          !
              tuvxyz(2,ipt), &                                      !                          !
-             region_s%uvbox(1), region_s%uvbox(2) ) .and. &        !                          !
-             is_in_interval_strict( &                              !                          !
+             region_s%uvbox(1), region_s%uvbox(2), &               !                          !
+             tolerance=EPSregion ) .and. &                         !                          !
+             is_in_open_interval( &                                !                          !
              tuvxyz(3,ipt), &                                      !                          !
-             region_s%uvbox(3), region_s%uvbox(4) ) )              !                          !
+             region_s%uvbox(3), region_s%uvbox(4), &               !                          !
+             tolerance=EPSregion ) )                               !                          !
         !                                                          !                          !
         ! ... if so, subdivide both regions at that point          !                          !
         if ( any(interior) ) then ! <-------------------+          !                          !
@@ -154,12 +174,14 @@ recursive subroutine intersect_curve_surface( &
      if ( all(.not.interior) ) then  ! <--------------------------------------------------+   !
         ! if only one intersection point, check if the pair can intersect at other points !   !
         if ( npts == 1 ) then ! <-----------------------------------------------+         !   !
-           call intersect_curve_surface_elsewhere( &                            !         !   !
-                region_c%poly(1)%ptr, &                                         !         !   !
-                region_s%poly(1)%ptr, &                                         !         !   !
+           poly(1)%ptr => region_c%poly(1)%ptr                                  !         !   !
+           poly(2)%ptr => region_s%poly(1)%ptr                                  !         !   !
+           call intersect_elsewhere( &                                          !         !   !
+                poly, &                                                         !         !   !
                 tuvxyz(4:6,ipts(1)), &                                          !         !   !
                 separable, &                                                    !         !   !
                 randomize=.true. )                                              !         !   !
+           nullify(poly(1)%ptr, poly(2)%ptr)                                    !         !   !
            !                                                                    !         !   !
            if ( separable ) return ! the pair cannot intersect at other points  !         !   !
         end if ! <--------------------------------------------------------------+         !   !
@@ -170,42 +192,73 @@ recursive subroutine intersect_curve_surface( &
 
   ! search for a new intersection point
   if ( npts < 1 .or. all(.not.interior) ) then ! <--------------------------------------------+
-     ! (...)                                                                                  !
+     ! use box-constrained Newton-Raphson algorithm                                           !
+     ! set initial iterate to the regions' parametric center point                            !
+     tuv(1)   = 0.5_fp * (region_c%uvbox(1)     + region_c%uvbox(2)    )                      !
+     tuv(2:3) = 0.5_fp * (region_s%uvbox([1,3]) + region_s%uvbox([2,4]))                      !
+     call newton_curve_surface( &                                                             !
+          root_c, &                                                                           !
+          root_s, &                                                                           !
+          [region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &!region_c%uvbox(1:2), &        !
+          [region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &!region_s%uvbox(1:4), &        !
+          stat_newpoint, &                                                                    !
+          tuv, &                                                                              !
+          xyz )                                                                               !
      !                                                                                        !
      ! if a degeneracy has been encountered, report it                                        !
-     ! (...)                                                                                  !
+     if ( stat_newpoint > 1 ) then ! <---------------+                                        !
+        stat_degeneracy = stat_newpoint              !                                        !
+        return                                       !                                        !
+     end if ! <--------------------------------------+                                        !
      !                                                                                        !
-     ! if a point has been found, check whether it is a duplicate                             !
-     if ( stat_newpoint == 0 ) then ! <---------------------------------------------------+   !
-        do ipt = 1,ntuvxyz ! <----------------------------------------------+             !   !
-           if ( sum( (xyz - tuvxyz(4:6,ipt))**2 ) < EPSxyzsqr ) then ! <--+ !             !   !
-              stat_newpoint = 1                                           ! !             !   !
-              call add_point_bottom_up( region_c, ipt )                   ! !             !   !
-              call add_point_bottom_up( region_s, ipt )                   ! !             !   !
-              exit                                                        ! !             !   !
-           end if ! <-----------------------------------------------------+ !             !   !
-        end do ! <----------------------------------------------------------+             !   !
-        !                                                                                 !   !
-        ! if this is actually a new intersection point, append it to the tuvxyz list      !   !
-        call append_vector( &                                                             !   !
-             [tuv,xyz], &                                                                 !   !
-             6, &                                                                         !   !
-             tuvxyz, &                                                                    !   !
-             ntuvxyz )                                                                    !   !
-        !                                                                                 !   !
+     if ( stat_newpoint <= 0 ) then ! <---------------------------------------------------+   !
+        ! if a point has been found, check whether it is a duplicate                      !   !
+        if ( ntuvxyz > 0 ) then ! <----------+                                            !   !
+           call check_unicity( &             !                                            !   !
+                xyz, &                       !                                            !   !
+                3, &                         !                                            !   !
+                tuvxyz(4:6,ntuvxyz), &       !                                            !   !
+                ntuvxyz, &                   !                                            !   !
+                EPSxyz, &                    !                                            !   !
+                ipt )                        !                                            !   !
+        else ! ------------------------------+                                            !   !
+           ipt = 1                           !                                            !   !
+        end if ! <---------------------------+                                            !   !
+        if ( ipt > ntuvxyz ) then ! <---------------------+                               !   !
+           ! if this is actually a new intersection point !                               !   !
+           call append_vector( &                          !                               !   !
+                [tuv,xyz], &                              !                               !   !
+                6, &                                      !                               !   !
+                tuvxyz, &                                 !                               !   !
+                ntuvxyz )                                 !                               !   !
+        end if ! <----------------------------------------+                               !   !
+        !do ipt = 1,ntuvxyz ! <----------------------------------------------+             !   !*
+        !   if ( sum( (xyz - tuvxyz(4:6,ipt))**2 ) < EPSxyzsqr ) then ! <--+ !             !   !*
+        !      stat_newpoint = 1                                           ! !             !   !*
+        !      call add_point_bottom_up( region_c, ipt )                   ! !             !   !*
+        !      call add_point_bottom_up( region_s, ipt )                   ! !             !   !*
+        !      exit                                                        ! !             !   !*
+        !   end if ! <-----------------------------------------------------+ !             !   !*
+        !end do ! <----------------------------------------------------------+             !   !*
+        !!                                                                                 !   !*
+        !! if this is actually a new intersection point, append it to the tuvxyz list      !   !*
+        !call append_vector( &                                                             !   !*
+        !     [tuv,xyz], &                                                                 !   !*
+        !     6, &                                                                         !   !*
+        !     tuvxyz, &                                                                    !   !*
+        !     ntuvxyz )                                                                    !   !*
+        !!                                                                                 !   !*
         ! append that point to the current regions' lists and to that of their ascendants !   !
         call add_point_bottom_up( region_c, ntuvxyz )                                     !   !
         call add_point_bottom_up( region_s, ntuvxyz )                                     !   !
         !                                                                                 !   !
         ! subdivide both regions at that point                                            !   !
         tuv_subdiv = tuv                                                                  !   !
+     else ! ------------------------------------------------------------------------------+   !
+        ! if no new point has been discovered, subdivide both regions at the centerpoint  !   !
+        tuv_subdiv(1)   = 0.5_fp * (region_c%uvbox(1)     + region_c%uvbox(2)    )        !   !
+        tuv_subdiv(2:3) = 0.5_fp * (region_s%uvbox([1,3]) + region_s%uvbox([2,4]))        !   !
      end if  ! <--------------------------------------------------------------------------+   !
-     !                                                                                        !
-     ! if no new point has been discovered, subdivide both regions at their centerpoint       !
-     if ( stat_newpoint /= 0 ) then ! <-----------------------------------------------+       !
-        tuv_subdiv(1) = 0.5_fp * ( region_c%uvbox(1) + region_c%uvbox(2) )            !       !
-        tuv_subdiv(2:3) = 0.5_fp * ( region_s%uvbox([1,3]) + region_s%uvbox([2,4]) )  !       !
-     end if ! <-----------------------------------------------------------------------+       !
      !                                                                                        !
   end if ! <----------------------------------------------------------------------------------+
 
@@ -215,8 +268,8 @@ recursive subroutine intersect_curve_surface( &
        region_c, &
        tuv_subdiv(1), &
        stat_subdiv )
-  ! linear change of variable -> local frame of Bézier subcurve
-  tuv_subdiv(1) = 0.5_fp * ( ab2n1p1( tuv_subdiv(1), region_c%uvbox(1), region_c%uvbox(2) ) + 1._fp )
+  ! linear change of variable --> local frame of Bézier subcurve
+  tuv_subdiv(1) = 0.5_fp * ( ab2n1p1(tuv_subdiv(1), region_c%uvbox(1), region_c%uvbox(2)) + 1._fp )
 
   if ( stat_subdiv == 1 ) then ! <--------------------------------------------------+
      ! the subdivision point is at one of the curve's endpoints                     !
@@ -227,8 +280,8 @@ recursive subroutine intersect_curve_surface( &
      if ( stat_subdiv == 0 ) then ! <-------------------------+                     !
         ! the curve region has no children yet                !                     !
         do ichild = 1,size(region_c%child) ! <-------------+  !                     !
-           allocate( region_c%child(ichild)%poly(1) )      !  !                     !
-           allocate( region_c%child(ichild)%poly(1)%ptr )  !  !                     !
+           allocate(region_c%child(ichild)%poly(1))        !  !                     !
+           allocate(region_c%child(ichild)%poly(1)%ptr)    !  !                     !
         end do ! <-----------------------------------------+  !                     !
         call subdiv_bezier1( &                                !                     !
              region_c%poly(1)%ptr, &                          !                     !
@@ -245,9 +298,9 @@ recursive subroutine intersect_curve_surface( &
        region_s, &
        tuv_subdiv(2:3), &
        stat_subdiv )
-  ! linear change of variables -> local frame of Bézier subsurface
-  tuv_subdiv(2) = 0.5_fp * ( ab2n1p1( tuv_subdiv(2), region_s%uvbox(1), region_s%uvbox(2) ) + 1._fp )
-  tuv_subdiv(3) = 0.5_fp * ( ab2n1p1( tuv_subdiv(3), region_s%uvbox(3), region_s%uvbox(4) ) + 1._fp )
+  ! linear change of variables --> local frame of Bézier subsurface
+  tuv_subdiv(2) = 0.5_fp * ( ab2n1p1(tuv_subdiv(2), region_s%uvbox(1), region_s%uvbox(2)) + 1._fp )
+  tuv_subdiv(3) = 0.5_fp * ( ab2n1p1(tuv_subdiv(3), region_s%uvbox(3), region_s%uvbox(4)) + 1._fp )
 
   if ( stat_subdiv == 2 ) then ! <--------------------------------------------------+
      ! the subdivision point is at one of the surface's corners                     !
@@ -258,8 +311,8 @@ recursive subroutine intersect_curve_surface( &
      if ( stat_subdiv >= 0 ) then ! <-------------------------+                     !
         ! the surface region has no children yet              !                     !
         do ichild = 1,size(region_s%child) ! <-------------+  !                     !
-           allocate( region_s%child(ichild)%poly(1) )      !  !                     !
-           allocate( region_s%child(ichild)%poly(1)%ptr )  !  !                     !
+           allocate(region_s%child(ichild)%poly(1))        !  !                     !
+           allocate(region_s%child(ichild)%poly(1)%ptr)    !  !                     !
         end do ! <-----------------------------------------+  !                     !
      end if ! <-----------------------------------------------+                     !
   end if ! <------------------------------------------------------------------------+
@@ -293,6 +346,12 @@ recursive subroutine intersect_curve_surface( &
   ! carry on the recursion with new pairs of regions
   if ( all(nchild < 2) ) then
      ! erreur
+     PRINT *,'************************************************'
+     PRINT *,' TBOX =',REGION_C%UVBOX
+     PRINT *,'UVBOX =',REGION_S%UVBOX
+     PRINT *,'intersect_curve_surface : NO MORE SUBDIVISIONS !'
+     PRINT *,'************************************************'
+     STOP
   end if
 
   do jchild = 1,nchild(2) ! <--------------------------------+
@@ -309,7 +368,14 @@ recursive subroutine intersect_curve_surface( &
            newregion_c => region_c%child(ichild)    !    !   !
         end if ! <----------------------------------+    !   !
         !                                                !   !
-        ! (...)
+        call intersect_curve_surface( &                  !   !
+             root_c, &                                   !   !
+             root_s, &                                   !   !
+             newregion_c, &                              !   !
+             newregion_s, &                              !   !
+             tuvxyz, &                                   !   !
+             ntuvxyz, &                                  !   !
+             stat_degeneracy )                           !   !
         !                                                !   !
      end do ! <------------------------------------------+   !
      !                                                       !

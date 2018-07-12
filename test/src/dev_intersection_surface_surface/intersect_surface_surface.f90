@@ -9,7 +9,7 @@ recursive subroutine intersect_surface_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL :: DEBUG = .true.
+  LOGICAL :: DEBUG = .false.
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdat
@@ -31,16 +31,54 @@ recursive subroutine intersect_surface_surface( &
   integer                                     :: isurf, ivar, ichild, jchild, idpt
   CHARACTER                                   :: STR1, STR2
   logical                                     :: isonboundary(2)
+  type(type_point_on_surface), pointer        :: pos => null()
+  real(kind=fp)                               :: uv(2,2)
+  integer, allocatable                        :: sharedpts(:)
+  integer                                     :: ipt, jpt, n_sharedpts
 
   if ( stat_degeneracy > 1 ) return
 
   IF ( DEBUG ) THEN ! <-------------------+
      PRINT *,''; PRINT *,''; PRINT *,''   !
+     PRINT *,'SURFACE-SURFACE'            !
      PRINT *,'UVBOXES ='                  !
      DO ISURF = 1,2 ! <-----------------+ !
         PRINT *,REGION(ISURF)%PTR%UVBOX ! !
      END DO ! <-------------------------+ !
   END IF ! <------------------------------+
+
+
+  ! inherit from parents all already discovered points contained inside the current regions
+  if ( interdat%np > 0 ) then
+     do isurf = 1,2
+        do ipt = 1,interdat%np
+           pos => interdat%points(ipt)%pos
+           do while ( associated(pos) )
+              if ( associated( pos%surf, surfroot(isurf)%ptr ) ) then
+                 if ( &
+                      is_in_closed_interval( &
+                      pos%uv(1), &
+                      region(isurf)%ptr%uvbox(1), &
+                      region(isurf)%ptr%uvbox(2) ) .and. &
+                      is_in_closed_interval( &
+                      pos%uv(2), &
+                      region(isurf)%ptr%uvbox(3), &
+                      region(isurf)%ptr%uvbox(4) ) ) then
+                    call append_n( &
+                         region(isurf)%ptr%ipts, &
+                         region(isurf)%ptr%npts, &
+                         [ipt], &
+                         1, &
+                         unique=.true. )
+                    exit
+                 end if
+              end if
+              pos => pos%next
+           end do
+        end do
+     end do
+     nullify(pos)
+  end if
 
   ! compute bounding boxes for each region...
   do isurf = 1,2 ! <------------------------------------------------------+
@@ -157,6 +195,46 @@ recursive subroutine intersect_surface_surface( &
         end do ! <---------------------------+                            !
         !                                                                 !
         nuvxyz = 0                                                        !
+        ! *****
+        ! get list of already discovered points common to both current surface regions
+        n_sharedpts = 0
+        if ( region(1)%ptr%npts > 0 .and. region(2)%ptr%npts > 0 ) then
+           call intersection_arrays( &
+                region(1)%ptr%ipts(1:region(1)%ptr%npts), &
+                region(2)%ptr%ipts(1:region(2)%ptr%npts), &
+                sharedpts )
+           if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)
+        end if
+        IF ( DEBUG ) THEN
+           DO ISURF = 1,2
+              WRITE ( *, '(A8,I1,1X,A1,1X)', ADVANCE='NO' ) 'REGION #',ISURF,':'
+              IF ( REGION(ISURF)%PTR%NPTS > 0 ) THEN
+                 PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
+              ELSE
+                 PRINT *,'N/A'
+              END IF
+           END DO
+        END IF
+        IF ( DEBUG ) PRINT *,'N_SHAREDPTS =',n_sharedpts
+        do jpt = 1,n_sharedpts
+           ipt = sharedpts(jpt)
+           pos => interdat%points(ipt)%pos
+           do while ( associated(pos) )
+              do isurf = 1,2
+                 if ( associated( pos%surf, surfroot(isurf)%ptr ) ) then
+                    uv(:,isurf) = pos%uv
+                 end if
+              end do
+              pos => pos%next
+           end do
+           call append_vector( &
+                [ uv(:,1), uv(:,2), interdat%points(ipt)%xyz ], &
+                7, &
+                uvxyz, &
+                nuvxyz )
+        end do
+        nullify(pos)
+        ! *****
         call intersect_simple_surfaces( &                                 !
              surfroot, &                                                  !
              newregion, &                                                 !
@@ -174,7 +252,7 @@ recursive subroutine intersect_surface_surface( &
                    region(isurf)%ptr%npts, &                !    !        !
                    newregion(isurf)%ptr%ipts(&              !    !        !
                    1:newregion(isurf)%ptr%npts), &          !    !        !
-                   2, &                                     !    !        !
+                   2, &                                     !    !        !????????????????
                    unique=.true. )                          !    !        !
            end if ! <---------------------------------------+    !        !
            nullify( &                                            !        !
@@ -201,8 +279,10 @@ recursive subroutine intersect_surface_surface( &
      !        region(isurf)%ptr%uvbox([1,3]) + &                  !        !
      !        region(isurf)%ptr%uvbox([2,4]) )                    !        !
      !end do ! <--------------------------------------------------+        !
-     PRINT *,'UV_COL =',UV_COLLINEAL
-     PRINT *,'UV_SUB =',UV_SUBDIV
+     IF ( DEBUG ) THEN
+        PRINT *,'UV_COL =',UV_COLLINEAL
+        PRINT *,'UV_SUB =',UV_SUBDIV
+     END IF
   else ! -----------------------------------------------------------------+
      ! ... if no pair of collineal corners, run Newton-Raphson algorithm. !
      ! Define feasible region for the Newton algorithm ( uvboxes of the   !
@@ -300,6 +380,12 @@ recursive subroutine intersect_surface_surface( &
           surfroot, &                                                                                        !
           interdat, &                                                                                        !
           idpt )                                                                                             !
+     do isurf = 1,2
+        call add_point_bottom_up( &
+             region(isurf)%ptr, &
+             idpt )
+     end do
+     
      SELECT CASE (stat_singularpoint)                                                                        !
      CASE (0)                                                                                                !
         PRINT *,'>>> tangential intersection curve <<<'                                                      !

@@ -9,7 +9,7 @@ EPS = 10.0 * eps('double');
 
 format long
 
-S.c = readCoeffs2( '/stck/bandrieu/Bureau/coeffstest/C1_test01.txt' );
+S.c = readCoeffs2( '/stck/bandrieu/Bureau/coeffstest/C1_test06.txt' );
 S.c( abs(S.c) < EPS ) = 0;
 
 S.d = cheb_diff2( S.c );
@@ -31,7 +31,7 @@ t0 = 2*rand - 1
 Nd = 4;
 D.c = ( 2*rand(Nd,3) - 1.0 ) ./ repmat( (1:Nd)'.^3, 1, 3 );
 
-contact_order = -1;
+contact_order = 1;
 
 Ng = max( (Ms + Ns) * Nw, Nd + contact_order + 2 );
 f = 1;

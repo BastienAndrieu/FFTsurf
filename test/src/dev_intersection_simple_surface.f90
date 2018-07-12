@@ -117,8 +117,7 @@ program dev_intersection_simple_surface
      write (strnum,'(I1)') isurf
      call read_polynomial( &
           surf(isurf)%x, &
-          '/stck/bandrieu/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
-                                !'/home/bastien/Bureau/coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
           nvar=2, &
           base=1 )
 
@@ -249,9 +248,10 @@ program dev_intersection_simple_surface
           region(isurf)%ptr, &
           'dev_intersection_simple_surface/tree_' // strnum // '.dat' )
 
-     call free_region_tree( region(isurf)%ptr )
      call free_polynomial( region(isurf)%ptr%poly(1)%ptr )
+     deallocate( region(isurf)%ptr%poly(1)%ptr )
      deallocate( region(isurf)%ptr%poly )
+     call free_region_tree( region(isurf)%ptr )
 
      call free_polynomial( surf(isurf)%x )
      call free_polynomial( surf(isurf)%xu )
@@ -336,7 +336,7 @@ subroutine intersect_border_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false.
+  LOGICAL, PARAMETER :: DEBUG = .true.
   integer, parameter                        :: npts_init = 10
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(ptr_region),           intent(inout) :: region(2)
@@ -352,10 +352,10 @@ subroutine intersect_border_surface( &
   real(kind=fp)                             :: uv(2,2)
   integer                                   :: isurf, ipt, jpt
 
-  !IF ( DEBUG ) THEN
-  !PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
-  !PRINT *,'   ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
-  !END IF
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
+     PRINT *,'   ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
+  END IF
 
   isurf = 1 + mod(icurv,2)
 
@@ -916,18 +916,18 @@ recursive subroutine intersect_curve_surface( &
 
   if ( n_sharedpts == 1 ) then ! <--------------------------------------------------------------------------------------------+
      ipt = sharedpts(1)                                                                                                       !
-     interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )                               !
+     interior(1) = is_in_open_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )                                 !
      interior(2) = ( &                                                                                                        !
-          is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &                                !
-          is_in_interval_strict( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )                                      !
+          is_in_open_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &                                  !
+          is_in_open_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )                                        !
      !                                                                                                                        !
      if ( any(interior) ) then ! <--------------------------------------------------------------------+                       !
         separable = .false.                                                                           !                       !
      else ! ------------------------------------------------------------------------------------------+                       !
         ! check if the curve and surface regions can intersect at other (not yet discovered) points   !                       !
         call intersect_curve_surface_elsewhere( &                                                     !                       !
-             region_c%poly(1)%ptr, &                                                                         !                       !
-             region_s%poly(1)%ptr, &                                                                         !                       !
+             region_c%poly(1)%ptr, &                                                                  !                       !
+             region_s%poly(1)%ptr, &                                                                  !                       !
              coords(4:6,sharedpts(1)), &                                                              !                       !
              separable, &                                                                             !                       !
              randomize=.true. )                                                                       !                       !
@@ -940,10 +940,10 @@ recursive subroutine intersect_curve_surface( &
      ! are any of the already discovered points interior to the curve/surface region                                          !
      do jpt = 1,n_sharedpts ! <---------------------------------------------------------------------+                         !
         ipt = sharedpts(jpt)                                                                        !                         !
-        interior(1) = is_in_interval_strict( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )  !                         !
+        interior(1) = is_in_open_interval( coords(1,ipt), region_c%uvbox(1), region_c%uvbox(2) )    !                         !
         interior(2) = ( &                                                                           !                         !
-             is_in_interval_strict( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &   !                         !
-             is_in_interval_strict( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )         !                         !
+             is_in_open_interval( coords(2,ipt), region_s%uvbox(1), region_s%uvbox(2) ) .and. &     !                         !
+             is_in_open_interval( coords(3,ipt), region_s%uvbox(3), region_s%uvbox(4) ) )           !                         !
         if ( any(interior) ) then ! <-----------+                                                   !                         !
            tuv_subdiv(1) = coords(1,ipt)        !                                                   !                         !
            tuv_subdiv(2:3) = coords(2:3,ipt)    !                                                   !                         !
@@ -959,16 +959,16 @@ recursive subroutine intersect_curve_surface( &
      if ( .not.associated(region_c%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_c%xyzbox )                                                          !                                !
         call bernOBB1( &                                                                     !                                !
-             region_c%poly(1)%ptr%coef(1:region_c%poly(1)%ptr%degr(1)+1,1:3,1), &                          !                                !
-             region_c%poly(1)%ptr%degr(1), &                                                        !                                !
+             region_c%poly(1)%ptr%coef(1:region_c%poly(1)%ptr%degr(1)+1,1:3,1), &            !                                !
+             region_c%poly(1)%ptr%degr(1), &                                                 !                                !
              region_c%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
      if ( .not.associated(region_s%xyzbox) ) then ! <----------------------------------------+                                !
         allocate( region_s%xyzbox )                                                          !                                !
         call bernOBB2( &                                                                     !                                !
-             region_s%poly(1)%ptr%coef(1:region_s%poly(1)%ptr%degr(1)+1,1:region_s%poly(1)%ptr%degr(2)+1,1:3), &  !                                !
-             region_s%poly(1)%ptr%degr, &                                                           !                                !
+             region_s%poly(1)%ptr%coef(1:region_s%poly(1)%ptr%degr(1)+1,1:region_s%poly(1)%ptr%degr(2)+1,1:3), &  !           !
+             region_s%poly(1)%ptr%degr, &                                                    !                                !
              region_s%xyzbox )                                                               !                                !
      end if ! <------------------------------------------------------------------------------+                                !
      !                                                                                                                        !
@@ -1222,7 +1222,7 @@ subroutine inherit_points( &
   outer : do jpt = 1,region%parent%npts
      ipt = region%parent%ipts(jpt)
      do idim = 1,region%dim
-        if ( .not.is_in_interval( &
+        if ( .not.is_in_closed_interval( &
              coords(idim,ipt), &
              region%uvbox(2*idim-1), &
              region%uvbox(2*idim), &
@@ -1396,11 +1396,11 @@ recursive subroutine intersect_simple_surfaces( &
            newregion(2)%ptr => region(2)%ptr%child(jchild)                      !    !     ! 
            !                                                                    !    !     !     
            do ipt = 1,nuvxyz ! <---------------------------------------------+  !    !     !
-              if ( .not.is_in_interval( &                                    !  !    !     !
+              if ( .not.is_in_closed_interval( &                             !  !    !     !
                    uvxyz(3,ipt), &                                           !  !    !     !
                    newregion(2)%ptr%uvbox(1), &                              !  !    !     !
                    newregion(2)%ptr%uvbox(2) ) .or. &                        !  !    !     !
-                   .not.is_in_interval( &                                    !  !    !     !
+                   .not.is_in_closed_interval( &                             !  !    !     !
                    uvxyz(4,ipt), &                                           !  !    !     !
                    newregion(2)%ptr%uvbox(3), &                              !  !    !     !
                    newregion(2)%ptr%uvbox(4) ) ) mask(ipt,2) = .false.       !  !    !     !
@@ -1412,11 +1412,11 @@ recursive subroutine intersect_simple_surfaces( &
               newregion(1)%ptr => region(1)%ptr%child(ichild)                !  !    !     !
               !                                                              !  !    !     !
               do ipt = 1,nuvxyz ! <---------------------------------------+  !  !    !     !
-                 if ( .not.is_in_interval( &                              !  !  !    !     !
+                 if ( .not.is_in_closed_interval( &                       !  !  !    !     !
                       uvxyz(1,ipt), &                                     !  !  !    !     !
                       newregion(1)%ptr%uvbox(1), &                        !  !  !    !     !
                       newregion(1)%ptr%uvbox(2) ) .or. &                  !  !  !    !     !
-                      .not.is_in_interval( &                              !  !  !    !     !
+                      .not.is_in_closed_interval( &                       !  !  !    !     !
                       uvxyz(2,ipt), &                                     !  !  !    !     !
                       newregion(1)%ptr%uvbox(3), &                        !  !  !    !     !
                       newregion(1)%ptr%uvbox(4) ) ) mask(ipt,1) = .false. !  !  !    !     !

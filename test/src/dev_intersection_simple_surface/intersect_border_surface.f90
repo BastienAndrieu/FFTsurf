@@ -16,7 +16,7 @@ subroutine intersect_border_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false.
+  LOGICAL, PARAMETER :: DEBUG = .true.
   integer, parameter                        :: npts_init = 10
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(ptr_region),           intent(inout) :: region(2)
@@ -27,19 +27,25 @@ subroutine intersect_border_surface( &
   type(type_curve),           intent(in)    :: root_c
   type(type_region)                         :: region_c
   type(type_region)                         :: region_s
+  logical                                   :: mask(nuvxyz)
   real(kind=fp), allocatable                :: tuvxyz(:,:)
   integer                                   :: ntuvxyz
   real(kind=fp)                             :: uv(2,2)
   integer                                   :: isurf, ipt, jpt
 
-  !IF ( DEBUG ) THEN
-  !PRINT *,''; PRINT *,''; PRINT *,''; PRINT *,''
-  !PRINT *,'   ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
-  !END IF
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,''!; PRINT *,''; PRINT *,''
+     PRINT *,'BORDER-SURFACE'
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2
+        PRINT *,REGION(ISURF)%PTR%UVBOX
+     END DO
+     PRINT *,'   ICURV, IVAR, IVAL =', ICURV, IVAR, IVAL
+  END IF
 
   isurf = 1 + mod(icurv,2)
 
-  IF ( DEBUG ) THEN
+  IF ( .false. ) then!DEBUG ) THEN
      call write_polynomial( root_c%x, 'dev_intersection_simple_surface/root_c_x.cheb' )
      call write_polynomial( root_c%xt, 'dev_intersection_simple_surface/root_c_xt.cheb' )
      call write_polynomial( root_s(isurf)%ptr%x, 'dev_intersection_simple_surface/root_s_x.cheb' )
@@ -71,7 +77,7 @@ subroutine intersect_border_surface( &
   allocate( region_s%poly(1) )
   region_s%poly(1)%ptr => region(isurf)%ptr%poly(1)%ptr
 
-  IF ( DEBUG ) THEN
+  IF ( .false. ) then!DEBUG ) THEN
      CALL WRITE_POLYNOMIAL( &
           REGION_C%POLY(1)%ptr, &
           'dev_intersection_simple_surface/root_c_bezier.bern' )
@@ -83,10 +89,41 @@ subroutine intersect_border_surface( &
 
 
 
-
-
   allocate( tuvxyz(6,npts_init) )
   ntuvxyz = 0
+  ! check if some border-surface intersection points have been discovered earlier...
+  if ( .FALSE. ) THEN !nuvxyz > 0 ) then
+     mask(:) = .false.
+     do ipt = 1,nuvxyz
+        if ( abs( uvxyz(2*(icurv-1)+ivar,ipt) - region(icurv)%ptr%uvbox(2*(ivar-1)+ival) ) < EPSuv ) then
+           mask(ipt) = .true.
+           call append_vector( &
+                [uvxyz(2*(icurv-1)+1+mod(ivar,2),ipt), uvxyz(2*isurf-1:2*isurf,ipt), uvxyz(5:7,ipt)], &
+                6, &
+                tuvxyz, &
+                ntuvxyz )
+           IF ( DEBUG ) THEN
+              PRINT *,'TUVXYZ POINT APPENDED :',[uvxyz(2*(icurv-1)+1+mod(ivar,2),ipt), uvxyz(2*isurf-1:2*isurf,ipt), uvxyz(5:7,ipt)]
+              PRINT *,'TUVXYZ ='
+              CALL PRINT_MAT( TRANSPOSE( TUVXYZ(:,1:NTUVXYZ) ) )
+           END IF
+        end if
+     end do
+
+     call append_n( &
+          region_c%ipts, &
+          region_c%npts, &
+          [( ipt, ipt = 1, count(mask) )], &
+          count(mask), &
+          unique=.true. )
+     call append_n( &
+          region_s%ipts, &
+          region_s%npts, &
+          [( ipt, ipt = 1, count(mask) )], &
+          count(mask), &
+          unique=.true. )
+  end if
+
   stat_degeneracy = 0
   call intersect_curve_surface( &
        root_c, &
@@ -97,7 +134,7 @@ subroutine intersect_border_surface( &
        ntuvxyz, &
        stat_degeneracy )
 
-  IF ( DEBUG ) THEN
+  IF ( .false. ) then!DEBUG ) THEN
      open( &
           unit=13, &
           file='dev_intersection_simple_surface/tuv_xyz.dat', &

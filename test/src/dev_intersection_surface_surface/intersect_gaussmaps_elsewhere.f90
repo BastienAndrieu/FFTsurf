@@ -83,7 +83,7 @@ subroutine intersect_gaussmaps_elsewhere( &
      !                                                                      !
   else ! -------------------------------------------------------------------+
      !                                                                      !
-     PRINT *,'HERE...'
+     !PRINT *,'HERE...'
      call separate_spherical_bounding_boxes( &                              !
           sep1(1:n1,1:3), &                                                 !
           sep2(1:n2,1:3), &                                                 !
