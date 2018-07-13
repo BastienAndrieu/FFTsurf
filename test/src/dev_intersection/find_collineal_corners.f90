@@ -28,21 +28,6 @@ subroutine find_collineal_corners( &
 
   stat = 1
 
-  IF ( DEBUG ) THEN
-     PRINT *,'FIND_COLLINEAL_CORNERS'
-     !PRINT *,'SIZE(REGION) =',SIZE(REGION)
-     !DO I = 1,2
-     !   PRINT *,'ALLOCATED?',ALLOCATED(REGION(I)%PTR%POLY)
-     !END DO
-     DO I = 1,2
-        PRINT *,'SURF #',I,', NPOLY =',SIZE(REGION(I)%PTR%POLY)
-        !DO J = 1,2
-        !   PRINT *,'   POLY #',J,': DEGR =',REGION(I)%PTR%POLY(J)%PTR%DEGR, &
-        !        ', SIZE=',SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,1), SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,2)
-        !END DO
-     END DO
-  END IF
-
   do l = 1,2 ! <----------------------------------------------------------------------------------+
      do k = 1,2 ! <----------------------------------------------------------------------------+  !
         !                                                                                      !  !
@@ -69,6 +54,10 @@ subroutine find_collineal_corners( &
               !                                                                          !  !  !  !
               r = s(:,1) - s(:,2)                                                        !  !  !  !
               !                                                                          !  !  !  !
+              IF ( DEBUG ) THEN
+                 PRINT '(I1,1X,I1,1X,I1,1X,I1,1X,E22.15,1X,E22.15)',I,J,K,L,&
+                      NORM2(cross( n(:,1), r )**2), NORM2(cross( n(:,1), n(:,2) )**2)
+              END IF
               if ( sum( cross( n(:,1), r )**2 ) + &                                      !  !  !  !
                    sum( cross( n(:,1), n(:,2) )**2 ) < EPScollinealsqr ) then ! <---+    !  !  !  !
                  if ( sum(r**2) < EPSxyzsqr ) then ! <-------------------------+    !    !  !  !  !

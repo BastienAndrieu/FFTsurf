@@ -30,7 +30,7 @@ subroutine trace_intersection_polyline( &
   integer                                         :: stat
   integer                                         :: ipt
   
-  PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
+  !PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'TRACE_INTERSECTION_POLYLINE'

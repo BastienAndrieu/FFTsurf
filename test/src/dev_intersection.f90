@@ -817,21 +817,6 @@ subroutine find_collineal_corners( &
 
   stat = 1
 
-  IF ( DEBUG ) THEN
-     PRINT *,'FIND_COLLINEAL_CORNERS'
-     !PRINT *,'SIZE(REGION) =',SIZE(REGION)
-     !DO I = 1,2
-     !   PRINT *,'ALLOCATED?',ALLOCATED(REGION(I)%PTR%POLY)
-     !END DO
-     DO I = 1,2
-        PRINT *,'SURF #',I,', NPOLY =',SIZE(REGION(I)%PTR%POLY)
-        !DO J = 1,2
-        !   PRINT *,'   POLY #',J,': DEGR =',REGION(I)%PTR%POLY(J)%PTR%DEGR, &
-        !        ', SIZE=',SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,1), SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,2)
-        !END DO
-     END DO
-  END IF
-
   do l = 1,2 ! <----------------------------------------------------------------------------------+
      do k = 1,2 ! <----------------------------------------------------------------------------+  !
         !                                                                                      !  !
@@ -858,6 +843,10 @@ subroutine find_collineal_corners( &
               !                                                                          !  !  !  !
               r = s(:,1) - s(:,2)                                                        !  !  !  !
               !                                                                          !  !  !  !
+              IF ( DEBUG ) THEN
+                 PRINT '(I1,1X,I1,1X,I1,1X,I1,1X,E22.15,1X,E22.15)',I,J,K,L,&
+                      NORM2(cross( n(:,1), r )**2), NORM2(cross( n(:,1), n(:,2) )**2)
+              END IF
               if ( sum( cross( n(:,1), r )**2 ) + &                                      !  !  !  !
                    sum( cross( n(:,1), n(:,2) )**2 ) < EPScollinealsqr ) then ! <---+    !  !  !  !
                  if ( sum(r**2) < EPSxyzsqr ) then ! <-------------------------+    !    !  !  !  !
@@ -2057,6 +2046,8 @@ subroutine intersect_gaussmaps_elsewhere( &
   rot(:,1) = n_collineal
   call complete_orthonormal_basis( rot(:,1), rot(:,2), rot(:,3) )
   do isurf = 1,2
+     !PRINT *,'BEFORE, #',ISURF
+     !CALL PRINT_MAT( sep(isurf)%mat(1:nsep(isurf),1:3) )
      sep(isurf)%mat(1:nsep(isurf),1:3) = &
           matmul( sep(isurf)%mat(1:nsep(isurf),1:3), rot )
   end do
@@ -2093,6 +2084,8 @@ subroutine intersect_gaussmaps_elsewhere( &
   do isurf = 1,2
      sep(isurf)%mat(1:nsep(isurf),1:3) = &
           matmul( sep(isurf)%mat(1:nsep(isurf),1:3), transpose(rot) )
+     !PRINT *,'AFTER, #',ISURF
+     !CALL PRINT_MAT( sep(isurf)%mat(1:nsep(isurf),1:3) )
   end do
   if ( separable ) vec = matmul( rot, vec )
 
@@ -2512,7 +2505,6 @@ recursive subroutine intersect_surface_pair( &
        uv_collineal, &
        n_collineal, &
        xyz_collineal )
-
   IF ( DEBUG ) PRINT *,'STAT_COLLINEAL(CORNERS) =',stat_collineal
 
   if ( stat_collineal <= 0 ) then ! <----------------------------+
@@ -2535,7 +2527,8 @@ recursive subroutine intersect_surface_pair( &
        stat_loopdetection, &
        param_vector, &
        ( stat_collineal <= 0 ), &
-       n_collineal )
+       n_collineal, &
+       randomize=.false. )
   nullify(poly(1)%ptr, poly(2)%ptr)
   IF ( DEBUG ) PRINT *,'STAT_LOOPDETECTION =',stat_loopdetection
 
@@ -2564,7 +2557,7 @@ recursive subroutine intersect_surface_pair( &
           ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
-          newregion, &                                                             !
+          newregion, &                                                          !
           param_vector, &                                                       !
           interdata, &                                                          !
           uvxyz, &                                                              !
@@ -2644,11 +2637,7 @@ recursive subroutine intersect_surface_pair( &
      else ! ------------------------------!                                     !
         ipt = 1                           !                                     !
      end if ! <---------------------------+                                     !
-     !do ipt = 1,nuvxyz ! <-----------------------------------------------+      !*
-     !   if ( sum((xyz_collineal - uvxyz(5:7,ipt))**2) < EPSxyzsqr ) exit !      !*
-     !end do ! <----------------------------------------------------------+      !*
      if ( ipt > nuvxyz ) then ! <--------------------------+                    !
-     !if ( nuvxyz < 1 .or. ipt > nuvxyz ) then  ! <---------+                    !*
         tmp(1:2) = uv_collineal(:,1)                       !                    !
         tmp(3:4) = uv_collineal(:,2)                       !                    !
         tmp(5:7) = xyz_collineal                           !                    !
@@ -2657,7 +2646,6 @@ recursive subroutine intersect_surface_pair( &
              7, &                                          !                    !
              uvxyz, &                                      !                    !
              nuvxyz )                                      !                    !
-        !ipt = nuvxyz                                       !                    !*
      end if ! <--------------------------------------------+                    !
      do isurf = 1,2 ! <------------------------+                                !
         call add_points_bottom_up( &           !                                !
@@ -2711,6 +2699,22 @@ recursive subroutine intersect_surface_pair( &
              region(isurf)%ptr%uvbox([2,4]) )                    !              !
      end do ! <--------------------------------------------------+              !
      !                                                                          !
+  elseif ( .FALSE. ) THEN !stat_collineal == 0 ) then ! ----------------------------------------+
+     if ( stat_loopdetection /= 3 ) then
+        isurf = stat_loopdetection
+        do ivar = 1,2
+           if ( is_in_open_interval( &
+                uv_collineal(ivar,isurf), &
+                region(isurf)%ptr%uvbox(2*ivar-1), &
+                region(isurf)%ptr%uvbox(2*ivar), &
+                tolerance=EPSregion ) ) exit
+        end do
+        if ( ivar > 2 ) then! <---------------------+
+           uv_subdiv(:,isurf) = 0.5_fp * ( &        !
+                region(isurf)%ptr%uvbox([1,3]) + &  !
+                region(isurf)%ptr%uvbox([2,4]) )    !
+        end if ! <----------------------------------+
+     end if
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
@@ -2734,6 +2738,15 @@ recursive subroutine intersect_surface_pair( &
   end do ! <--------------------------------------------------------------------+
 
   if ( all(nchild < 2) ) then  ! <---------------------------------+
+     IF ( .FALSE. ) THEN
+        PRINT *,'STAT_COLLINEAL =',STAT_COLLINEAL
+        PRINT *,'UVBOXES ='
+        DO ISURF = 1,2 ! <-----------------+
+           PRINT *,REGION(ISURF)%PTR%UVBOX !
+        END DO ! <-------------------------+
+        PRINT *,'UV_COLLINEAL =',UV_COLLINEAL
+        STOP '%%%%%%%%%%%%%%%%%%%'
+     END IF
      if ( stat_loopdetection == 3 ) then ! <------------------+    !
         ! recursion terminates prematurely because both       !    !
         ! regions have ranges smaller than 2*EPSregion        !    !
@@ -2858,9 +2871,11 @@ subroutine loop_detection_criterion( &
      stat, &
      param_vector, &
      known_to_intersect, &
-     n_collineal )
+     n_collineal, &
+     randomize )
   USE MOD_UTIL
   use mod_math
+  use mod_geometry
   use mod_polynomial
   use mod_separation
   ! Returns:  stat = 0 if Hohmeyer's criterion is satisfied
@@ -2875,11 +2890,21 @@ subroutine loop_detection_criterion( &
   real(kind=fp),        intent(out) :: param_vector(3)
   logical,              intent(in)  :: known_to_intersect
   real(kind=fp),        intent(in)  :: n_collineal(3)
+  logical, optional,    intent(in)  :: randomize
   type(type_matrix)                 :: sep(2)
   integer                           :: nbcp, nsep(2)
+  real(kind=fp)                     :: rot(3,3)
   logical                           :: separable
   real(kind=fp)                     :: vec1(3), vec2(3), vecsqr
   real(kind=fp)                     :: gaussmapsize(2), coneaxe(3)
+
+ IF ( DEBUG ) PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
+
+ if ( present(randomize) ) then ! <-----------------------------+
+    if ( randomize ) then ! <-------------------------------+   !
+       call random_rotation_matrix3d( rot )                 !   !
+    end if ! <----------------------------------------------+   !
+ end if ! <-----------------------------------------------------+
 
   do isurf = 1,2
      nbcp = (bpn(isurf)%ptr%degr(1) + 1) * (bpn(isurf)%ptr%degr(2) + 1)
@@ -2894,6 +2919,17 @@ subroutine loop_detection_criterion( &
           sep(isurf)%mat, &
           nsep(isurf), &
           .true. )
+     if ( known_to_intersect ) then
+        nsep(isurf) = nsep(isurf) + 1
+        sep(isurf)%mat(nsep(isurf),1:3) = n_collineal
+     end if
+     if ( present(randomize) ) then ! <------------------------------+
+        if ( randomize ) then ! <--------------------------------+   !
+           sep(isurf)%mat(1:nsep(isurf),1:3) = &                 !   !
+                matmul( sep(isurf)%mat(1:nsep(isurf),1:3), rot ) !   !
+        end if ! <-----------------------------------------------+   !
+     end if ! <------------------------------------------------------+
+
      IF ( DEBUG ) THEN
         WRITE (STRNUM,'(I1)') ISURF
         CALL WRITE_MATRIX( SEP(ISURF)%MAT(1:NSEP(ISURF),1:3), NSEP(ISURF), 3, &
@@ -2909,7 +2945,7 @@ subroutine loop_detection_criterion( &
      ! only has 1 degree of freedom                                            !
      call intersect_gaussmaps_elsewhere( &                                     !
           sep, &                                                               !
-          nsep, &                                                              !
+          nsep-1, &                                                              !
           n_collineal, &                                                       !
           separable, &                                                         !
           stat, &                                                              !
@@ -2922,12 +2958,13 @@ subroutine loop_detection_criterion( &
           nsep(2), &                                                           !
           vec1, &                                                              !
           separable )                                                          !
-     IF ( DEBUG ) THEN
-        PRINT *,'P1?',SEPARABLE
-        IF ( SEPARABLE ) PRINT *,vec1
-     END IF
   end if ! <-------------------------------------------------------------------+
   
+  IF ( DEBUG ) THEN
+     PRINT *,'P1?',SEPARABLE
+     IF ( SEPARABLE ) PRINT *,vec1
+  END IF
+
   if ( separable ) then ! <----------------------------------------------------+
      ! then we search for a vector vec2 such that vec2.n1 > 0 and vec2.n2 > 0  !
      call separating_plane( &                                                  !
@@ -2950,6 +2987,26 @@ subroutine loop_detection_criterion( &
      if ( vecsqr > epsilon(1._fp)**2 ) then ! <-------+                        !
         stat = 0                                      !                        !
         param_vector = param_vector / sqrt( vecsqr )  !                        !
+        if ( present(randomize) ) then ! <--------+
+           if ( randomize ) then ! <-----------+  !
+              param_vector = &                 !  !
+                   matmul( rot, param_vector ) !  !
+           end if ! <--------------------------+  !
+        end if ! <--------------------------------+
+
+        IF ( DEBUG ) PRINT *,'P = ',param_vector
+
+        IF ( DEBUG ) THEN
+           DO ISURF = 1,2
+              WRITE (STRNUM,'(I1)') ISURF
+              CALL WRITE_MATRIX( SEP(ISURF)%MAT(1:NSEP(ISURF),1:3), NSEP(ISURF), 3, &
+                   'dev_intersection/sep' // strnum // '.dat' )
+              CALL WRITE_POLYNOMIAL( BPN(ISURF)%PTR, 'dev_intersection/debugld_reg' // strnum // '.bern' )
+           END DO
+           STOP
+        END IF
+
+
      else ! ------------------------------------------+                        !
         ! an error has occured                        !                        !
         stat = -1                                     !                        !
@@ -3471,7 +3528,6 @@ subroutine trace_intersection_polyline( &
   lowerb = reshape(uvbox(1,1:2,1:2), [4])
   upperb = reshape(uvbox(2,1:2,1:2), [4])
 
-  PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'TRACE_INTERSECTION_POLYLINE'

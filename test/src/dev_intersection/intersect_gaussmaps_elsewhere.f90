@@ -22,6 +22,8 @@ subroutine intersect_gaussmaps_elsewhere( &
   rot(:,1) = n_collineal
   call complete_orthonormal_basis( rot(:,1), rot(:,2), rot(:,3) )
   do isurf = 1,2
+     !PRINT *,'BEFORE, #',ISURF
+     !CALL PRINT_MAT( sep(isurf)%mat(1:nsep(isurf),1:3) )
      sep(isurf)%mat(1:nsep(isurf),1:3) = &
           matmul( sep(isurf)%mat(1:nsep(isurf),1:3), rot )
   end do
@@ -58,6 +60,8 @@ subroutine intersect_gaussmaps_elsewhere( &
   do isurf = 1,2
      sep(isurf)%mat(1:nsep(isurf),1:3) = &
           matmul( sep(isurf)%mat(1:nsep(isurf),1:3), transpose(rot) )
+     !PRINT *,'AFTER, #',ISURF
+     !CALL PRINT_MAT( sep(isurf)%mat(1:nsep(isurf),1:3) )
   end do
   if ( separable ) vec = matmul( rot, vec )
 

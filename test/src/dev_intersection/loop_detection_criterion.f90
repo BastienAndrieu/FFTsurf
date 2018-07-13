@@ -3,9 +3,11 @@ subroutine loop_detection_criterion( &
      stat, &
      param_vector, &
      known_to_intersect, &
-     n_collineal )
+     n_collineal, &
+     randomize )
   USE MOD_UTIL
   use mod_math
+  use mod_geometry
   use mod_polynomial
   use mod_separation
   ! Returns:  stat = 0 if Hohmeyer's criterion is satisfied
@@ -20,11 +22,21 @@ subroutine loop_detection_criterion( &
   real(kind=fp),        intent(out) :: param_vector(3)
   logical,              intent(in)  :: known_to_intersect
   real(kind=fp),        intent(in)  :: n_collineal(3)
+  logical, optional,    intent(in)  :: randomize
   type(type_matrix)                 :: sep(2)
   integer                           :: nbcp, nsep(2)
+  real(kind=fp)                     :: rot(3,3)
   logical                           :: separable
   real(kind=fp)                     :: vec1(3), vec2(3), vecsqr
   real(kind=fp)                     :: gaussmapsize(2), coneaxe(3)
+
+ IF ( DEBUG ) PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
+
+ if ( present(randomize) ) then ! <-----------------------------+
+    if ( randomize ) then ! <-------------------------------+   !
+       call random_rotation_matrix3d( rot )                 !   !
+    end if ! <----------------------------------------------+   !
+ end if ! <-----------------------------------------------------+
 
   do isurf = 1,2
      nbcp = (bpn(isurf)%ptr%degr(1) + 1) * (bpn(isurf)%ptr%degr(2) + 1)
@@ -39,6 +51,17 @@ subroutine loop_detection_criterion( &
           sep(isurf)%mat, &
           nsep(isurf), &
           .true. )
+     if ( known_to_intersect ) then
+        nsep(isurf) = nsep(isurf) + 1
+        sep(isurf)%mat(nsep(isurf),1:3) = n_collineal
+     end if
+     if ( present(randomize) ) then ! <------------------------------+
+        if ( randomize ) then ! <--------------------------------+   !
+           sep(isurf)%mat(1:nsep(isurf),1:3) = &                 !   !
+                matmul( sep(isurf)%mat(1:nsep(isurf),1:3), rot ) !   !
+        end if ! <-----------------------------------------------+   !
+     end if ! <------------------------------------------------------+
+
      IF ( DEBUG ) THEN
         WRITE (STRNUM,'(I1)') ISURF
         CALL WRITE_MATRIX( SEP(ISURF)%MAT(1:NSEP(ISURF),1:3), NSEP(ISURF), 3, &
@@ -54,7 +77,7 @@ subroutine loop_detection_criterion( &
      ! only has 1 degree of freedom                                            !
      call intersect_gaussmaps_elsewhere( &                                     !
           sep, &                                                               !
-          nsep, &                                                              !
+          nsep-1, &                                                              !
           n_collineal, &                                                       !
           separable, &                                                         !
           stat, &                                                              !
@@ -67,12 +90,13 @@ subroutine loop_detection_criterion( &
           nsep(2), &                                                           !
           vec1, &                                                              !
           separable )                                                          !
-     IF ( DEBUG ) THEN
-        PRINT *,'P1?',SEPARABLE
-        IF ( SEPARABLE ) PRINT *,vec1
-     END IF
   end if ! <-------------------------------------------------------------------+
   
+  IF ( DEBUG ) THEN
+     PRINT *,'P1?',SEPARABLE
+     IF ( SEPARABLE ) PRINT *,vec1
+  END IF
+
   if ( separable ) then ! <----------------------------------------------------+
      ! then we search for a vector vec2 such that vec2.n1 > 0 and vec2.n2 > 0  !
      call separating_plane( &                                                  !
@@ -95,6 +119,26 @@ subroutine loop_detection_criterion( &
      if ( vecsqr > epsilon(1._fp)**2 ) then ! <-------+                        !
         stat = 0                                      !                        !
         param_vector = param_vector / sqrt( vecsqr )  !                        !
+        if ( present(randomize) ) then ! <--------+
+           if ( randomize ) then ! <-----------+  !
+              param_vector = &                 !  !
+                   matmul( rot, param_vector ) !  !
+           end if ! <--------------------------+  !
+        end if ! <--------------------------------+
+
+        IF ( DEBUG ) PRINT *,'P = ',param_vector
+
+        IF ( DEBUG ) THEN
+           DO ISURF = 1,2
+              WRITE (STRNUM,'(I1)') ISURF
+              CALL WRITE_MATRIX( SEP(ISURF)%MAT(1:NSEP(ISURF),1:3), NSEP(ISURF), 3, &
+                   'dev_intersection/sep' // strnum // '.dat' )
+              CALL WRITE_POLYNOMIAL( BPN(ISURF)%PTR, 'dev_intersection/debugld_reg' // strnum // '.bern' )
+           END DO
+           STOP
+        END IF
+
+
      else ! ------------------------------------------+                        !
         ! an error has occured                        !                        !
         stat = -1                                     !                        !

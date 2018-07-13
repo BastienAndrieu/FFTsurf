@@ -91,7 +91,6 @@ recursive subroutine intersect_surface_pair( &
        uv_collineal, &
        n_collineal, &
        xyz_collineal )
-
   IF ( DEBUG ) PRINT *,'STAT_COLLINEAL(CORNERS) =',stat_collineal
 
   if ( stat_collineal <= 0 ) then ! <----------------------------+
@@ -114,7 +113,8 @@ recursive subroutine intersect_surface_pair( &
        stat_loopdetection, &
        param_vector, &
        ( stat_collineal <= 0 ), &
-       n_collineal )
+       n_collineal, &
+       randomize=.false. )
   nullify(poly(1)%ptr, poly(2)%ptr)
   IF ( DEBUG ) PRINT *,'STAT_LOOPDETECTION =',stat_loopdetection
 
@@ -143,7 +143,7 @@ recursive subroutine intersect_surface_pair( &
           ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
-          newregion, &                                                             !
+          newregion, &                                                          !
           param_vector, &                                                       !
           interdata, &                                                          !
           uvxyz, &                                                              !
@@ -223,11 +223,7 @@ recursive subroutine intersect_surface_pair( &
      else ! ------------------------------!                                     !
         ipt = 1                           !                                     !
      end if ! <---------------------------+                                     !
-     !do ipt = 1,nuvxyz ! <-----------------------------------------------+      !*
-     !   if ( sum((xyz_collineal - uvxyz(5:7,ipt))**2) < EPSxyzsqr ) exit !      !*
-     !end do ! <----------------------------------------------------------+      !*
      if ( ipt > nuvxyz ) then ! <--------------------------+                    !
-     !if ( nuvxyz < 1 .or. ipt > nuvxyz ) then  ! <---------+                    !*
         tmp(1:2) = uv_collineal(:,1)                       !                    !
         tmp(3:4) = uv_collineal(:,2)                       !                    !
         tmp(5:7) = xyz_collineal                           !                    !
@@ -236,7 +232,6 @@ recursive subroutine intersect_surface_pair( &
              7, &                                          !                    !
              uvxyz, &                                      !                    !
              nuvxyz )                                      !                    !
-        !ipt = nuvxyz                                       !                    !*
      end if ! <--------------------------------------------+                    !
      do isurf = 1,2 ! <------------------------+                                !
         call add_points_bottom_up( &           !                                !
@@ -290,6 +285,22 @@ recursive subroutine intersect_surface_pair( &
              region(isurf)%ptr%uvbox([2,4]) )                    !              !
      end do ! <--------------------------------------------------+              !
      !                                                                          !
+  elseif ( .FALSE. ) THEN !stat_collineal == 0 ) then ! ----------------------------------------+
+     if ( stat_loopdetection /= 3 ) then
+        isurf = stat_loopdetection
+        do ivar = 1,2
+           if ( is_in_open_interval( &
+                uv_collineal(ivar,isurf), &
+                region(isurf)%ptr%uvbox(2*ivar-1), &
+                region(isurf)%ptr%uvbox(2*ivar), &
+                tolerance=EPSregion ) ) exit
+        end do
+        if ( ivar > 2 ) then! <---------------------+
+           uv_subdiv(:,isurf) = 0.5_fp * ( &        !
+                region(isurf)%ptr%uvbox([1,3]) + &  !
+                region(isurf)%ptr%uvbox([2,4]) )    !
+        end if ! <----------------------------------+
+     end if
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
@@ -313,6 +324,15 @@ recursive subroutine intersect_surface_pair( &
   end do ! <--------------------------------------------------------------------+
 
   if ( all(nchild < 2) ) then  ! <---------------------------------+
+     IF ( .FALSE. ) THEN
+        PRINT *,'STAT_COLLINEAL =',STAT_COLLINEAL
+        PRINT *,'UVBOXES ='
+        DO ISURF = 1,2 ! <-----------------+
+           PRINT *,REGION(ISURF)%PTR%UVBOX !
+        END DO ! <-------------------------+
+        PRINT *,'UV_COLLINEAL =',UV_COLLINEAL
+        STOP '%%%%%%%%%%%%%%%%%%%'
+     END IF
      if ( stat_loopdetection == 3 ) then ! <------------------+    !
         ! recursion terminates prematurely because both       !    !
         ! regions have ranges smaller than 2*EPSregion        !    !

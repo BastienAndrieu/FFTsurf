@@ -13,6 +13,7 @@ subroutine hohmeyer_loop_detection( &
   !         = 2 if Gauss map #2 must be subdivided
   !         = 3 if both Gauss maps must be subdivided
   implicit none
+  logical, parameter         :: DEBUG = .true.
   logical, parameter         :: VERBOSE = .false.
   type(type_polynomial), intent(in)  :: bpn1, bpn2
   real(kind=fp),         intent(out) :: vec(3)
@@ -24,6 +25,8 @@ subroutine hohmeyer_loop_detection( &
   logical                            :: separable
   real(kind=fp)                      :: vec1(3), vec2(3), normvec
   real(kind=fp)                      :: gaussmapsize(2), coneaxe(3)
+
+  IF ( DEBUG ) PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
 
   n1 = product( bpn1%degr(1:2) + 1 )
   n2 = product( bpn2%degr(1:2) + 1 )
@@ -70,6 +73,11 @@ subroutine hohmeyer_loop_detection( &
   end if
   !IF (VERBOSE) PRINT *,separable
 
+  IF ( DEBUG ) THEN
+     PRINT *,'P1?',SEPARABLE
+     IF ( SEPARABLE ) PRINT *,vec1
+  END IF
+
   if ( separable ) then
      IF (VERBOSE) PRINT *,'VEC1 =',REAL(VEC1)
      ! search for a vector vec2 such that vec2.n1 > 0 and vec2.n2 > 0 
@@ -80,6 +88,10 @@ subroutine hohmeyer_loop_detection( &
           n2, &
           vec2, &
           separable )
+     IF ( DEBUG ) THEN
+        PRINT *,'P2?',SEPARABLE
+        IF ( SEPARABLE ) PRINT *,vec2
+     END IF
   end if
 
   if ( separable ) then
@@ -96,7 +108,7 @@ subroutine hohmeyer_loop_detection( &
      else
         vec = vec / normvec
         stat = 0
-
+        IF ( DEBUG ) PRINT *,'P = ',vec
         IF ( VERBOSE ) THEN
            PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
            PRINT *,'VEC1 =', VEC1

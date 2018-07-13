@@ -39,7 +39,6 @@ subroutine trace_intersection_polyline( &
   lowerb = reshape(uvbox(1,1:2,1:2), [4])
   upperb = reshape(uvbox(2,1:2,1:2), [4])
 
-  PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'TRACE_INTERSECTION_POLYLINE'
