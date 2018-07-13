@@ -112,6 +112,11 @@
   call system_clock( toc )
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
+
+  call write_interdat( &
+       interdata_global, &
+       'dev_intersection/interdataglobal_points.dat', &
+       'dev_intersection/interdataglobal_curves.dat' )
   ! =================================================================================
 
 

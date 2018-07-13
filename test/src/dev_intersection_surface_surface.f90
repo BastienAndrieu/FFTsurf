@@ -2113,9 +2113,9 @@ subroutine add_intersection_point( &
   if ( .not.allocated(interdat%points) ) allocate(interdat%points(PARAM_xtra_np) )
 
   ! this is a new point
-  PRINT *,'ADDING INTERSECTION POINT :'
-  PRINT *,'XYZ =',XYZ
-  PRINT *,' UV =',UV
+  !PRINT *,'ADDING INTERSECTION POINT :'
+  !PRINT *,'XYZ =',XYZ
+  !PRINT *,' UV =',UV
   interdat%np = interdat%np + 1
   id = interdat%np
   if ( id > size(interdat%points) ) then ! <---------------------------+
@@ -2296,7 +2296,7 @@ subroutine trace_intersection_polyline( &
   use mod_math
   use mod_diffgeom2
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .FALSE.
+  LOGICAL, PARAMETER :: DEBUG = .false.
   real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
   real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
   real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
@@ -2317,7 +2317,19 @@ subroutine trace_intersection_polyline( &
   integer                                         :: stat
   integer                                         :: ipt
   
-  IF ( DEBUG) PRINT *,'P =', PARAM_VECTOR
+  PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'TRACE_INTERSECTION_POLYLINE'
+     PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
+     PRINT *,' UV_ENDPOINTS ='
+     PRINT *,uv_endpoints(:,:,1)
+     PRINT *,uv_endpoints(:,:,2)
+     PRINT *,'XYZ_ENDPOINTS ='
+     PRINT *,xyz_endpoints(:,1)
+     PRINT *,xyz_endpoints(:,2)
+  END IF
+
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
 
@@ -2349,7 +2361,7 @@ subroutine trace_intersection_polyline( &
         STOP
      end if
 
-     IF ( DEBUG) PRINT *,'XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
+     IF ( DEBUG) PRINT *,'DXYZ_DS.P =',dot_product( xyz_s(:,1), param_vector )
      
      ! target segment length
      h = FRACcurvature_radius / curvature(1)
@@ -2581,6 +2593,7 @@ subroutine newton_intersection_polyline( &
   !logical                          :: singular
   integer                          :: rank
   integer                          :: it, isurf, ivar
+  real(kind=fp)                    :: erruv
 
   stat = 1
   !lowerb = reshape( uvbox(1:2,1:2), [4] )
@@ -2589,9 +2602,10 @@ subroutine newton_intersection_polyline( &
   !lowerb = lowerb - EPsuv*rng
   !upperb = upperb + EPsuv*rng
   jac(:,:) = 0._fp
+  erruv = 0._fp
 
   do it = 1,nitmax
-
+     !PRINT *,''
      do isurf = 1,2
         call eval( &
              s(:,isurf), &
@@ -2604,11 +2618,12 @@ subroutine newton_intersection_polyline( &
 
      resx = sum( r1**2 )
      resh = sum( r2**2 ) - htargetsqr
-
+     !PRINT *,sqrt(resx), sqrt(abs(resh)), sqrt(erruv)
      ! convergence criterion
      if ( resx < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
         stat = 0
         xyz = 0.5_fp * sum( s, 2 )
+        !PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
         return     
      end if
 
@@ -2628,7 +2643,7 @@ subroutine newton_intersection_polyline( &
            end do
         end if
      end do
-     
+
      ! solve for Newton step
      !call linsolve_QR( &
      !     duv, &
@@ -2646,6 +2661,13 @@ subroutine newton_intersection_polyline( &
        1, &
        rank )
      
+     !PRINT *,'  JACOBIAN ='
+     !CALL PRINT_MAT( JAC )
+     !PRINT *,'  RHS =',-[r1,resh]
+     !PRINT *,'  DUV =',DUV
+
+     erruv = sum( duv**2 )
+
      if ( rank < 4 ) then !( singular ) then
         ! singular Jacobian matrix (should not happen)
         stat = 2
@@ -2661,10 +2683,10 @@ subroutine newton_intersection_polyline( &
      !     lambda )
      !if ( lambda < -EPSmath ) return ! negative damped factor
      !duv = lambda * duv
-     if ( sum(duv(1:2)**2) < EPSuvsqr .or. sum(duv(3:4)**2) < EPSuvsqr ) then
-        ! damped Newton step is too small
-        return
-     end if
+     !if ( sum(duv(1:2)**2) < EPSuvsqr .or. sum(duv(3:4)**2) < EPSuvsqr ) then
+     !   ! damped Newton step is too small
+     !   return
+     !end if
 
      ! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
@@ -2999,7 +3021,7 @@ recursive subroutine intersect_surface_surface( &
      if ( stat_collineal <= 0 ) uv_subdiv = uv_collineal                  !
   end if ! <--------------------------------------------------------------+
 
-  PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
+  IF ( DEBUG ) PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
   !IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
   if ( stat_collineal > 0 ) then ! <-------------------------------------------------------------------------+
@@ -3089,7 +3111,7 @@ recursive subroutine intersect_surface_surface( &
                 abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar-1) ) < EPSregion .or. & ! !   !
                 abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar) )   < EPSregion )      ! !   !
         end do ! <-------------------------------------------------------------------------------------+ !   !
-        PRINT *,'ISONBOUNDARY ?',ISONBOUNDARY
+        IF ( DEBUG ) PRINT *,'ISONBOUNDARY ?',ISONBOUNDARY
         if ( all(isonboundary) ) then ! <-----------------------------------------+                      !   !
            uv_subdiv(:,isurf) = 0.5_fp * ( &                                      !                      !   !
                 region(isurf)%ptr%uvbox([1,3]) + &                                !                      !   !
@@ -3100,7 +3122,7 @@ recursive subroutine intersect_surface_surface( &
 
 
   ! subdivide both surfaces/gauss maps ...
-  PRINT *,'SUBDIVIDE AT UV =',UV_SUBDIV
+  IF ( DEBUG ) PRINT *,'SUBDIVIDE AT UV =',UV_SUBDIV
   nchild(:) = 1
   do isurf = 1,2 ! <-------------------------------------------------------------------------------------------------+
      if ( stat_loopdetection == isurf .or. stat_loopdetection == 3 ) then ! <-------------------------------------+  !

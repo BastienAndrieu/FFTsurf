@@ -318,7 +318,7 @@ recursive subroutine intersect_surface_surface( &
      if ( stat_collineal <= 0 ) uv_subdiv = uv_collineal                  !
   end if ! <--------------------------------------------------------------+
 
-  PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
+  IF ( DEBUG ) PRINT *, 'STAT_COLLINEAL = ',STAT_COLLINEAL
   !IF ( STAT_COLLINEAL <= 0 ) PRINT *,'COLLINEAL POINT FOUND AT UV=',REAL(UV_COLLINEAL)
 
   if ( stat_collineal > 0 ) then ! <-------------------------------------------------------------------------+
@@ -408,7 +408,7 @@ recursive subroutine intersect_surface_surface( &
                 abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar-1) ) < EPSregion .or. & ! !   !
                 abs( uv_collineal(ivar,isurf) - region(isurf)%ptr%uvbox(2*ivar) )   < EPSregion )      ! !   !
         end do ! <-------------------------------------------------------------------------------------+ !   !
-        PRINT *,'ISONBOUNDARY ?',ISONBOUNDARY
+        IF ( DEBUG ) PRINT *,'ISONBOUNDARY ?',ISONBOUNDARY
         if ( all(isonboundary) ) then ! <-----------------------------------------+                      !   !
            uv_subdiv(:,isurf) = 0.5_fp * ( &                                      !                      !   !
                 region(isurf)%ptr%uvbox([1,3]) + &                                !                      !   !
@@ -419,7 +419,7 @@ recursive subroutine intersect_surface_surface( &
 
 
   ! subdivide both surfaces/gauss maps ...
-  PRINT *,'SUBDIVIDE AT UV =',UV_SUBDIV
+  IF ( DEBUG ) PRINT *,'SUBDIVIDE AT UV =',UV_SUBDIV
   nchild(:) = 1
   do isurf = 1,2 ! <-------------------------------------------------------------------------------------------------+
      if ( stat_loopdetection == isurf .or. stat_loopdetection == 3 ) then ! <-------------------------------------+  !

@@ -9,7 +9,7 @@ subroutine add_intersection_point( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer, parameter                          :: PARAM_xtra_np = 10
   real(kind=fp),                intent(in)    :: uv(2,2)
   real(kind=fp),                intent(in)    :: xyz(3)

@@ -130,6 +130,25 @@ contains
 
 
 
+  recursive subroutine free_ipts( &
+       region )
+    type(type_region), intent(inout) :: region
+    integer                          :: ichild
+
+    if ( allocated(region%ipts) ) deallocate(region%ipts)
+    region%npts = 0
+    
+    if ( associated(region%child) ) then
+       do ichild = 1,size(region%child)
+          call free_ipts( region%child(ichild) )
+       end do
+    end if
+
+  end subroutine free_ipts
+  
+
+
+
 
   recursive subroutine free_region_tree( &
        region )

@@ -9,7 +9,7 @@ subroutine trace_intersection_polyline( &
   use mod_math
   use mod_diffgeom2
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .FALSE.
+  LOGICAL, PARAMETER :: DEBUG = .false.
   real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
   real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
   real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
@@ -30,7 +30,19 @@ subroutine trace_intersection_polyline( &
   integer                                         :: stat
   integer                                         :: ipt
   
-  IF ( DEBUG) PRINT *,'P =', PARAM_VECTOR
+  PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'TRACE_INTERSECTION_POLYLINE'
+     PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
+     PRINT *,' UV_ENDPOINTS ='
+     PRINT *,uv_endpoints(:,:,1)
+     PRINT *,uv_endpoints(:,:,2)
+     PRINT *,'XYZ_ENDPOINTS ='
+     PRINT *,xyz_endpoints(:,1)
+     PRINT *,xyz_endpoints(:,2)
+  END IF
+
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
 
@@ -62,7 +74,7 @@ subroutine trace_intersection_polyline( &
         STOP
      end if
 
-     IF ( DEBUG) PRINT *,'XYZ_S.P =',dot_product( xyz_s(:,1), param_vector )
+     IF ( DEBUG) PRINT *,'DXYZ_DS.P =',dot_product( xyz_s(:,1), param_vector )
      
      ! target segment length
      h = FRACcurvature_radius / curvature(1)

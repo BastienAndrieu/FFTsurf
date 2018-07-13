@@ -14,6 +14,7 @@ subroutine merge_intersection_data( &
   type(type_intersection_data), intent(in)    :: interdata_local
   type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
+  integer                                     :: stat
   integer                                     :: ip, ic
 
   ! add new intersection points
@@ -35,7 +36,23 @@ subroutine merge_intersection_data( &
           interdata_local%curves(ic)%uvbox )
 
      ! trace polyline
-     
+     allocate(interdata_global%curves(interdata_global%nc)%polyline)
+     call trace_intersection_polyline( &
+          surf, &
+          interdata_local%curves(ic)%uvbox, &
+          interdata_local%curves(ic)%param_vector, &
+          reshape(uvxyz(1:4,interdata_local%curves(ic)%root%endpoints),[2,2,2]), &
+          uvxyz(5:7,interdata_local%curves(ic)%root%endpoints), &
+          stat, &
+          interdata_global%curves(interdata_global%nc)%polyline, &
+          HMIN=REAL(1.E-3,KIND=FP), &
+          HMAX=REAL(1.E-1,KIND=FP) )
+
+     if ( stat > 0 ) then
+        PRINT *,'STAT = ',STAT
+        return!STOP
+     end if
+
   end do
 
 

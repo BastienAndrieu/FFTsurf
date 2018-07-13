@@ -126,11 +126,17 @@ subroutine intersect_all_surfaces( &
         if ( stat_degeneracy > 0 ) exit outer
 
         ! trace intersection curves and append them to the global intersection data collection
-        !call merge_intersection_data( &
-        !     )
+        call merge_intersection_data( &
+             surfpair, &
+             uvxyz, &
+             nuvxyz, &
+             interdata_local, &
+             interdata_global )
 
         ! reset local intersection data collection
         call free_intersection_data(interdata_local)
+        call free_ipts(region(1)%ptr)
+        call free_ipts(region(2)%ptr)
 
      end do inner
   end do outer

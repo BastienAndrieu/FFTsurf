@@ -112,7 +112,7 @@ subroutine newton_curve_surface( &
         end if ! <-------------------+         !
      end if ! <--------------------------------+
 
-     ! damp Newton step to keep the solution inside feasible region
+     ! damp Newton step to keep the iterate inside feasible region
      !call nd_box_constraint( &
      !     tuv, &
      !     lowerb, &

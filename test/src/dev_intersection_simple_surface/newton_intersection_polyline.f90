@@ -29,6 +29,7 @@ subroutine newton_intersection_polyline( &
   !logical                          :: singular
   integer                          :: rank
   integer                          :: it, isurf, ivar
+  real(kind=fp)                    :: erruv
 
   stat = 1
   !lowerb = reshape( uvbox(1:2,1:2), [4] )
@@ -37,9 +38,10 @@ subroutine newton_intersection_polyline( &
   !lowerb = lowerb - EPsuv*rng
   !upperb = upperb + EPsuv*rng
   jac(:,:) = 0._fp
+  erruv = 0._fp
 
   do it = 1,nitmax
-
+     !PRINT *,''
      do isurf = 1,2
         call eval( &
              s(:,isurf), &
@@ -52,11 +54,12 @@ subroutine newton_intersection_polyline( &
 
      resx = sum( r1**2 )
      resh = sum( r2**2 ) - htargetsqr
-
+     !PRINT *,sqrt(resx), sqrt(abs(resh)), sqrt(erruv)
      ! convergence criterion
      if ( resx < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
         stat = 0
         xyz = 0.5_fp * sum( s, 2 )
+        !PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
         return     
      end if
 
@@ -76,7 +79,7 @@ subroutine newton_intersection_polyline( &
            end do
         end if
      end do
-     
+
      ! solve for Newton step
      !call linsolve_QR( &
      !     duv, &
@@ -94,6 +97,13 @@ subroutine newton_intersection_polyline( &
        1, &
        rank )
      
+     !PRINT *,'  JACOBIAN ='
+     !CALL PRINT_MAT( JAC )
+     !PRINT *,'  RHS =',-[r1,resh]
+     !PRINT *,'  DUV =',DUV
+
+     erruv = sum( duv**2 )
+
      if ( rank < 4 ) then !( singular ) then
         ! singular Jacobian matrix (should not happen)
         stat = 2
@@ -109,10 +119,10 @@ subroutine newton_intersection_polyline( &
      !     lambda )
      !if ( lambda < -EPSmath ) return ! negative damped factor
      !duv = lambda * duv
-     if ( sum(duv(1:2)**2) < EPSuvsqr .or. sum(duv(3:4)**2) < EPSuvsqr ) then
-        ! damped Newton step is too small
-        return
-     end if
+     !if ( sum(duv(1:2)**2) < EPSuvsqr .or. sum(duv(3:4)**2) < EPSuvsqr ) then
+     !   ! damped Newton step is too small
+     !   return
+     !end if
 
      ! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
