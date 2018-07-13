@@ -333,8 +333,56 @@ contains
   end subroutine nd_box_constraint
   ! -----------------------------------------
 
+  ! -----------------------------------------
+  subroutine nd_box_reflexions( &
+       x, &
+       lowerb, &
+       upperb, &
+       dx, &
+       dim )
+    implicit none
+    integer,       intent(in)    :: dim
+    real(kind=fp), intent(in)    :: x(dim)
+    real(kind=fp), intent(in)    :: lowerb(dim)
+    real(kind=fp), intent(in)    :: upperb(dim)
+    real(kind=fp), intent(inout) :: dx(dim)
+    real(kind=fp)                :: xtmp(dim), dxtmp(dim)
+    real(kind=fp)                :: lambda, lambda_i
+    integer                      :: ib, idim
 
+    xtmp = x
+    dxtmp = dx
 
+    do 
+       lambda = 1._fp
+       ib = 0
+       do idim = 1,dim
+          if ( abs(dxtmp(idim)) < EPSmath ) cycle
+          if ( dxtmp(idim) < 0._fp ) then
+             lambda_i = min( lambda, (lowerb(idim) - xtmp(idim)) / dxtmp(idim) )
+          else
+             lambda_i = min( lambda, (upperb(idim) - xtmp(idim)) / dxtmp(idim) )
+          end if
+          if ( lambda > lambda_i ) then
+             ib = idim
+             lambda = lambda_i
+          end if
+       end do
+
+       if ( ib == 0 ) then
+          xtmp = xtmp + dxtmp
+          dx = xtmp - x
+          return
+       else
+          xtmp = xtmp + lambda*dxtmp
+          dxtmp = (1._fp - lambda) * dxtmp
+          dxtmp(ib) = -dxtmp(ib)
+       end if
+       
+    end do
+
+  end subroutine nd_box_reflexions
+  ! -----------------------------------------
 
 
 

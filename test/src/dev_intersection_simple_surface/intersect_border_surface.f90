@@ -16,7 +16,7 @@ subroutine intersect_border_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.
+  LOGICAL, PARAMETER :: DEBUG = .false.
   integer, parameter                        :: npts_init = 10
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(ptr_region),           intent(inout) :: region(2)

@@ -13,7 +13,8 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_regiontree
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
+  !LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL :: DEBUG
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   real(kind=fp),                intent(in)    :: param_vector(3)
@@ -34,6 +35,25 @@ recursive subroutine intersect_simple_surfaces( &
 
   if ( stat_degeneracy /= 0 ) return ! a degeneracy has been encountered
 
+  DEBUG = .FALSE.
+  IF ( .false. ) then!GLOBALDEBUG ) THEN
+     IF ( &
+          (&
+          ABS( REGION(1)%PTR%UVBOX(1) - 0.D0     ) < EPSREGION .AND. &
+          ABS( REGION(1)%PTR%UVBOX(2) - 0.125D0  ) < EPSREGION .AND. &
+          ABS( REGION(1)%PTR%UVBOX(3) - 0.5D0    ) < EPSREGION .AND. &
+          ABS( REGION(1)%PTR%UVBOX(4) - 0.625D0  ) < EPSREGION ) .OR. &
+          (&
+          ABS( REGION(2)%PTR%UVBOX(1) - 0.5D0    ) < EPSREGION .AND. &
+          ABS( REGION(2)%PTR%UVBOX(2) - 0.625D0  ) < EPSREGION .AND. &
+          ABS( REGION(2)%PTR%UVBOX(3) - 0.4375D0 ) < EPSREGION .AND. &
+          ABS( REGION(2)%PTR%UVBOX(4) - 0.5D0    ) < EPSREGION ) &
+          ) THEN
+        DEBUG = .TRUE.
+     END IF
+  END IF
+
+
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'INTERSECT_SIMPLE_SURFACES'
@@ -41,6 +61,27 @@ recursive subroutine intersect_simple_surfaces( &
      DO ISURF = 1,2 ! <-----------------+
         PRINT *,REGION(ISURF)%PTR%UVBOX !
      END DO ! <-------------------------+
+     !PRINT *,'IPTS ='
+     !DO ISURF = 1,2
+     !   IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
+     !      PRINT *,'N/A'
+     !   ELSE
+     !      PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
+     !   END IF
+     !END DO
+  END IF
+
+  ! inherit from parent regions all intersection points contained in current regions
+  if ( nuvxyz > 0 ) then ! <----------------------------+
+     do isurf = 1,2 ! <---------------------------+     !
+        call inherit_points( &                    !     !
+             region(isurf)%ptr, &                 !     !
+             uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
+             nuvxyz )                             !     !
+     end do ! <-----------------------------------+     !
+  end if ! <--------------------------------------------+
+
+  IF ( DEBUG ) THEN
      PRINT *,'IPTS ='
      DO ISURF = 1,2
         IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
@@ -50,17 +91,6 @@ recursive subroutine intersect_simple_surfaces( &
         END IF
      END DO
   END IF
-
-  ! inherit from parent regions all intersection points contained in current regions
-  if ( nuvxyz > 0 ) then ! <-----------------+
-     do isurf = 1,2 ! <----------------+     !
-        call inherit_points( &         !     !
-             region(isurf)%ptr, &      !     !
-             uvxyz, &                  !     !
-             nuvxyz )                  !     !
-     end do ! <------------------------+     !
-  end if ! <---------------------------------+
-
 
   ! intersect the 4*2 pairs of border-surface
   nptsbs = 0
@@ -217,11 +247,11 @@ recursive subroutine intersect_simple_surfaces( &
           surfroot, &                                                         !
           region, &                                                           !
           reshape( uvxyz(1:4,iptsbs(1:nptsbs)), [2,2,nptsbs] ), &             !
-          nuvxyz, &                                                           !
+          nptsbs, &                                                           !
           stat_point(1:nptsbs) )                                              !
      !                                                                        !
      if ( nptsbs == 2 ) then ! <--------------------------------------+       !
-        IF ( DEBUG ) PRINT *,'HERE'
+        !IF ( DEBUG ) PRINT *,'HERE'
         if ( stat_point(1)*stat_point(2) < 0 ) then ! <---------+     !       !
            ! 1 entering point and 1 exiting point.              !     !       !
            ! Re-order the points from entering to exiting       !     !       !
@@ -249,6 +279,8 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
            CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTSBS(1:2))) )
+           CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
+           CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
            stat_degeneracy = 35                                 !     !       !
         end if ! <----------------------------------------------+     !       !
@@ -260,9 +292,11 @@ recursive subroutine intersect_simple_surfaces( &
            ! incorrect configuration                            !     !       !
            PRINT *,'------------------------------------------'
            PRINT *,'1 BSI POINT - INCORRECT CONFIGURATION'
-           PRINT *,'STAT_POINT =',STAT_POINT
+           PRINT *,'STAT_POINT =',STAT_POINT(1)
            PRINT *,'UVXYZ ='
            PRINT *,UVXYZ(:,IPTSBS(1))
+           CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
+           CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
            stat_degeneracy = 36                                 !     !       !
         end if ! <----------------------------------------------+     !       !
@@ -271,8 +305,8 @@ recursive subroutine intersect_simple_surfaces( &
      !                                                                        !
   end if ! <------------------------------------------------------------------+
 
-  IF ( DEBUG ) PRINT *,'FREE IPTSBS...'
+  !IF ( DEBUG ) PRINT *,'FREE IPTSBS...'
   if ( allocated(iptsbs) ) deallocate(iptsbs)
-  IF ( DEBUG ) PRINT *,'           ...OK'
+  !IF ( DEBUG ) PRINT *,'           ...OK'
 
 end subroutine intersect_simple_surfaces

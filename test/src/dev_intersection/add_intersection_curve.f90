@@ -4,7 +4,7 @@ subroutine add_intersection_curve( &
      iendpoints, &
      uvbox )
    implicit none
-   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
    integer, parameter                          :: PARAM_xtra_nc = 10
    type(type_intersection_data), intent(inout) :: interdata
    real(kind=fp),                intent(in)    :: param_vector(3)

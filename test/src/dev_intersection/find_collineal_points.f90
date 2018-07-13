@@ -21,7 +21,7 @@ subroutine find_collineal_points( &
   !          xyz_collineal : xyz-coordinates (relevent only if stat =-1)
   !          n_collineal   : the common (unit) normal direction at the collineal points.
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPScollineal))
   type(ptr_surface), intent(in)    :: surf(2)
   integer,           intent(out)   :: stat

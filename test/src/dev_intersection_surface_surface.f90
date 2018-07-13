@@ -335,7 +335,7 @@ subroutine intersect_border_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.
+  LOGICAL, PARAMETER :: DEBUG = .false.
   integer, parameter                        :: npts_init = 10
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(ptr_region),           intent(inout) :: region(2)
@@ -708,7 +708,7 @@ subroutine newton_curve_surface( &
   real(kind=fp), parameter          :: TOL = EPSxyz
   real(kind=fp), parameter          :: EPSsqr = EPS**2
   real(kind=fp), parameter          :: TOLsqr = TOL**2
-  integer, parameter                :: nitmax = 40!ceiling(-log10(EPS))
+  integer, parameter                :: nitmax = 20!ceiling(-log10(EPS))
   integer, parameter                :: nitcheck = 5
 
   type(type_curve),   intent(in)    :: curv
@@ -735,35 +735,62 @@ subroutine newton_curve_surface( &
   !lowerb = lowerb - EPsuv*rng
   !upperb = upperb + EPsuv*rng
 
+
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'NEWTON_CURVE_SURFACE'
+     PRINT *,'LOWERB =',LOWERB
+     PRINT *,'UPPERB =',UPPERB
+  END IF
+
+
   stat = 1
   restmp = huge(1._fp)
   errtuv = 0._fp
+  cond = 1._fp
 
   newton_iteration : do it = 1,nitmax
+     !IF ( DEBUG ) PRINT *,'IT #',IT
 
      ! position vector
      call eval( xyz_c, curv, tuv(1) )   ! curve
      call eval( xyz_s, surf, tuv(2:3) ) ! surface
 
      r = xyz_s - xyz_c ! residual vector
-     res = sum( r**2 ) ! squared norm of residual vector
-     IF ( DEBUG ) PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R)), ', ERRTUV =',sqrt(errtuv)
-     !PRINT *,NORM2(R)
 
+     !IF ( DEBUG ) PRINT *,'R =',R
+
+     res = sum( r**2 ) ! squared norm of residual vector
+     !IF ( DEBUG ) PRINT *,'NEWTON, IT#',IT,', RES =',REAL(NORM2(R)), ', ERRTUV =',sqrt(errtuv)
+     !PRINT *,NORM2(R)
+     IF ( DEBUG ) PRINT *,SQRT(RES), SQRT(ERRTUV), EPSUV*COND
      ! check signs of convergence
      if ( it == 1 ) rescheck = THRESHOLD * res
      if ( it > nitcheck .and. res > rescheck ) then
         !   PRINT *,'NO SIGN OF CONVERGENCE, STOP NEWTON ITERATION'
+        IF ( DEBUG ) PRINT *,'NO SIGN OF CONVERGENCE'
         return
      end if
 
      ! convergence criterion
      IF (.TRUE.) THEN
-        if ( res < TOLsqr .and. errtuv < EPSuvsqr*cond**2 ) then
-           stat = 0
-           xyz = 0.5_fp * ( xyz_s + xyz_c )
+        if ( errtuv < EPSuvsqr*cond**2 .and. it > 1 ) then
+           if ( res < TOLsqr ) then
+              ! converged to a curve-surface intersection point
+              stat = 0
+              xyz = 0.5_fp * (xyz_c + xyz_s)
+              IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ
+           else
+              IF ( DEBUG ) PRINT *,'STAGNATION'
+           end if
            return
         end if
+        !if ( res < TOLsqr .and. errtuv < EPSuvsqr*cond**2 ) then
+        !   stat = 0
+        !   xyz = 0.5_fp * ( xyz_s + xyz_c )
+        !   IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ
+        !   return
+        !end if
      ELSE
         if ( res < TOLsqr ) then
            stat = 0
@@ -812,17 +839,20 @@ subroutine newton_curve_surface( &
           cond, &
           rank )
 
+     errtuv = sum( dtuv**2 )
+
      if ( rank < 3 ) then ! degeneracy
-        PRINT *,''
-        PRINT *,'IT #',IT
-        PRINT *,'TUV =',TUV
-        PRINT *,'RES =',SQRT(RES)
-        PRINT *,'JACOBIAN ='
-        CALL PRINT_MAT( JAC )
-        PRINT *,'RANK =',RANK
-        PRINT *,'DTUV=',DTUV
+        !PRINT *,''
+        !PRINT *,'IT #',IT
+        !PRINT *,'TUV =',TUV
+        !PRINT *,'RES =',SQRT(RES)
+        !PRINT *,'JACOBIAN ='
+        !CALL PRINT_MAT( JAC )
+        !PRINT *,'RANK =',RANK
+        !PRINT *,'DTUV=',DTUV
         if ( stat == 0 ) then
            stat = 2
+           IF ( DEBUG ) PRINT *,'SINGULAR JACOBIAN AT SOLUTION'
            return
         end if
      end if
@@ -834,11 +864,15 @@ subroutine newton_curve_surface( &
           upperb, &
           dtuv, &
           lambda )
+     !IF ( DEBUG ) PRINT *,'DAMPING =',lambda
 
-     if ( lambda < epsilon(1._fp) ) return ! negative damped factor
+     if ( lambda < epsilon(1._fp) ) THEN
+        IF ( DEBUG ) PRINT *,'NONPOSITIVE DAMPING FACTOR'
+        return ! negative damped factor
+     END if
 
      dtuv = lambda * dtuv
-     errtuv = sum( dtuv**2 )
+     !errtuv = sum( dtuv**2 )
      !if ( abs(dtuv(1)) < EPSuv .or. sum(dtuv(2:3)**2) < EPSuvsqr ) then
      !   ! damped Newton step is too small
      !   !PRINT *,'|DT| =',ABS(DTUV(1)),' |DUV| =',NORM2( DTUV(2:3) )
@@ -2899,7 +2933,7 @@ recursive subroutine intersect_surface_surface( &
                    region(isurf)%ptr%npts, &                !    !        !
                    newregion(isurf)%ptr%ipts(&              !    !        !
                    1:newregion(isurf)%ptr%npts), &          !    !        !
-                   2, &                                     !    !        !
+                   2, &                                     !    !        !????????????????
                    unique=.true. )                          !    !        !
            end if ! <---------------------------------------+    !        !
            nullify( &                                            !        !

@@ -17,6 +17,7 @@ subroutine diffgeom_intersection_curve( &
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.166-175)
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)
   real(kind=fp),           intent(out) :: duv_ds(2,2,2) ! u/v, #branch, #surf
@@ -39,11 +40,19 @@ subroutine diffgeom_intersection_curve( &
              ivar )                            !                      !
      end do ! <--------------------------------+                      !
      n(:,isurf) = cross( dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf) )   !
+     IF ( DEBUG ) THEN
+        PRINT *,'ISURF =',ISURF
+        PRINT *,'        UV =',uv(:,isurf)
+        PRINT *,'   DXYZ_DU =',dxyz_duv(:,1,isurf)
+        PRINT *,'   DXYZ_DV =',dxyz_duv(:,2,isurf)
+        PRINT *,'         N =',N(:,ISURF)
+     END IF
      n(:,isurf) = n(:,isurf) / norm2( n(:,isurf) )                    !
   end do ! <----------------------------------------------------------+
 
   ! cosine of the angle between the two normal vectors
   cosn = dot_product( n(:,1), n(:,2) )
+  IF ( DEBUG ) PRINT *,'COSN =',COSN
 
   if ( abs(cosn) < 1._fp - EPSmath ) then ! <--------------------------------------------+
      ! the normals are not parallel, this is a transversal intersection point            !

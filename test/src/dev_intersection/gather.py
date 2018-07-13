@@ -10,6 +10,7 @@ f.writelines( [l for l in open('main.f90').readlines()] )
 #f.write('\n\ncontains\n')
 
 listfiles = ['add_intersection_curve.f90',
+             'add_intersection_point.f90',
              'append_vector.f90',
              'characterize_tangential_intersection_point.f90',
              'check_unicity.f90',

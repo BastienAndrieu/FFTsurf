@@ -166,35 +166,35 @@ contains
 
   
   subroutine copy_region( &
-       region_source, &
-       region_target )
+       from, &
+       to )
     ! Creates a copy of a region (all attributes except 'child' are copied)
     implicit none
-    type(type_region), intent(in)    :: region_source
-    type(type_region), intent(inout) :: region_target
+    type(type_region), intent(in)    :: from
+    type(type_region), intent(inout) :: to
     integer                          :: ipoly
 
     call init_region( &
-         region_target, &
-         region_source%dim, &
-         region_source%uvbox ) 
+         to, &
+         from%dim, &
+         from%uvbox ) 
 
-    region_target%xyzbox => region_source%xyzbox
+    to%xyzbox => from%xyzbox
 
-    if ( allocated(region_source%poly) ) then
-       allocate( region_target%poly(size(region_source%poly)) )
-       do ipoly = 1,size(region_source%poly)
-          region_target%poly(ipoly)%ptr => region_source%poly(ipoly)%ptr
+    if ( allocated(from%poly) ) then
+       allocate(to%poly(size(from%poly)))
+       do ipoly = 1,size(from%poly)
+          to%poly(ipoly)%ptr => from%poly(ipoly)%ptr
        end do
     end if
 
-    region_target%npts = region_source%npts
-    if ( allocated(region_source%ipts) ) then
-       allocate( region_target%ipts(size(region_source%ipts)) )
-       region_target%ipts = region_source%ipts
+    to%npts = from%npts
+    if ( allocated(from%ipts) ) then
+       allocate(to%ipts(size(from%ipts)))
+       to%ipts = from%ipts
     end if
 
-    region_target%parent => region_source%parent
+    to%parent => from%parent
 
   end subroutine copy_region
 

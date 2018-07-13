@@ -54,9 +54,9 @@ subroutine add_intersection_point( &
   if ( .not.allocated(interdat%points) ) allocate(interdat%points(PARAM_xtra_np) )
 
   ! this is a new point
-  PRINT *,'ADDING INTERSECTION POINT :'
-  PRINT *,'XYZ =',XYZ
-  PRINT *,' UV =',UV
+  !PRINT *,'ADDING INTERSECTION POINT :'
+  !PRINT *,'XYZ =',XYZ
+  !PRINT *,' UV =',UV
   interdat%np = interdat%np + 1
   id = interdat%np
   if ( id > size(interdat%points) ) then ! <---------------------------+

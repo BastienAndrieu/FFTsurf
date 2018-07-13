@@ -32,7 +32,7 @@ tuv = [0;0;0];
 EPSxyz = 1e-13;
 EPSuv = 2.0 * eps('double');
 
-TOLuv = 1e-13;
+TOLuv = 1e-12;
 upperb = ones(3,1) + TOLuv;
 lowerb = -upperb;
 
@@ -70,6 +70,8 @@ for it = 0:nitmax
     r = s - c;
     res = [ res ; norm(r) ];
     
+    fprintf('%16.15e %16.15e %16.15e\n',norm(r), normdtuvprev, TOLuv*condJ);
+    
     % Jacobian matrix
     ct = chebval1( C.xt, tuv(1) )';
     su = ICT2unstr( S.xu, tuv(2:3)' )';
@@ -101,14 +103,14 @@ for it = 0:nitmax
     
     errtuv = normdtuv;
     
-    rate = normdtuv / normdtuvprev
+    rate = normdtuv / normdtuvprev;
     if it > skipit
         if it == skipit + 1
             if rate < 0.3 % ~superlinear convergence
                 p = 0;
             else
                 %             mu = rate;
-                p = round( rate / (1 - rate) )
+                p = round( rate / (1 - rate) );
                 mu = p / (p + 1) ;
             end
         end
@@ -185,6 +187,7 @@ for it = 0:nitmax
     
     normdtuvprev = normdtuv;
 end
+tuv', xyz'
 
 if converged
     for i = 1:size(tuvit,2)
@@ -303,8 +306,9 @@ plot3( g(:,1), g(:,2), g(:,3), 'k-' );
 
 if converged
     plot3( xyz(1), xyz(2), xyz(3), 'k*' );
-    axis( xyz([1,1,2,2,3,3])' + repmat( 0.15 * [-1,1], 1, 3 ) );
-    daspect([1,1,1]);
+    axis image
+%     axis( xyz([1,1,2,2,3,3])' + repmat( 0.15 * [-1,1], 1, 3 ) );
+%     daspect([1,1,1]);
 else
     axis image
 end

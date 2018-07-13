@@ -23,6 +23,21 @@ module mod_polynomial
 
 contains
 
+  subroutine free_transformation_matrices()
+    implicit none
+    integer :: i
+
+    if ( allocated(transformation_matrices) ) then
+       do i = 1,size(transformation_matrices)
+          if ( allocated(transformation_matrices(i)%mat) ) &
+               deallocate(transformation_matrices(i)%mat)
+       end do
+       deallocate(transformation_matrices)
+    end if
+
+  end subroutine free_transformation_matrices
+
+
 
 
   subroutine free_polynomial( poly )
@@ -30,6 +45,7 @@ contains
     type(type_polynomial), intent(inout) :: poly
     if ( allocated(poly%coef) ) deallocate( poly%coef )
   end subroutine free_polynomial
+
 
 
 

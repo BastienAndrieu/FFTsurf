@@ -5,7 +5,7 @@ subroutine inherit_points( &
   use mod_math
   use mod_regiontree
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_region), intent(inout) :: region
   integer,           intent(in)    :: npts
   real(kind=fp),     intent(in)    :: coords(region%dim,npts)
@@ -36,7 +36,13 @@ subroutine inherit_points( &
 
   IF ( DEBUG ) THEN
      PRINT *,'   REGION%UVBOX =',REGION%UVBOX
+     DO IPT = 1,region%parent%npts
+        PRINT *,REGION%PARENT%IPTS(IPT), COORDS(:,REGION%PARENT%IPTS(IPT)), MASK(IPT)
+     END DO
      PRINT *,'   INHERITS',pack(region%parent%ipts(1:region%parent%npts), mask)
+     !DO IPT = 1,region%parent%npts
+     !   IF ( MASK(IPT) ) PRINT *,COORDS(:,REGION%PARENT%IPTS(IPT))
+     !END DO
   END IF
   call append_n( &
        region%ipts, &

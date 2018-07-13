@@ -17,6 +17,7 @@ subroutine find_collineal_corners( &
   !          xyz_collineal : xyz-coordinates (relevent only if stat =-1)
   !          n_collineal   : the common (unit) normal direction at the collineal points.
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_region), intent(in)  :: region(2)
   integer,          intent(out) :: stat
   real(kind=fp),    intent(out) :: uv_collineal(2,2)
@@ -26,6 +27,21 @@ subroutine find_collineal_corners( &
   integer                       :: i, j, k, l
 
   stat = 1
+
+  IF ( DEBUG ) THEN
+     PRINT *,'FIND_COLLINEAL_CORNERS'
+     !PRINT *,'SIZE(REGION) =',SIZE(REGION)
+     !DO I = 1,2
+     !   PRINT *,'ALLOCATED?',ALLOCATED(REGION(I)%PTR%POLY)
+     !END DO
+     DO I = 1,2
+        PRINT *,'SURF #',I,', NPOLY =',SIZE(REGION(I)%PTR%POLY)
+        !DO J = 1,2
+        !   PRINT *,'   POLY #',J,': DEGR =',REGION(I)%PTR%POLY(J)%PTR%DEGR, &
+        !        ', SIZE=',SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,1), SIZE(REGION(I)%PTR%POLY(J)%PTR%COEF,2)
+        !END DO
+     END DO
+  END IF
 
   do l = 1,2 ! <----------------------------------------------------------------------------------+
      do k = 1,2 ! <----------------------------------------------------------------------------+  !

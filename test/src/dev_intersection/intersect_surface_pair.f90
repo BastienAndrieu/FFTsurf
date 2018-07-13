@@ -12,7 +12,7 @@ recursive subroutine intersect_surface_pair( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdata
@@ -54,15 +54,16 @@ recursive subroutine intersect_surface_pair( &
   END IF
 
   ! inherit from parent regions all intersection points contained in current regions
-  if ( nuvxyz > 0 ) then ! <-----------------+
-     do isurf = 1,2 ! <----------------+     !
-        call inherit_points( &         !     !
-             region(isurf)%ptr, &      !     !
-             uvxyz, &                  !     !
-             nuvxyz )                  !     !
-     end do ! <------------------------+     !
-  end if ! <---------------------------------+
-  
+  if ( nuvxyz > 0 ) then ! <----------------------------+
+     do isurf = 1,2 ! <---------------------------+     !
+        call inherit_points( &                    !     !
+             region(isurf)%ptr, &                 !     !
+             uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
+             nuvxyz )                             !     !
+     end do ! <-----------------------------------+     !
+  end if ! <--------------------------------------------+
+
+
   ! compute bounding boxes for each region...
   do isurf = 1,2 ! <------------------------------------------------------+
      if ( .not.associated(region(isurf)%ptr%xyzbox) ) then ! <----+       !
@@ -130,7 +131,7 @@ recursive subroutine intersect_surface_pair( &
   if ( stat_loopdetection == 0 ) then ! <---------------------------------------+
      ! first we start new temporary region trees, rooted at copies of current   !
      ! regions (all the data contained in the regions is copied, except the     !
-     ! pointers to parents)                                                     !
+     ! pointers to children)                                                    !
      do isurf = 1,2 ! <-------------------+                                     !
         allocate( newregion(isurf)%ptr )  !                                     !
         call copy_region( &               !                                     !
@@ -138,9 +139,11 @@ recursive subroutine intersect_surface_pair( &
              newregion(isurf)%ptr )       !                                     !
      end do ! <---------------------------+                                     !
      !                                                                          !
+     IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
+          ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
-          region, &                                                             !
+          newregion, &                                                             !
           param_vector, &                                                       !
           interdata, &                                                          !
           uvxyz, &                                                              !
@@ -288,7 +291,6 @@ recursive subroutine intersect_surface_pair( &
      end do ! <--------------------------------------------------+              !
      !                                                                          !
   end if ! <--------------------------------------------------------------------+
-
 
   ! subdivide the surface regions
   nchild(:) = 1

@@ -42,12 +42,16 @@ subroutine intersect_all_surfaces( &
           surf(isurf)%pn, &
           root(isurf)%poly(2)%ptr )
 
-     IF ( DEBUG ) THEN
-        WRITE (STRNUM,'(I1)') ISURF
-        CALL WRITE_POLYNOMIAL( root(isurf)%poly(1)%ptr, 'dev_intersection/surfroot' // strnum // '_x.bern'  )
-        CALL WRITE_POLYNOMIAL( root(isurf)%poly(2)%ptr, 'dev_intersection/surfroot' // strnum // '_pn.bern' )
-     END IF
+     !IF ( DEBUG ) THEN
+     !   WRITE (STRNUM,'(I1)') ISURF
+     !   CALL WRITE_POLYNOMIAL( root(isurf)%poly(1)%ptr, 'dev_intersection/surfroot' // strnum // '_x.bern'  )
+     !   CALL WRITE_POLYNOMIAL( root(isurf)%poly(2)%ptr, 'dev_intersection/surfroot' // strnum // '_pn.bern' )
+     !END IF
   end do
+
+
+  nuvxyz = 0
+  allocate(uvxyz(7,10))
 
   ! loop over all pairs of DISTINCT surfaces and compute their intersection
   outer : do isurf = 1,nsurf-1
@@ -85,7 +89,7 @@ subroutine intersect_all_surfaces( &
         ! the local intersection data collection
         ! (...)        
 
-        !allocate(interdata_local%points(10), interdata_local%curves(10))
+        allocate(interdata_local%points(10), interdata_local%curves(10))
         interdata_local%np = 0
         interdata_local%nc = 0
         
@@ -98,25 +102,32 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              stat_degeneracy ) 
-
+        
         IF ( DEBUG ) THEN
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
-           CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
-                'dev_intersection/uvxyz.dat' )
+           IF ( NUVXYZ > 0 ) THEN
+              CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
+                   'dev_intersection/uvxyz.dat' )
+           END IF
            CALL WRITE_INTERDAT( INTERDATA_LOCAL, &
                 'dev_intersection/interdata_points.dat', &
                 'dev_intersection/interdata_curves.dat' )
 
            PRINT *,NUVXYZ,            ' INTERSECTION POINT(S)'
            PRINT *,INTERDATA_LOCAL%NC,' INTERSECTION CURVE(S)'
+
+           !DO i = 1,2
+           !   WRITE (STRNUM,'(I1)') i
+           !   CALL EXPORT_REGION_TREE( REGION(i)%PTR, 'dev_intersection/treessi_' // strnum // '.dat' )
+           !END DO
         END IF
 
         ! if a degeneracy has been encountered, report it
         if ( stat_degeneracy > 0 ) exit outer
 
         ! trace intersection curves and append them to the global intersection data collection
-        call merge_intersection_data( &
-             )
+        !call merge_intersection_data( &
+        !     )
 
         ! reset local intersection data collection
         call free_intersection_data(interdata_local)
@@ -129,12 +140,18 @@ subroutine intersect_all_surfaces( &
 
   ! free all region trees
   do isurf = 1,nsurf
+     IF ( DEBUG ) THEN
+        WRITE (STRNUM,'(I1)') isurf
+        CALL EXPORT_REGION_TREE( root(isurf), 'dev_intersection/treessi_' // strnum // '.dat' )
+     END IF
+
      call free_polynomial(root(isurf)%poly(1)%ptr)
      call free_polynomial(root(isurf)%poly(2)%ptr)
      deallocate(root(isurf)%poly(1)%ptr, root(isurf)%poly(2)%ptr)
      deallocate(root(isurf)%poly)
      call free_region_tree(root(isurf)) 
-     nullify(region(isurf)%ptr)
   end do
+
+  nullify(region(1)%ptr, region(2)%ptr)
 
 end subroutine intersect_all_surfaces

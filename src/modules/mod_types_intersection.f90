@@ -96,10 +96,14 @@ contains
              if ( allocated(interdata%curves(ic)%polyline%uv ) ) deallocate(interdata%curves(ic)%polyline%uv )
              if ( allocated(interdata%curves(ic)%polyline%xyz) ) deallocate(interdata%curves(ic)%polyline%xyz)
              interdata%curves(ic)%polyline%np = 0
+             deallocate(interdata%curves(ic)%polyline)
           end if
           nullify(interdata%curves(ic)%polyline)
 
-          call free_intersection_segment_tree(interdata%curves(ic)%root)
+          if ( associated(interdata%curves(ic)%root) ) then
+             call free_intersection_segment_tree(interdata%curves(ic)%root)
+             deallocate(interdata%curves(ic)%root)
+          end if
           nullify(interdata%curves(ic)%root)
        end do
        deallocate( interdata%curves )

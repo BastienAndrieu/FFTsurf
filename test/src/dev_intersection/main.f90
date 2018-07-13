@@ -8,14 +8,16 @@
 
   implicit none
 
-  LOGICAL, PARAMETER :: GLOBALDEBUG = .TRUE.
+  LOGICAL, PARAMETER :: GLOBALDEBUG = .true.
   
   integer                    :: narg
   character(100)             :: arg
-  integer                    :: numtest
+  integer, allocatable       :: numtest(:), numsurf(:)
+  !integer                    :: numtest
   character                  :: strnum
   character(2)               :: strnum2
-  
+  integer*8                  :: tic, toc, count_rate
+
   logical, parameter                      :: ECONOMIZE = .true.
   integer                                 :: nsurf
   type(type_surface), target, allocatable :: surf(:)
@@ -26,43 +28,71 @@
   ! =================================================================================
   ! Read command line arguments
   narg = command_argument_count()
-  if (narg < 1) then
-     numtest = 1
-  else
+  if ( narg < 1 ) then
+     nsurf = 2
+     allocate( numtest(nsurf), numsurf(nsurf) )
+     numtest(:) = 1
+     numsurf = [1,2]
+  elseif ( mod(narg,2) /= 0 ) then
+     nsurf = 2
+     allocate( numtest(nsurf), numsurf(nsurf) )
      call get_command_argument(1, arg)
-     read (arg,*) numtest
+     read (arg,*) numtest(1)
+     numtest(2) = numtest(1)
+     numsurf = [1,2]
+  else
+     nsurf = narg / 2
+     allocate( numtest(nsurf), numsurf(nsurf) )
+     do isurf = 1,nsurf
+        call get_command_argument(2*isurf-1, arg)
+        read (arg,*) numtest(isurf)
+        call get_command_argument(2*isurf, arg)
+        read (arg,*) numsurf(isurf)
+     end do
   end if
 
-  PRINT *,'**********************************************'
-  PRINT *,'NUMTEST =',NUMTEST
-  PRINT *,'**********************************************'
 
-  write (strnum2,'(I2.2)') numtest
+  PRINT *,'NUMTEST =',NUMTEST
+  PRINT *,'NUMSURF =',NUMSURF
+
+  !narg = command_argument_count()
+  !if ( narg < 1 ) then
+  !   numtest = 1
+  !else
+  !   call get_command_argument(1, arg)
+  !   read (arg,*) numtest
+  !end if
+  !PRINT *,'**********************************************'
+  !PRINT *,'NUMTEST =',NUMTEST
+  !PRINT *,'**********************************************
+  !write (strnum2,'(I2.2)') numtest
   ! =================================================================================
 
   
   ! =================================================================================
   ! Import surfaces
-  nsurf = 2
   allocate( surf(nsurf) )
-  do isurf = 1,2
-      write (strnum,'(I1)') isurf
-      call read_polynomial( &
-           surf(isurf)%x, &
-           'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
-           nvar=2, &
-           base=1 )
+  !do isurf = 1,2
+  do isurf = 1,nsurf
+     write (strnum2,'(I2.2)') numtest(isurf)
+     write (strnum,'(I1)') numsurf(isurf)
+     !write (strnum,'(I1)') isurf
+     call read_polynomial( &
+          surf(isurf)%x, &
+          'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
+          nvar=2, &
+          base=1 )
 
-      if ( ECONOMIZE ) call economize2( surf(isurf)%x, EPSmath )
+     if ( ECONOMIZE ) call economize2( surf(isurf)%x, EPSmath )
 
-      call compute_deriv1( surf(isurf) )
-      call compute_deriv2( surf(isurf) )
-      call compute_pseudonormal( surf(isurf) )
-      if ( ECONOMIZE ) call economize2( surf(isurf)%pn, EPSmath )
+     call compute_deriv1( surf(isurf) )
+     call compute_deriv2( surf(isurf) )
+     call compute_pseudonormal( surf(isurf) )
+     if ( ECONOMIZE ) call economize2( surf(isurf)%pn, EPSmath )
 
-
-      CALL WRITE_POLYNOMIAL( surf(isurf)%x,  'dev_intersection/surfroot' // strnum // '_x.cheb'  )
-      CALL WRITE_POLYNOMIAL( surf(isurf)%pn, 'dev_intersection/surfroot' // strnum // '_pn.cheb' )
+     write (strnum,'(I1)') isurf
+     CALL WRITE_POLYNOMIAL( surf(isurf)%x,  'dev_intersection/surfroot' // strnum // '_x.cheb'  )
+     CALL WRITE_POLYNOMIAL( surf(isurf)%pn, 'dev_intersection/surfroot' // strnum // '_pn.cheb' )
   end do
   ! =================================================================================
 
@@ -73,18 +103,24 @@
   ! Compute all intersection
   allocate(mask(nsurf))
   mask(:) = .true.
+  call system_clock( tic, count_rate )
   call intersect_all_surfaces( &
        surf, &
        nsurf, &
        interdata_global, &
        mask )
+  call system_clock( toc )
+  PRINT *,''; PRINT *,''; PRINT *,''
+  PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
   ! =================================================================================
 
 
 
   ! =================================================================================
   ! Free memory
+  deallocate(numtest, numsurf)
   deallocate(surf, mask)
+  call free_transformation_matrices()
   ! =================================================================================
   
 
