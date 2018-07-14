@@ -37,7 +37,6 @@ subroutine newton_intersection_polyline( &
   !   PRINT *,'LOWERB =',LOWERB
   !   PRINT *,'UPPERB =',UPPERB
   !END IF
-
   stat = 1
   erruv = 0._fp
   cond = 1._fp
@@ -57,17 +56,17 @@ subroutine newton_intersection_polyline( &
      resxyz = sum(r1**2)
      resh   = sum(r2**2) - htargetsqr
      IF ( DEBUG ) PRINT *,sqrt(resxyz), sqrt(abs(resh)), sqrt(erruv), EPSuv*cond
-     !if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
+
+     if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
         if ( resxyz < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
            stat = 0
            xyzp = 0.5_fp * sum(xyz, 2)
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
-           return
-        !else
-        !   IF ( DEBUG ) PRINT *,'STAGNATION'
+        else
+           IF ( DEBUG ) PRINT *,'STAGNATION'
         end if
-        !return
-     !end if
+        return
+     end if
 
      !! compute Jacobian matrix
      do isurf = 1,2
@@ -110,12 +109,12 @@ subroutine newton_intersection_polyline( &
      end if ! <--------------------------------+
 
      !! correct Newton step to keep the iterate inside feasible region
-     !call nd_box_reflexions( &
-     !     reshape(uv, [4]), &
-     !     lowerb, &
-     !     upperb, &
-     !     duv, &
-     !     4 )
+     call nd_box_reflexions( &
+          reshape(uv, [4]), &
+          lowerb, &
+          upperb, &
+          duv, &
+          4 )
 
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)

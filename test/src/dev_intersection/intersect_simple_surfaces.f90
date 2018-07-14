@@ -13,8 +13,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_regiontree
   use mod_types_intersection
   implicit none
-  !LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
-  LOGICAL :: DEBUG
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   real(kind=fp),                intent(in)    :: param_vector(3)
@@ -22,10 +21,12 @@ recursive subroutine intersect_simple_surfaces( &
   type(type_intersection_data), intent(inout) :: interdata
   real(kind=fp), allocatable,   intent(inout) :: uvxyz(:,:)
   integer,                      intent(inout) :: nuvxyz
+  integer, allocatable                        :: ipts_ss(:)
+  integer                                     :: npts_ss
   type(type_polynomial)                       :: regc
   type(type_curve)                            :: root_c
-  integer, allocatable                        :: iptsbs(:)
-  integer                                     :: nptsbs
+  integer, allocatable                        :: ipts_bs(:)
+  integer                                     :: npts_bs
   real(kind=fp)                               :: uv_subdiv(2)
   integer                                     :: stat_subdiv
   type(ptr_region)                            :: newregion(2)
@@ -34,25 +35,6 @@ recursive subroutine intersect_simple_surfaces( &
   integer                                     :: icurv, ivar, ival, ichild, jchild
 
   if ( stat_degeneracy /= 0 ) return ! a degeneracy has been encountered
-
-  DEBUG = .FALSE.
-  IF ( .false. ) then!GLOBALDEBUG ) THEN
-     IF ( &
-          (&
-          ABS( REGION(1)%PTR%UVBOX(1) - 0.D0     ) < EPSREGION .AND. &
-          ABS( REGION(1)%PTR%UVBOX(2) - 0.125D0  ) < EPSREGION .AND. &
-          ABS( REGION(1)%PTR%UVBOX(3) - 0.5D0    ) < EPSREGION .AND. &
-          ABS( REGION(1)%PTR%UVBOX(4) - 0.625D0  ) < EPSREGION ) .OR. &
-          (&
-          ABS( REGION(2)%PTR%UVBOX(1) - 0.5D0    ) < EPSREGION .AND. &
-          ABS( REGION(2)%PTR%UVBOX(2) - 0.625D0  ) < EPSREGION .AND. &
-          ABS( REGION(2)%PTR%UVBOX(3) - 0.4375D0 ) < EPSREGION .AND. &
-          ABS( REGION(2)%PTR%UVBOX(4) - 0.5D0    ) < EPSREGION ) &
-          ) THEN
-        DEBUG = .TRUE.
-     END IF
-  END IF
-
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -92,8 +74,20 @@ recursive subroutine intersect_simple_surfaces( &
      END DO
   END IF
 
+
+  ! get the list of already discovered intersection points contained in both surface regions
+  npts_ss = 0
+  if ( region(1)%ptr%npts > 0 .and. region(2)%ptr%npts > 0 ) then ! <-----------------------+
+     call intersection_arrays( &                                                            !
+          region(1)%ptr%ipts(1:region(1)%ptr%npts), &                                       !
+          region(2)%ptr%ipts(1:region(2)%ptr%npts), &                                       !
+          ipts_ss )                                                                         !
+     if ( allocated(ipts_ss) ) npts_ss = size(ipts_ss)                                      !
+  end if ! <--------------------------------------------------------------------------------+
+  
+
   ! intersect the 4*2 pairs of border-surface
-  nptsbs = 0
+  npts_bs = 0
   outer : do icurv = 1,2 ! <------------------------------------------------+
      ! compute the parameterization of the surface region                   !
      ! of which we consider the border (Chebyshev polynomial basis)         !
@@ -127,10 +121,12 @@ recursive subroutine intersect_simple_surfaces( &
                 icurv, &                                              !  !  !
                 ivar, &                                               !  !  !
                 ival, &                                               !  !  !
+                ipts_ss, &                                            !  !  !
+                npts_ss, &                                            !  !  !
                 uvxyz, &                                              !  !  !
                 nuvxyz, &                                             !  !  !
-                iptsbs, &                                             !  !  !
-                nptsbs, &                                             !  !  !
+                ipts_bs, &                                            !  !  !
+                npts_bs, &                                            !  !  !
                 stat_degeneracy )                                     !  !  !
            !                                                          !  !  !
            if ( stat_degeneracy > 1 ) then ! <-------------------+    !  !  !
@@ -141,33 +137,34 @@ recursive subroutine intersect_simple_surfaces( &
         end do ! <----------------------------------------------------+  !  !
      end do ! <----------------------------------------------------------+  !
   end do outer ! <----------------------------------------------------------+
-
+  if ( allocated(ipts_ss) ) deallocate(ipts_ss)
+  
   ! free allocated polynomials
   call free_polynomial(regc      )
   call free_polynomial(root_c%x  )
   call free_polynomial(root_c%xt )
   call free_polynomial(root_c%xtt)
   
-  if ( nptsbs > 0 ) then ! <------------------------------+
+  if ( npts_bs > 0 ) then ! <-----------------------------+
      do isurf = 1,2 ! <------------------------+          !
         call add_points_bottom_up( &           !          !
              region(isurf)%ptr, &              !          !
-             iptsbs(1:nptsbs), &               !          !
-             nptsbs )                          !          !
+             ipts_bs(1:npts_bs), &             !          !
+             npts_bs )                         !          !
      end do ! <--------------------------------+          !
   end if ! <----------------------------------------------+
 
 
   if ( stat_degeneracy > 1 ) then ! <---------------------+
-     if ( allocated(iptsbs) ) deallocate(iptsbs)          !
+     if ( allocated(ipts_bs) ) deallocate(ipts_bs)        !
      return                                               !
   end if ! <----------------------------------------------+
 
   IF ( DEBUG ) THEN
-     PRINT *,'NPTSBS =',NPTSBS
-     IF ( NPTSBS > 0 ) THEN
-        PRINT *,'IPTSBS =',IPTSBS
-        CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTSBS(1:NPTSBS))) )
+     PRINT *,'NPTS_BS =',NPTS_BS
+     IF ( NPTS_BS > 0 ) THEN
+        PRINT *,'IPTS_BS =',IPTS_BS
+        CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:NPTS_BS))) )
      END IF
 
      PRINT *,'REGION%IPTS ='
@@ -181,7 +178,7 @@ recursive subroutine intersect_simple_surfaces( &
 
   END IF
 
-  if ( nptsbs > 2 ) then ! <--------------------------------------------------+
+  if ( npts_bs > 2 ) then ! <-------------------------------------------------+
      ! More than 2 border-surface intersection points have been found,        !
      ! the situation is ambiguous so we need to carry on the recursion.       !
      ! Both regions are subdivided at their parametric center point           !
@@ -239,19 +236,18 @@ recursive subroutine intersect_simple_surfaces( &
         end do ! <------------------------------------------------------+  !  !
      end do ! <------------------------------------------------------------+  !
      !                                                                        !
-  elseif ( nptsbs > 0 ) then ! -----------------------------------------------+
+  elseif ( npts_bs > 0 ) then ! ----------------------------------------------+
      ! 0 < npts <= 2                                                          !
      ! classify the border-surface intersection points (entering, exiting,    !
      ! isolated)                                                              !
      call classify_border_surface_intersection_point( &                       !
           surfroot, &                                                         !
           region, &                                                           !
-          reshape( uvxyz(1:4,iptsbs(1:nptsbs)), [2,2,nptsbs] ), &             !
-          nptsbs, &                                                           !
-          stat_point(1:nptsbs) )                                              !
+          reshape( uvxyz(1:4,ipts_bs(1:npts_bs)), [2,2,npts_bs] ), &          !
+          npts_bs, &                                                          !
+          stat_point(1:npts_bs) )                                             !
      !                                                                        !
-     if ( nptsbs == 2 ) then ! <--------------------------------------+       !
-        !IF ( DEBUG ) PRINT *,'HERE'
+     if ( npts_bs == 2 ) then ! <-------------------------------------+       !
         if ( stat_point(1)*stat_point(2) < 0 ) then ! <---------+     !       !
            ! 1 entering point and 1 exiting point.              !     !       !
            ! Re-order the points from entering to exiting       !     !       !
@@ -265,7 +261,7 @@ recursive subroutine intersect_simple_surfaces( &
            call add_intersection_curve( &                       !     !       !
                 interdata, &                                    !     !       !
                 param_vector, &                                 !     !       !
-                iptsbs(order), &                                !     !       !
+                ipts_bs(order), &                               !     !       !
                 reshape([region(1)%ptr%uvbox,&                  !     !       !
                 region(2)%ptr%uvbox], [2,2,2]) )                !     !       !
            IF ( DEBUG ) PRINT *,'+1 INTERSECTION CURVE'
@@ -278,14 +274,14 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'2 BSI POINTS - INCORRECT CONFIGURATION'
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
-           CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTSBS(1:2))) )
+           CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:2))) )
            CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
            CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
            stat_degeneracy = 35                                 !     !       !
         end if ! <----------------------------------------------+     !       !
         !                                                             !       !
-     elseif ( nptsbs == 1 ) then ! -----------------------------------+       !
+     elseif ( npts_bs == 1 ) then ! ----------------------------------+       !
         if ( stat_point(1) == 0 ) then ! <----------------------+     !       !
            ! 1 isolated point                                   !     !       !
         else ! -------------------------------------------------+     !       !
@@ -294,7 +290,7 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'1 BSI POINT - INCORRECT CONFIGURATION'
            PRINT *,'STAT_POINT =',STAT_POINT(1)
            PRINT *,'UVXYZ ='
-           PRINT *,UVXYZ(:,IPTSBS(1))
+           PRINT *,UVXYZ(:,IPTS_BS(1))
            CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
            CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
@@ -305,8 +301,8 @@ recursive subroutine intersect_simple_surfaces( &
      !                                                                        !
   end if ! <------------------------------------------------------------------+
 
-  !IF ( DEBUG ) PRINT *,'FREE IPTSBS...'
-  if ( allocated(iptsbs) ) deallocate(iptsbs)
+  !IF ( DEBUG ) PRINT *,'FREE IPTS_BS...'
+  if ( allocated(ipts_bs) ) deallocate(ipts_bs)
   !IF ( DEBUG ) PRINT *,'           ...OK'
 
 end subroutine intersect_simple_surfaces

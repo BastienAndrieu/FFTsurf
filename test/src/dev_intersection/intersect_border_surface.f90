@@ -5,10 +5,12 @@ subroutine intersect_border_surface( &
      icurv, &
      ivar, &
      ival, &
+     ipts_ss, &
+     npts_ss, &
      uvxyz, &
      nuvxyz, &
-     iptsbs, &
-     nptsbs, &
+     ipts_bs, &
+     npts_bs, &
      stat_degeneracy )
   use mod_math
   use mod_polynomial
@@ -22,18 +24,18 @@ subroutine intersect_border_surface( &
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
   integer,                    intent(in)    :: icurv, ivar, ival
+  integer, allocatable,       intent(in)    :: ipts_ss(:)
+  integer,                    intent(in)    :: npts_ss
   real(kind=fp), allocatable, intent(inout) :: uvxyz(:,:)
   integer,                    intent(inout) :: nuvxyz
-  integer, allocatable,       intent(inout) :: iptsbs(:)
-  integer,                    intent(inout) :: nptsbs
+  integer, allocatable,       intent(inout) :: ipts_bs(:)
+  integer,                    intent(inout) :: npts_bs
   integer,                    intent(inout) :: stat_degeneracy
   integer                                   :: isurf, jvar
   type(type_region)                         :: region_c
   type(type_region)                         :: region_s
   real(kind=fp), allocatable                :: tuvxyz(:,:)
   integer                                   :: ntuvxyz, ntuvxyz_tmp
-  integer, allocatable                      :: sharedpts(:)
-  integer                                   :: n_sharedpts
   real(kind=fp)                             :: tmp(7), uv(2,2)
   integer                                   :: ipt, jpt
 
@@ -71,26 +73,17 @@ subroutine intersect_border_surface( &
   
   ntuvxyz = 0
   allocate(tuvxyz(6,10))
-  ! get the list of already discovered intersection points contained in both surface regions *
-  n_sharedpts = 0                                                                          ! *
-  if ( region(1)%ptr%npts > 0 .and. region(2)%ptr%npts > 0 ) then ! <-----------------------+ PASSER
-     call intersection_arrays( &                                                            ! DANS 
-          region(1)%ptr%ipts(1:region(1)%ptr%npts), &                                       ! INTERSECT
-          region(2)%ptr%ipts(1:region(2)%ptr%npts), &                                       ! SURFACE-
-          sharedpts )                                                                       ! SURFACE
-     if ( allocated(sharedpts) ) n_sharedpts = size(sharedpts)                              !*
-  end if ! <--------------------------------------------------------------------------------+*
   IF ( DEBUG ) THEN
-     PRINT *,'N_SHAREDPTS =',n_sharedpts
-     IF ( N_SHAREDPTS > 0 ) THEN
-        PRINT *,sharedpts(1:n_sharedpts)
-        CALL PRINT_MAT( TRANSPOSE(UVXYZ(1:4,sharedpts(1:n_sharedpts))) )
+     PRINT *,'NPTS_SS =',npts_ss
+     IF ( NPTS_SS > 0 ) THEN
+        PRINT *,ipts_ss(1:npts_ss)
+        CALL PRINT_MAT( TRANSPOSE(UVXYZ(1:4,ipts_ss(1:npts_ss))) )
      END IF
   END IF
 
   ! check if some of these points are located on the current border
-  do jpt = 1,n_sharedpts ! <----------------------------------------------------------------+
-     ipt = sharedpts(jpt)                                                                   !
+  do jpt = 1,npts_ss ! <--------------------------------------------------------------------+
+     ipt = ipts_ss(jpt)                                                                     !
      tmp(1) = uvxyz(2*(icurv-1)+ivar,ipt)                                                   !
      !                                                                                      !
      if ( abs( tmp(1) - region(icurv)%ptr%uvbox(2*(ivar-1)+ival) ) < EPSuv ) then ! <---+   !
@@ -114,8 +107,8 @@ subroutine intersect_border_surface( &
              ntuvxyz )                                                                  !   !
         !                                                                               !   !
         call append_n( &                                                                !   !
-             iptsbs, &                                                                  !   !
-             nptsbs, &                                                                  !   !
+             ipts_bs, &                                                                 !   !
+             npts_bs, &                                                                 !   !
              [ipt], &                                                                   !   !
              1, &                                                                       !   !
              unique=.true. )                                                            !   !
@@ -145,10 +138,15 @@ subroutine intersect_border_surface( &
   IF ( DEBUG ) THEN
      PRINT *,'NTUVXYZ =',NTUVXYZ
      IF ( NTUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
-
      !CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )
      !CALL EXPORT_REGION_TREE( REGION_S, 'dev_intersection/treebsi_s.dat' )
+  END IF
 
+  IF ( stat_degeneracy > 0 ) THEN
+     CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugbsi_c.bern' )
+     CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugbsi_s.bern' )
+     CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )
+     CALL EXPORT_REGION_TREE( REGION_S, 'dev_intersection/treebsi_s.dat' )
   END IF
 
   ! free the curve region tree
@@ -199,19 +197,18 @@ subroutine intersect_border_surface( &
      end if ! <-----------------------+                             !
      !                                                              !
      call append_n( &                                               !
-          iptsbs, &                                                 !
-          nptsbs, &                                                 !
+          ipts_bs, &                                                !
+          npts_bs, &                                                !
           [jpt], &                                                  !
           1, &                                                      !
           unique=.true. )                                           !
      !                                                              !
      IF ( DEBUG ) THEN
         PRINT *,'+1 UVXYZ :',TMP
-        PRINT *,'IPTSBS <---',NUVXYZ
+        PRINT *,'IPTS_BS <---',NUVXYZ
      END IF
   end do ! <--------------------------------------------------------+
   
-  if ( allocated(sharedpts) ) deallocate(sharedpts)
   if ( allocated(tuvxyz)    ) deallocate(tuvxyz   )
 
 

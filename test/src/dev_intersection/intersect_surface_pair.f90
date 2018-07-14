@@ -84,7 +84,6 @@ recursive subroutine intersect_surface_pair( &
   if ( .not.overlap ) return ! disjoint bounding boxes => empty intersection
 
   ! check if there is a pair of collineal corner points
-  n_collineal(:) = 0._fp
   call find_collineal_corners( &
        region, &
        stat_collineal, &
@@ -101,6 +100,8 @@ recursive subroutine intersect_surface_pair( &
              region(isurf)%ptr%uvbox([1,3]) + &    !             !
              region(isurf)%ptr%uvbox([2,4]) )      !             !
      end do ! <------------------------------------+             !
+  else ! --------------------------------------------------------+
+     n_collineal(:) = 0._fp                                      !
   end if ! <-----------------------------------------------------+
 
 
