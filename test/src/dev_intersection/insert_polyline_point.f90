@@ -21,7 +21,11 @@ subroutine insert_polyline_point( &
   else
      iprev = polyline%np
   end if
+  !PRINT *,'IPREV =',IPREV,', NP =',POLYLINE%NP
 
+  if ( .not.allocated(polyline%uv)  ) allocate(polyline%uv(2,2,PARAM_xtra_np))
+  if ( .not.allocated(polyline%xyz) ) allocate(polyline%xyz(3,PARAM_xtra_np) )
+  
   if ( iprev >= size(polyline%xyz,2) ) then
      call reallocate_polyline( &
           polyline, &

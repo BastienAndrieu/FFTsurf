@@ -629,8 +629,7 @@ contains
        tol = epsilon(1._fp)
     end if
 
-    !is_in_closed_interval = ( x >= a .and. x <= b )
-    is_in_closed_interval = ( x >= a - tol .and. x <= b + tol )
+    is_in_closed_interval = ( x >= min(a,b) - tol .and. x <= max(a,b) + tol )
 
   end function is_in_closed_interval
 
@@ -651,8 +650,7 @@ contains
        tol = epsilon(1._fp)
     end if
 
-    !is_in_open_interval = ( x > a .and. x < b )
-    is_in_open_interval = ( x > a + tol .and. x < b - tol )
+    is_in_open_interval = ( x > min(a,b) + tol .and. x < max(a,b) - tol )
 
   end function is_in_open_interval
 
@@ -696,4 +694,18 @@ contains
 
 
 
+
+  function overlap_intervals( &
+       ab, &
+       cd )
+    implicit none
+    real(kind=fp), dimension(2), intent(in) :: ab, cd
+    logical                                 :: overlap_intervals
+
+    overlap_intervals = ( min(maxval(ab), maxval(cd)) >= max(minval(ab), minval(cd)) )
+    
+  end function overlap_intervals
+
+
+  
 end module mod_math

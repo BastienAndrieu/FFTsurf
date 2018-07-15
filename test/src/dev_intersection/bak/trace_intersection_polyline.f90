@@ -66,7 +66,7 @@ subroutine trace_intersection_polyline( &
   end if
 
   wprev = 0._fp
-  
+
   outer : do
      ! get tangent direction and curvature of the intersection point at the current point
      call diffgeom_intersection_curve( &
@@ -131,17 +131,7 @@ subroutine trace_intersection_polyline( &
            w = dot_product( param_vector, xyz )
            w = ( w - w0 ) / Dw
            if ( is_in_open_interval(w, wprev, 1._fp) ) then
-              ! get tangent direction and curvature of the intersection point at the current point
-              call diffgeom_intersection_curve( &
-                   surf, &
-                   uv, &
-                   duv_ds, &
-                   dxyz_ds, &
-                   stat, &
-                   curvature )
-              if ( h <= FRACcurvature_radius / curvature(1) ) then
-                 exit inner
-              end if
+              exit inner
            else
               IF ( DEBUG ) THEN
                  PRINT *,'XYZ =', XYZ
@@ -155,7 +145,7 @@ subroutine trace_intersection_polyline( &
         end if
 
         ! Newton failed to converge or the step was too large, backtrack
-        !PRINT *,'BACKTRACK, W=',W,', WPREV=',WPREV
+        PRINT *,'BACKTRACK, W=',W,', WPREV=',WPREV
         h = FRACbacktrack * h
         if ( h < EPSh ) then
            ! h << h0 (indefinite backtracking)

@@ -67,8 +67,10 @@ f.close()
 ##########################################################
 
 cls = myc.random_pastels(nsurf)
-clc = [0.0,0.0,0.0]
-ns = 100
+clc = [1.0,0.0,0.0]
+thc = 2.5e-3
+rad = 1.5*thc
+ns = 200
 
 
 ## set up a blank scene
@@ -85,8 +87,11 @@ for c in curves:
     mylb.addPolyline(
         c.xyz,
         clr=clc,
-        thickness=5.e-3,
+        thickness=thc,
         layer=0 )
+
+## add intersection points
+mylb.addVertices(points, clr=clc, radius=rad, layer=0)
 
 ## set camera
 for ob in bpy.context.scene.objects:
@@ -100,8 +105,14 @@ bpy.ops.view3d.camera_to_view_selected()
 scene = bpy.context.scene
 # Environment lighting
 scene.world.light_settings.use_environment_light = True
-scene.world.light_settings.environment_energy = 0.15
+scene.world.light_settings.environment_energy = 0.25
 scene.world.light_settings.environment_color = 'PLAIN'
+scene.world.light_settings.samples = 10
+scene.world.horizon_color = (1.0,1.0,1.0)
+
+bpy.data.lamps['Lamp'].energy = 1.2
+bpy.data.lamps['Lamp'].shadow_ray_samples = 8
+bpy.data.lamps['Lamp'].shadow_soft_size = 2.0
 
 # Render properties
 scene.render.resolution_x = 1024

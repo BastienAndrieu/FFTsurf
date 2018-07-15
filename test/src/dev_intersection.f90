@@ -56,6 +56,7 @@ program dev_intersection
   PRINT *,'NUMTEST =',NUMTEST
   PRINT *,'NUMSURF =',NUMSURF
 
+  
   !narg = command_argument_count()
   !if ( narg < 1 ) then
   !   numtest = 1
@@ -78,6 +79,7 @@ program dev_intersection
      write (strnum2,'(I2.2)') numtest(isurf)
      write (strnum,'(I1)') numsurf(isurf)
      !write (strnum,'(I1)') isurf
+     
      call read_polynomial( &
           surf(isurf)%x, &
           'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
@@ -114,10 +116,12 @@ program dev_intersection
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_interdat( &
+  call write_intersection_data( &
        interdata_global, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
+
+  call free_intersection_data(interdata_global)
   ! =================================================================================
 
 
@@ -139,7 +143,7 @@ contains
 
 
 
-  subroutine write_interdat( &
+  subroutine write_intersection_data( &
        interdat, &
        filepoints, &
        filecurves )
@@ -182,7 +186,7 @@ contains
     end do
     close( fileunit )
 
-  end subroutine write_interdat
+  end subroutine write_intersection_data
 
 
 
@@ -1124,7 +1128,11 @@ subroutine insert_polyline_point( &
   else
      iprev = polyline%np
   end if
+  !PRINT *,'IPREV =',IPREV,', NP =',POLYLINE%NP
 
+  if ( .not.allocated(polyline%uv)  ) allocate(polyline%uv(2,2,PARAM_xtra_np))
+  if ( .not.allocated(polyline%xyz) ) allocate(polyline%xyz(3,PARAM_xtra_np) )
+  
   if ( iprev >= size(polyline%xyz,2) ) then
      call reallocate_polyline( &
           polyline, &
@@ -1258,7 +1266,7 @@ subroutine intersect_all_surfaces( &
               CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
                    'dev_intersection/uvxyz.dat' )
            END IF
-           CALL WRITE_INTERDAT( INTERDATA_LOCAL, &
+           CALL WRITE_INTERSECTION_DATA( INTERDATA_LOCAL, &
                 'dev_intersection/interdata_points.dat', &
                 'dev_intersection/interdata_curves.dat' )
 
@@ -3051,7 +3059,8 @@ subroutine merge_intersection_data( &
   type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
-  integer                                     :: ip, ic
+  integer                                     :: nc
+  integer                                     :: ip, ic, jc, isurf, jsurf
 
   ! add new intersection points
   do ip = 1,nuvxyz
@@ -3063,6 +3072,7 @@ subroutine merge_intersection_data( &
           id_global(ip) ) 
   end do
 
+  nc = interdata_global%nc ! number of curves before adding new ones
   do ic = 1,interdata_local%nc
      ! add curve
      call add_intersection_curve( &
@@ -3070,6 +3080,9 @@ subroutine merge_intersection_data( &
           interdata_local%curves(ic)%param_vector, &
           id_global(interdata_local%curves(ic)%root%endpoints), &
           interdata_local%curves(ic)%uvbox )
+     do isurf = 1,2
+        interdata_global%curves(interdata_global%nc)%surf(isurf)%ptr => surf(isurf)%ptr
+     end do
 
      ! trace polyline
      allocate(interdata_global%curves(interdata_global%nc)%polyline)
@@ -3088,6 +3101,27 @@ subroutine merge_intersection_data( &
         PRINT *,'STAT = ',STAT
         return!STOP
      end if
+
+     ! check intersection with other curves
+     do jc = 1,nc
+        jloop : do jsurf = 1,2
+           do isurf = 1,2
+              if ( associated(&
+                   interdata_global%curves(jc)%surf(jsurf)%ptr, &
+                   surf(isurf)%ptr) ) then
+                 if ( overlap_intervals(&
+                      interdata_global%curves(jc)%uvbox(:,1,jsurf), &
+                      interdata_local%curves(ic)%uvbox(:,1,isurf)) .and. &
+                      overlap_intervals(&
+                      interdata_global%curves(jc)%uvbox(:,2,jsurf), &
+                      interdata_local%curves(ic)%uvbox(:,2,isurf))) then!exit jloop
+                     PRINT *,'BLA'
+                 end if
+              end if
+           end do
+        end do jloop
+        if ( jsurf > 2 ) cycle
+     end do
 
   end do
 
@@ -3380,6 +3414,136 @@ end subroutine newton_intersection_polyline
 
 
 
+subroutine newton_tracing( &
+     surf, &
+     lowerb, &
+     upperb, &
+     p, &
+     wtarget, &
+     tolw, &
+     stat, &
+     uv, &
+     xyzp )
+  use mod_math
+  use mod_linalg
+  use mod_diffgeom2
+  use mod_tolerances  
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
+  type(ptr_surface), intent(in)    :: surf(2)
+  real(kind=fp),     intent(in)    :: lowerb(4)
+  real(kind=fp),     intent(in)    :: upperb(4)
+  real(kind=fp),     intent(in)    :: p(3)
+  real(kind=fp),     intent(in)    :: wtarget
+  real(kind=fp),     intent(in)    :: tolw
+  integer,           intent(out)   :: stat
+  real(kind=fp),     intent(inout) :: uv(2,2)
+  real(kind=fp),     intent(out)   :: xyzp(3)
+  real(kind=fp)                    :: xyz(3,2), dxyz_duv(3,2,2)
+  real(kind=fp)                    :: resxyz, resw
+  real(kind=fp)                    :: r(3), jac(4,4), duv(4)
+  integer                          :: rank
+  real(kind=fp)                    :: cond, erruv
+  integer                          :: it, isurf, ivar
+  
+  !IF ( DEBUG ) THEN
+  !   PRINT *,''; PRINT *,'';
+  !   PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+  !   PRINT *,'LOWERB =',LOWERB
+  !   PRINT *,'UPPERB =',UPPERB
+  !END IF
+  stat = 1
+  erruv = 0._fp
+  cond = 1._fp
+
+  do it = 1,itmax
+     !! compute residual
+     do isurf = 1,2
+        call eval( &
+             xyz(:,isurf), &
+             surf(isurf)%ptr, &
+             uv(:,isurf) )
+     end do
+     r = xyz(:,1) - xyz(:,2)
+
+     !! termination criteria
+     resxyz = sum(r**2)
+     resw   = dot_product(p, xyz(:,1)) - wtarget
+     IF ( DEBUG ) PRINT *,sqrt(resxyz), abs(resw), sqrt(erruv), EPSuv*cond
+
+     if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
+        if ( resxyz < EPSxyzsqr .and. abs(resw) < tolw ) then
+           stat = 0
+           xyzp = 0.5_fp * sum(xyz, 2)
+           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
+        else
+           IF ( DEBUG ) PRINT *,'STAGNATION'
+        end if
+        return
+     end if
+
+     !! compute Jacobian matrix
+     do isurf = 1,2
+        do ivar = 1,2
+           call evald1( &
+                dxyz_duv(:,ivar,isurf), &
+                surf(isurf)%ptr, &
+                uv(:,isurf), &
+                ivar )
+        end do
+        jac(1:3,2*isurf-1:2*isurf) = real((-1)**(isurf+1), kind=fp) * dxyz_duv(1:3,1:2,isurf)
+        if ( isurf == 1 ) then
+           do ivar = 1,2
+              jac(4,ivar) = dot_product(p, dxyz_duv(1:3,ivar,1))
+           end do
+        end if
+     end do
+     jac(4,3:4) = 0._fp
+
+     !! solve for Newton step
+     call linsolve_svd( &
+          duv, &
+          jac, &
+          -[r,resw], &
+          4, &
+          4, &
+          1, &
+          cond, &
+          rank )
+
+     erruv = sum( duv**2 )
+
+     if ( rank < 4 ) then ! <------------------+
+        ! singular Jacobian matrix             !
+        if ( stat == 0 ) then ! <----+         !
+           stat = 2                  !         !
+           IF ( DEBUG ) PRINT *,'SINGULAR JACOBIAN AT SOLUTION'
+           return                    !         !
+        end if ! <-------------------+         !
+     end if ! <--------------------------------+
+
+     !! correct Newton step to keep the iterate inside feasible region
+     call nd_box_reflexions( &
+          reshape(uv, [4]), &
+          lowerb, &
+          upperb, &
+          duv, &
+          4 )
+
+     !! update solution
+     uv(:,1) = uv(:,1) + duv(1:2)
+     uv(:,2) = uv(:,2) + duv(3:4)
+
+  end do
+
+
+end subroutine newton_tracing
+
+
+
+
+
 subroutine reallocate_polyline( &
      polyline, &
      np, &
@@ -3495,7 +3659,7 @@ subroutine trace_intersection_polyline( &
   use mod_types_intersection
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
-  real(kind=fp), parameter                        :: tolchord = real(5.d-4, kind=fp)
+  real(kind=fp), parameter                        :: tolchord = real(1.d-3, kind=fp)
   real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp*sqrt(tolchord*(2._fp - tolchord))
   real(kind=fp), parameter                        :: tolh = real(1.d-2, kind=fp)
   real(kind=fp), parameter                        :: tolhsqr = tolh**2
@@ -3515,8 +3679,6 @@ subroutine trace_intersection_polyline( &
   real(kind=fp)                                   :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                                   :: h, EPSh
   
-  
-
   stat = 0
   lowerb = reshape(uvbox(1,1:2,1:2), [4])
   upperb = reshape(uvbox(2,1:2,1:2), [4])
@@ -3536,30 +3698,36 @@ subroutine trace_intersection_polyline( &
   END IF
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
-
+  
   ! first point
   call insert_polyline_point( &
-       uv_endpoints(:,:,1), &
-       xyz_endpoints(:,1), &
+       uv_endpoints(1:2,1:2,1), &
+       xyz_endpoints(1:3,1), &
        stat, &
-       polyline )
+       polyline, &
+       i=0 )
   if ( stat > 0 ) then
      stat = stat + 2 
      return
   end if
 
   wprev = 0._fp
-
+  
   outer : do
      ! get tangent direction and curvature of the intersection point at the current point
      call diffgeom_intersection_curve( &
           surf, &
-          polyline%uv(:,:,polyline%np), &
+          polyline%uv(1:2,1:2,polyline%np), &
           duv_ds, &
           dxyz_ds, &
           stat, &
           curvature )
 
+     IF ( POLYLINE%NP > 1 ) THEN
+        IF ( NORM2( POLYLINE%XYZ(:,POLYLINE%NP) - POLYLINE%XYZ(:,POLYLINE%NP-1) ) > FRACcurvature_radius / curvature(1) ) &
+             PRINT *,NORM2( POLYLINE%XYZ(:,POLYLINE%NP) - POLYLINE%XYZ(:,POLYLINE%NP-1) ) / ( FRACcurvature_radius / curvature(1) )
+     END IF
+     
      if ( stat > 1 ) then
         select case (stat)
         case (2) 
@@ -3597,19 +3765,29 @@ subroutine trace_intersection_polyline( &
              surf, &
              lowerb, &
              upperb, &
-             polyline%xyz(:,polyline%np), &
+             polyline%xyz(1:3,polyline%np), &
              h**2, &
              tolhsqr, &
              stat, &
              uv, &
              xyz )
-
+     
         if ( stat == 0 ) then
            ! Newton has converged, check whether w is monotonic along the polyline
            w = dot_product( param_vector, xyz )
            w = ( w - w0 ) / Dw
            if ( is_in_open_interval(w, wprev, 1._fp) ) then
-              exit inner
+              ! get tangent direction and curvature of the intersection point at the current point
+              call diffgeom_intersection_curve( &
+                   surf, &
+                   uv, &
+                   duv_ds, &
+                   dxyz_ds, &
+                   stat, &
+                   curvature )
+              if ( h <= FRACcurvature_radius / curvature(1) ) then
+                 exit inner
+              end if
            else
               IF ( DEBUG ) THEN
                  PRINT *,'XYZ =', XYZ
@@ -3622,7 +3800,8 @@ subroutine trace_intersection_polyline( &
            return
         end if
 
-        ! Newton failed to converge, backtrack
+        ! Newton failed to converge or the step was too large, backtrack
+        !PRINT *,'BACKTRACK, W=',W,', WPREV=',WPREV
         h = FRACbacktrack * h
         if ( h < EPSh ) then
            ! h << h0 (indefinite backtracking)
@@ -3637,7 +3816,8 @@ subroutine trace_intersection_polyline( &
           uv, &
           xyz, &
           stat, &
-          polyline ) 
+          polyline, &
+          i=polyline%np ) 
      if ( stat > 0 ) then
         stat = stat + 2 
         return
@@ -3657,10 +3837,11 @@ subroutine trace_intersection_polyline( &
 
   ! last point
   call insert_polyline_point( &
-       uv_endpoints(:,:,2), &
-       xyz_endpoints(:,2), &
+       uv_endpoints(1:2,1:2,2), &
+       xyz_endpoints(1:3,2), &
        stat, &
-       polyline ) 
+       polyline, &
+       i=polyline%np ) 
   if ( stat > 0 ) then
      stat = stat + 2 
      return

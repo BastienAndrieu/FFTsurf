@@ -55,6 +55,7 @@
   PRINT *,'NUMTEST =',NUMTEST
   PRINT *,'NUMSURF =',NUMSURF
 
+  
   !narg = command_argument_count()
   !if ( narg < 1 ) then
   !   numtest = 1
@@ -77,6 +78,7 @@
      write (strnum2,'(I2.2)') numtest(isurf)
      write (strnum,'(I1)') numsurf(isurf)
      !write (strnum,'(I1)') isurf
+     
      call read_polynomial( &
           surf(isurf)%x, &
           'coeffstest/C' // strnum // '_test' // strnum2 // '.txt', &
@@ -113,10 +115,12 @@
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_interdat( &
+  call write_intersection_data( &
        interdata_global, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
+
+  call free_intersection_data(interdata_global)
   ! =================================================================================
 
 
@@ -138,7 +142,7 @@ contains
 
 
 
-  subroutine write_interdat( &
+  subroutine write_intersection_data( &
        interdat, &
        filepoints, &
        filecurves )
@@ -181,5 +185,5 @@ contains
     end do
     close( fileunit )
 
-  end subroutine write_interdat
+  end subroutine write_intersection_data
 
