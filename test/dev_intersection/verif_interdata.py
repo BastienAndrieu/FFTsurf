@@ -1,16 +1,16 @@
 import bpy
 import numpy as np
 import sys
-sys.path.append('/home/bastien/Bureau/Python/')
-#sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
+sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
+#sys.path.append('/home/bastien/Bureau/Python/')
 import my_lib1 as myl
 import my_lib as mylb
 import my_colors as myc
 
 ##########################################################
 
-#pth = '/home/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
-pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
+pth = '/home/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
+#pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
 
 ##########################################################
 
@@ -101,6 +101,7 @@ for ob in bpy.context.scene.objects:
         ob.select = False
         
 bpy.ops.view3d.camera_to_view_selected()
+#bpy.data.screens['Default'].spaces.lock_camera = True
 
 scene = bpy.context.scene
 # Environment lighting

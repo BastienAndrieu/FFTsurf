@@ -10,9 +10,11 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/LIBS/mylib/TopologicalEnti
 cl = colorcet( 'I2', 'N', 2 );
 
 uvbox = [
-    0.12500000000000000       0.25000000000000000       0.62500000000000000       0.75000000000000000     
-  0.81230048224324880        1.0000000000000000       0.50000000000000000       0.61733631445845816
-  ];
+    0.0000000000000000        1.0000000000000000       -1.0000000000000000        0.0000000000000000     
+  -1.0000000000000000        0.0000000000000000        0.0000000000000000        1.0000000000000000
+%     -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000     
+%   -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000
+    ];
 
 tbox = [0,1];
 ubox = [-1,-1;0,0];
@@ -21,8 +23,8 @@ ubox = [-1,-1;0,0];
 jvar = 1 + mod(ivar,2);
 
 tuvxyz = [
-    0.97120707878475154      -0.96383061393349523       -1.0000000000000000      -1.0000000000000000       0.67655888569534262       0.99109438207914291
-    ];
+    -1.0000000000000000       -1.0000000000000000        1.0000000000000000 1.0000000000000000      -0.11755705045849460       0.16180339887498874
+];
 
 uv = zeros(2,2,size(tuvxyz,1));
 for i = 1:size(tuvxyz,1)
@@ -55,6 +57,11 @@ hold on
 
 for isurf = 1:2
     cr = readCoeffs2( sprintf('surfroot%d_x.cheb', isurf) );
+    
+    if isurf ~= icurv
+        S.c = cr;
+    end
+    
     if 0%isurf ~= icurv
         c = chgvar2( cr, ubox );
         writeCoeffs2(c,'../newton_curve_surface_singular/surf.cheb');
@@ -79,8 +86,9 @@ for isurf = 1:2
     
     if isurf == icurv
         c = border_parameterization( c, ivar, ival );
-%         c = chgvar1(c, tbox);
-%         writeCoeffs1(c,'../newton_curve_surface_singular/curv.cheb');
+        G.c = c;
+        %         c = chgvar1(c, tbox);
+        %         writeCoeffs1(c,'../newton_curve_surface_singular/curv.cheb');
         
         g = chebval1( c, linspace(-1,1,100)' );
         plot3( g(:,1), g(:,2), g(:,3), '-', 'color', 0.4*cl(isurf,:) );
@@ -90,7 +98,7 @@ for isurf = 1:2
         z = ICT2unstr(cr, tuvxyz(:,2:3));
     end
     
-    %     plot3( z(:,1), z(:,2), z(:,3), 'o', 'color', 0.4*cl(isurf,:) );
+    plot3( z(:,1), z(:,2), z(:,3), 'o', 'color', 0.4*cl(isurf,:) );
 end
 
 
@@ -109,4 +117,101 @@ camproj('persp');
 [xl,yl,zl] = sph2cart( pi()*azl/180, pi()*ell/180, 10 );
 light( 'style', 'infinite', 'position', [xl,yl,zl] );
 light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
+
+
+%%
+S.d = cheb_diff2( S.c );
+d2u = cheb_diff2( S.d(:,:,:,1) );
+d2v = cheb_diff2( S.d(:,:,:,2) );
+S.d2 = cat( 4, d2u, d2v(:,:,:,2) );
+
+G.d = cheb_diff1( G.c );
+G.d2 = cheb_diff1( G.d );
+
+t = tuvxyz(:,1);
+uv = tuvxyz(:,2:3);
+
+for i = 1:size(t,1)
+    g1 = chebval1( G.d, t(i) )';
+    g2 = chebval1( G.d2, t(i) )';
+    
+    s1 = zeros(3,2);
+    s2 = zeros(3,3);
+    for ivar = 1:2
+        s1(:,ivar) = ICT2unstr( S.d(:,:,:,ivar), uv(i,:) )';
+    end
+    for ivar = 1:3
+        s2(:,ivar) = ICT2unstr( S.d2(:,:,:,ivar), uv(i,:) )';
+    end
+    
+    n = cross( s1(:,1), s1(:,2) );
+    n = n / norm(n);
+    
+    wt = s1 \ g1;
+    
+    y = g2 - ( wt(1)^2 * s2(:,1) + 2 * wt(1)*wt(2) * s2(:,2) + wt(2)^2 * s2(:,3) );
+    
+    fprintf( '|gt.n|/|gt| = %e\n |y.n|/|y| = %e\n', abs(dot(g1,n))/norm(g1), abs(dot(y,n))/norm(y) );
+    fprintf( '     |gt.n| = %e\n     |y.n| = %e\n', abs(dot(g1,n))         , abs(dot(y,n))         );
+    
+    s = ICT2unstr( S.c, uv(i,:) )';
+    g = chebval1( G.c, t(i) )';
+    x = 0.5*(s + g);
+    
+    g1 = g1 / norm(g1);
+    quiver3( x(1), x(2), x(3), n(1), n(2), n(3), 0.2, 'r' );
+    quiver3( x(1), x(2), x(3), g1(1), g1(2), g1(3), 0.2, 'b' );
+end
+
+
+%%
+EPS = 1e-9;
+cr = chgvar2( S.c, reshape(uvbox(1+mod(icurv,2),:),2,2) );
+S.b = chebyshev2bezier_2(cr);
+G.b = chebyshev2bezier_1(G.c);
+
+seps = reshape(S.b, [], 3);
+seps = seps - repmat(tuvxyz(1,4:6),size(seps,1),1);
+seps(sqrt(sum(seps.^2,2)) < EPS,:) = [];
+seps = seps + repmat(tuvxyz(1,4:6),size(seps,1),1);
+
+
+sepc = G.b;
+sepc = sepc - repmat(tuvxyz(1,4:6),size(sepc,1),1);
+sepc(sqrt(sum(sepc.^2,2)) < EPS,:) = [];
+sepc = sepc + repmat(tuvxyz(1,4:6),size(sepc,1),1);
+
+
+[ vec, stat ] = separating_plane( sepc, seps )
+
+
+
+
+qs = myconvhulln(seps);
+qc = myconvhulln(sepc);
+
+figure;
+hold on
+
+for isurf = 1:2
+    if isurf == icurv
+        q = qc;
+        sep = sepc;
+    else
+        q = qs;
+        sep = seps;
+    end
+    trisurf(q, sep(:,1), sep(:,2), sep(:,3), ...
+        'facecolor', cl(isurf,:), 'edgecolor', 'none' );
+end
+
+if stat == 0
+    plot_separating_plane(vec);
+end
+
+axis image vis3d
+view(120,30)
+camproj('persp');
+camlight(30,30);
+
 

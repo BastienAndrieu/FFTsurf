@@ -272,6 +272,10 @@ recursive subroutine intersect_simple_surfaces( &
            ! incorrect configuration                            !     !       !
            PRINT *,'------------------------------------------'
            PRINT *,'2 BSI POINTS - INCORRECT CONFIGURATION'
+           PRINT *,'UVBOXES ='
+           DO ISURF = 1,2 ! <-----------------+
+              PRINT *,REGION(ISURF)%PTR%UVBOX !
+           END DO ! <-------------------------+
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
            CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:2))) )
@@ -282,12 +286,16 @@ recursive subroutine intersect_simple_surfaces( &
         end if ! <----------------------------------------------+     !       !
         !                                                             !       !
      elseif ( npts_bs == 1 ) then ! ----------------------------------+       !
-        if ( stat_point(1) == 0 ) then ! <----------------------+     !       !
+        if ( .TRUE. ) THEN!stat_point(1) == 0 ) then ! <----------------------+     !       !
            ! 1 isolated point                                   !     !       !
         else ! -------------------------------------------------+     !       !
            ! incorrect configuration                            !     !       !
            PRINT *,'------------------------------------------'
            PRINT *,'1 BSI POINT - INCORRECT CONFIGURATION'
+           PRINT *,'UVBOXES ='
+           DO ISURF = 1,2 ! <-----------------+
+              PRINT *,REGION(ISURF)%PTR%UVBOX !
+           END DO ! <-------------------------+
            PRINT *,'STAT_POINT =',STAT_POINT(1)
            PRINT *,'UVXYZ ='
            PRINT *,UVXYZ(:,IPTS_BS(1))

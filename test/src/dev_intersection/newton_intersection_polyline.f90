@@ -4,7 +4,6 @@ subroutine newton_intersection_polyline( &
      upperb, &
      xyzp_prev, &
      htargetsqr, &
-     tolhsqr, &
      stat, &
      uv, &
      xyzp )
@@ -20,7 +19,6 @@ subroutine newton_intersection_polyline( &
   real(kind=fp),     intent(in)    :: upperb(4)
   real(kind=fp),     intent(in)    :: xyzp_prev(3)
   real(kind=fp),     intent(in)    :: htargetsqr
-  real(kind=fp),     intent(in)    :: tolhsqr
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv(2,2)
   real(kind=fp),     intent(out)   :: xyzp(3)
@@ -57,7 +55,7 @@ subroutine newton_intersection_polyline( &
      resh   = sum(r2**2) - htargetsqr
      IF ( DEBUG ) PRINT *,sqrt(resxyz), sqrt(abs(resh)), sqrt(erruv), EPSuv*cond
 
-     if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
+     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
         if ( resxyz < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
            stat = 0
            xyzp = 0.5_fp * sum(xyz, 2)

@@ -3,7 +3,6 @@ subroutine newton_intersection_polyline( &
      !uvbox, &
      xyz_prev, &
      htargetsqr, &
-     tolhsqr, &
      uv, &
      xyz, &
      stat )     
@@ -17,7 +16,6 @@ subroutine newton_intersection_polyline( &
   !real(kind=fp),     intent(in)    :: uvbox(4,2)
   real(kind=fp),     intent(in)    :: xyz_prev(3)
   real(kind=fp),     intent(in)    :: htargetsqr
-  real(kind=fp),     intent(in)    :: tolhsqr
   real(kind=fp),     intent(inout) :: uv(2,2)
   real(kind=fp),     intent(out)   :: xyz(3)
   integer,           intent(out)   :: stat

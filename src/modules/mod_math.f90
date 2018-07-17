@@ -34,7 +34,7 @@ module mod_math
   !end interface
 
   interface print_mat
-     module procedure print_mat_R, print_mat_D
+     module procedure print_mat_I, print_mat_R, print_mat_D
   end interface print_mat
 
   
@@ -397,9 +397,7 @@ contains
   ! print_mat
   ! print une matrice rectangulaire
   subroutine print_mat_D(A)
-
     implicit none
-
     real*8, dimension(:,:), intent(in) :: A
     integer                            :: i
 
@@ -410,9 +408,7 @@ contains
   end subroutine print_mat_D
 
   subroutine print_mat_R(A)
-
     implicit none
-
     real, dimension(:,:), intent(in) :: A
     integer                          :: i
 
@@ -421,6 +417,17 @@ contains
     end do
 
   end subroutine print_mat_R
+
+  subroutine print_mat_I(A)
+    implicit none
+    integer, dimension(:,:), intent(in) :: A
+    integer                             :: i
+
+    do i = 1,size(A,1)
+       print *,A(i,:)
+    end do
+
+  end subroutine print_mat_I
   ! -----------------------------------------
 
 

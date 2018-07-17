@@ -29,6 +29,8 @@ subroutine classify_border_surface_intersection_point( &
           duv_ds, &                                               !
           dxyz_ds, &                                              !
           stat_contactpoint )                                     !
+     !PRINT *,'    UV =',UV(:,:,IPT)
+     !PRINT *,'DUV_DS =',DUV_DS(:,1,:)
      !                                                            !
      if ( stat_contactpoint > 1 ) then ! <---------------------+  !
         PRINT *,'classify_border_surface_intersection_point : &
@@ -52,7 +54,9 @@ subroutine classify_border_surface_intersection_point( &
      end do                                                       !
      !                                                            !
      sumstat = sum(stat)                                          !
-     if ( sumstat == 0 ) then ! <---------+                       !
+     if ( any(stat == 2) ) then ! <-------+                       !
+        STOP 'AMBIGUOUS POINT'
+     elseif ( sumstat == 0 ) then ! <-----+                       !
         stat_point(ipt) = 0               !                       !
      elseif ( sumstat < 0 ) then ! -------+                       !
         stat_point(ipt) = -1              !                       !

@@ -64,7 +64,7 @@ subroutine newton_curve_surface( &
      end if
      
      !! termination criteria
-     if ( errtuv < EPSuvsqr*cond**2 .and. it > 1 ) then
+     if ( errtuv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
         if ( resxyz < EPSxyzsqr ) then
            ! converged to a curve-surface intersection point
            stat = 0

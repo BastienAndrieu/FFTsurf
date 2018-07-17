@@ -48,7 +48,7 @@ for i = dim+1:n
     
     if abs(A(i,l)) < 1e-15
         continue
-        warning('solve_LPP_d : contrainte principale nulle');
+        if debug; warning('solve_LPP_d : contrainte principale nulle'); end
     end
     
     j = setdiff(1:dim,l);

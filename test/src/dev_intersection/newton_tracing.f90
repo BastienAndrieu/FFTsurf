@@ -33,7 +33,7 @@ subroutine newton_tracing( &
   
   !IF ( DEBUG ) THEN
   !   PRINT *,''; PRINT *,'';
-  !   PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+  !   PRINT *,'NEWTON_TRACING'
   !   PRINT *,'LOWERB =',LOWERB
   !   PRINT *,'UPPERB =',UPPERB
   !END IF

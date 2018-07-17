@@ -10,10 +10,10 @@ subroutine trace_intersection_polyline( &
   use mod_diffgeom2
   implicit none
   LOGICAL, PARAMETER :: DEBUG = .false.
-  real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
-  real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
-  real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
-  real(kind=fp), parameter                        :: tolhsqr = tolh**2
+  !real(kind=fp), parameter                        :: tolchord = real( 5.e-4, kind=fp )
+  !real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp * sqrt( tolchord*(2._fp - tolchord ) )
+  !real(kind=fp), parameter                        :: tolh = real( 1e-2, kind=fp )
+  !real(kind=fp), parameter                        :: tolhsqr = tolh**2
   real(kind=fp), parameter                        :: tolw = tolh
   real(kind=fp), parameter                        :: FRACbacktrack = 0.5_fp
   real(kind=fp), parameter                        :: EPSbacktrack = real( 1e-2, kind=fp )
@@ -111,7 +111,6 @@ subroutine trace_intersection_polyline( &
              surf, &
              polyline%xyz(:,polyline%np), &
              h**2, &
-             tolhsqr, &
              uv, &
              xyz, &
              stat )    

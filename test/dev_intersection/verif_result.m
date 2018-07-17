@@ -5,11 +5,11 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
 
-nsurf = 3;
+nsurf = 2;
 
 cl = colorcet( 'I2', 'N', nsurf );
 cl = CC( cl, 0.0, 0.8, 1.5 );
-cli = 'y';%'k';
+cli = 'k';%'y';%
 
 PLOT_TREE = 1;
 

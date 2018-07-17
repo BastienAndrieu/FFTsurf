@@ -77,6 +77,11 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
+        IF ( DEBUG ) THEN
+           PRINT *,''; PRINT *,''; PRINT *,''
+           PRINT *,'PAIR :',ISURF,JSURF
+        END IF
+
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -122,9 +127,6 @@ subroutine intersect_all_surfaces( &
            !END DO
         END IF
 
-        ! if a degeneracy has been encountered, report it
-        if ( stat_degeneracy > 0 ) exit outer
-
         ! trace intersection curves and append them to the global intersection data collection
         call merge_intersection_data( &
              surfpair, &
@@ -137,6 +139,9 @@ subroutine intersect_all_surfaces( &
         call free_intersection_data(interdata_local)
         call free_ipts(region(1)%ptr)
         call free_ipts(region(2)%ptr)
+
+        ! if a degeneracy has been encountered, report it
+        if ( stat_degeneracy > 0 ) exit outer
 
      end do inner
   end do outer

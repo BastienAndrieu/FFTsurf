@@ -4,8 +4,8 @@ VERBOSE = False
 
 
 nom_module = 'chebyshev'
-#src = '/home/bandrieu/GitHub/FFTsurf/src/'
-src = '/home/bastien/GitHub/FFTsurf/src/'
+src = '/home/bandrieu/GitHub/FFTsurf/src/'
+#src = '/home/bastien/GitHub/FFTsurf/src/'
 
 f = open( src + 'modules/mod_' + nom_module + '.f90', 'w' )
 f.write('module mod_' + nom_module + '\n')

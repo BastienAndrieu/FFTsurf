@@ -7,7 +7,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/LIBS/mylib/TopologicalEnti
 tol = 1e-14;
 
 %%
-for j = 1:19
+for j = 1:23
     for i = 1:2
         C = readCoeffs2(sprintf('C%d_test%2.2d.txt',i,j));
 

@@ -120,3 +120,8 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/linearalgebra.out t
 
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection.f90 -o test/obj/dev_intersection.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.out test/obj/dev_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev2.o obj/mod_bernstein2.o obj/mod_polynomial.o obj/mod_diffgeom2.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o -Lsrc/dfftpack -ldfftpack
+
+
+
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/polylines.f90 -o test/obj/polylines.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/polylines.out test/obj/polylines.o obj/mod_util.o obj/mod_math.o

@@ -43,6 +43,10 @@ subroutine intersect_border_surface( &
      PRINT *,''; PRINT *,'';
      PRINT *,'INTERSECT_BORDER_SURFACE'
      PRINT *,'ICURV, IVAR, IVAL =',ICURV,IVAR,IVAL
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2 ! <-----------------+
+        PRINT *,REGION(ISURF)%PTR%UVBOX !
+     END DO ! <-------------------------+
   END IF
 
   isurf = 1 + mod(icurv,2)
@@ -143,6 +147,8 @@ subroutine intersect_border_surface( &
   END IF
 
   IF ( stat_degeneracy > 0 ) THEN
+     CALL WRITE_POLYNOMIAL( ROOT_C%X, 'dev_intersection/debugbsi_c.cheb' )
+     CALL WRITE_POLYNOMIAL( ROOT_S(isurf)%ptr%X, 'dev_intersection/debugbsi_s.cheb' )
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugbsi_c.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugbsi_s.bern' )
      CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )

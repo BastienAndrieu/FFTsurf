@@ -78,18 +78,23 @@ subroutine find_collineal_points( &
      IF ( DEBUG ) PRINT *,'F =',F 
 
      !! termination criteria
-     if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then ! <---+
-        if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+                      !
-           ! converged to a tangential intersection point  !                      !
-           stat = -1                                       !                      !
-           xyz_collineal = 0.5_fp * sum(xyz, 2)            !                      !
-        else ! --------------------------------------------+                      !
-           ! converged to a pair of collineal points       !                      !
-           stat = 0                                        !                      !
-        end if ! <-----------------------------------------+                      !
-        n_collineal = n / norm2( n )                                              !
-        return                                                                    !
-     end if ! <-------------------------------------------------------------------+
+     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then ! <---+
+        !if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then ! <---+
+        if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+                !
+           if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !                !
+              ! converged to a tangential intersection point  !    !                !
+              stat = -1                                       !    !                !
+              xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !                !
+           else ! --------------------------------------------+    !                !
+              ! converged to a pair of collineal points       !    !                !
+              stat = 0                                        !    !                !
+           end if ! <-----------------------------------------+    !                !
+           n_collineal = n / norm2( n )                            !                !
+        else ! ----------------------------------------------------+                !
+           IF ( DEBUG ) PRINT *,'STAGNATION'                       !                !
+        end if ! <-------------------------------------------------+                !
+        return                                                                      !
+     end if ! <---------------------------------------------------------------------+
 
 
      !! compute Jacobian matrix

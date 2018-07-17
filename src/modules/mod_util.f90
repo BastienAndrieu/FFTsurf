@@ -11,6 +11,10 @@ module mod_util
      module procedure append_integer, append_double
   end interface append
 
+  interface append_vec
+     module procedure append_vec_i, append_vec_d
+  end interface append_vec
+
 contains
 
   subroutine get_free_unit( iunit )
@@ -22,7 +26,7 @@ contains
     iunit = 0
     do i = 1,99
        if ( i == 5 .or. i == 6 ) cycle
-       
+
        inquire( unit=i, opened=isopen, iostat=stat )
        if ( stat /= 0 ) cycle
        if ( .not.isopen ) then
@@ -34,7 +38,7 @@ contains
 
 
 
-  
+
   function int2logic(i)
     ! Converts an integer to a logical
     implicit none
@@ -68,7 +72,7 @@ contains
 
 
 
-  
+
   subroutine is_in_list( &
        list, &
        val, &
@@ -106,32 +110,6 @@ contains
 
 
 
-  !subroutine intersection_lists( &
-  !     list1, &
-  !     list2, &
-  !     inter, &
-  !     ninter )
-  !  implicit none
-  !  integer, intent(in)  :: list1(:), list2(:)
-  !  integer, intent(out) :: inter(:), ninter
-  !  integer              :: i, j
-  !  ninter = 0
-  !  do i = 1,size(list1)
-  !     do j = 1,size(list2)
-  !       if ( list1(i) == list2(j) ) then
-  !          ninter = ninter + 1
-  !          if ( ninter > size(inter) ) then
-  !             ninter = -1
-  !             return
-  !          end if
-  !          inter(ninter) = list1(i)
-  !       end if
-  !     end do
-  !  end do
-  !end subroutine intersection_lists
-
-
-
   subroutine append_n( &
        list, &
        nlist, &
@@ -148,17 +126,7 @@ contains
     integer, allocatable                :: tmp(:)
     integer                             :: i, nnew
 
-    !PRINT *,'------------------'
-    !PRINT *,'NLIST=',NLIST
-    !IF ( ALLOCATED(LIST) ) THEN
-    !   PRINT *,LIST
-    !ELSE
-    !   PRINT *,'[]'
-    !END IF
-    !PRINT *,'APPEND :'
-    !PRINT *,'ELEM=',ELEM(1:NELEM)
 
-    
     if ( .not.allocated(list) ) then
 
        allocate( list(nelem) )
@@ -166,7 +134,7 @@ contains
        nlist = nelem
 
     else
-       
+
        mask(1:nelem) = .true.
        if ( present(unique) ) then
           if ( unique ) then
@@ -178,7 +146,7 @@ contains
              end do
           end if
        end if
-       
+
        nnew = count(mask)
        if ( nlist + nnew > size(list) ) then
           call move_alloc( from=list, to=tmp )
@@ -199,7 +167,7 @@ contains
     !PRINT *,LIST
     !PRINT *,'------------------'
     !PRINT *,''
-    
+
   end subroutine append_n
 
 
@@ -246,7 +214,7 @@ contains
 
 
 
-  
+
   subroutine append_integer( &
        array, &
        element, &
@@ -262,7 +230,7 @@ contains
     integer                             :: length, i
 
 
-    
+
 
     if ( allocated(array) ) then
 
@@ -321,7 +289,7 @@ contains
        allocate( array(1) )
        array(1) = element
     end if
-    
+
   end subroutine append_double
 
 
@@ -347,7 +315,7 @@ contains
     i = 1
     j = 1
     do while( i <= size(array1) .and. j <= size(array2) )
-       
+
        if ( array1sorted(i) < array2sorted(j) ) then
           call append( union, array1sorted(i) )
           i = i + 1
@@ -391,130 +359,191 @@ contains
          intersection )
 
   end subroutine intersection_arrays
-  
-  
+
+
   subroutine copy_array( &
        source_array, &
        target_array )
     implicit none
     integer,              intent(in)  :: source_array(:)
     integer, allocatable, intent(out) :: target_array(:)
-    
+
     if ( size(source_array) > 0 ) then
        allocate( target_array(size(source_array)) )
        target_array = source_array
-   end if
-   
- end subroutine copy_array
- 
+    end if
 
-
-
- 
- subroutine bubblesort_integers( a )
-   implicit none
-   integer, intent(inout) :: a(:)
-   integer                :: tmp, i, j
-   logical                :: swapped
-   
-   do j = size(a)-1,1,-1
-      swapped = .false.
-      do i = 1, j
-         if ( a(i) > a(i+1) ) then
-            tmp = a(i)
-            a(i) = a(i+1)
-            a(i+1) = tmp
-            swapped = .true.
-         end if
-      end do
-      if (.not. swapped) return
-   end do
-
- end subroutine bubblesort_integers
-
-
-
- 
- subroutine bubblesort_double( a )
-   implicit none
-   real*8, intent(inout) :: a(:)
-   real*8                :: tmp
-   integer               :: i, j
-   logical               :: swapped
-
-   do j = size(a)-1,1,-1
-      swapped = .false.
-      do i = 1, j
-         if ( a(i) > a(i+1) ) then
-            tmp = a(i)
-            a(i) = a(i+1)
-            a(i+1) = tmp
-            swapped = .true.
-         end if
-      end do
-      if (.not. swapped) return
-   end do
-
- end subroutine bubblesort_double
+  end subroutine copy_array
 
 
 
 
 
+  subroutine bubblesort_integers( a )
+    implicit none
+    integer, intent(inout) :: a(:)
+    integer                :: tmp, i, j
+    logical                :: swapped
 
- subroutine write_matrix( a, m, n, filename )
-   implicit none
-   integer,      intent(in) :: m, n
-   real*8,       intent(in) :: a(m,n)
-   character(*), intent(in) :: filename
-   integer                  :: fileunit, i, j
+    do j = size(a)-1,1,-1
+       swapped = .false.
+       do i = 1, j
+          if ( a(i) > a(i+1) ) then
+             tmp = a(i)
+             a(i) = a(i+1)
+             a(i+1) = tmp
+             swapped = .true.
+          end if
+       end do
+       if (.not. swapped) return
+    end do
 
-   call get_free_unit( fileunit )
-   open( unit=fileunit, file=filename, action='write' )
-   do i = 1,m
-      !write ( unit=fileunit, fmt=* ) a(i,:)
-      do j = 1,n
-         write ( unit=fileunit, fmt='(ES22.15,1x)', advance='no' ) a(i,j)
-      end do
-      write ( unit=fileunit, fmt=* )
-   end do
-   close( fileunit )
- end subroutine write_matrix
-
-
-
-
-
- subroutine randperm( perm, n )
-   implicit none
-   integer, intent(in)  :: n
-   integer, intent(out) :: perm(n)
-   integer              :: i, j, t
-
-   perm = [ ( i, i=1,n ) ]
-
-   do i = n,2,-1
-      call random_integer( j, i-1 )
-      j = j + 1
-      t = perm(j)
-      perm(j) = perm(i)
-      perm(i) = t
-   end do
-
- end subroutine randperm
+  end subroutine bubblesort_integers
 
 
 
-subroutine random_integer( i, imax )
-  implicit none
-  integer, intent(in)  :: imax
-  integer, intent(out) :: i
-  real                 :: r 
 
-  call random_number( r )
-  i = nint( real(imax) * r )
+  subroutine bubblesort_double( a )
+    implicit none
+    real*8, intent(inout) :: a(:)
+    real*8                :: tmp
+    integer               :: i, j
+    logical               :: swapped
 
-end subroutine random_integer
+    do j = size(a)-1,1,-1
+       swapped = .false.
+       do i = 1, j
+          if ( a(i) > a(i+1) ) then
+             tmp = a(i)
+             a(i) = a(i+1)
+             a(i+1) = tmp
+             swapped = .true.
+          end if
+       end do
+       if (.not. swapped) return
+    end do
+
+  end subroutine bubblesort_double
+
+
+
+
+
+
+  subroutine write_matrix( a, m, n, filename )
+    implicit none
+    integer,      intent(in) :: m, n
+    real*8,       intent(in) :: a(m,n)
+    character(*), intent(in) :: filename
+    integer                  :: fileunit, i, j
+
+    call get_free_unit( fileunit )
+    open( unit=fileunit, file=filename, action='write' )
+    do i = 1,m
+       !write ( unit=fileunit, fmt=* ) a(i,:)
+       do j = 1,n
+          write ( unit=fileunit, fmt='(ES22.15,1x)', advance='no' ) a(i,j)
+       end do
+       write ( unit=fileunit, fmt=* )
+    end do
+    close( fileunit )
+  end subroutine write_matrix
+
+
+
+
+
+  subroutine randperm( perm, n )
+    implicit none
+    integer, intent(in)  :: n
+    integer, intent(out) :: perm(n)
+    integer              :: i, j, t
+
+    perm = [ ( i, i=1,n ) ]
+
+    do i = n,2,-1
+       call random_integer( j, i-1 )
+       j = j + 1
+       t = perm(j)
+       perm(j) = perm(i)
+       perm(i) = t
+    end do
+
+  end subroutine randperm
+
+
+
+  subroutine random_integer( i, imax )
+    implicit none
+    integer, intent(in)  :: imax
+    integer, intent(out) :: i
+    real                 :: r 
+
+    call random_number( r )
+    i = nint( real(imax) * r )
+
+  end subroutine random_integer
+
+
+
+
+  subroutine append_vec_i( &
+       vec, &
+       dim, &
+       array, &
+       n )
+    use mod_math
+    implicit none
+    integer,              intent(in)    :: dim
+    integer,              intent(in)    :: vec(dim)
+    integer, allocatable, intent(inout) :: array(:,:)
+    integer,              intent(inout) :: n
+    integer, allocatable                :: tmp(:,:)
+
+    if ( .not.allocated(array) ) allocate(array(dim,1))
+    if ( dim > size(array,1) ) STOP 'append_vec_i : dim > size(array,1)'
+
+    if ( n + 1 > size(array,2) ) then
+       call move_alloc(from=array, to=tmp)
+       allocate(array(dim,n+1))
+       array(:,1:n) = tmp(:,1:n)
+       deallocate(tmp)
+    end if
+    n = n + 1
+    array(1:dim,n) = vec(1:dim)
+
+  end subroutine append_vec_i
+
+
+
+
+  subroutine append_vec_d( &
+       vec, &
+       dim, &
+       array, &
+       n )
+    use mod_math
+    implicit none
+    integer,             intent(in)    :: dim
+    real*8,              intent(in)    :: vec(dim)
+    real*8, allocatable, intent(inout) :: array(:,:)
+    integer,             intent(inout) :: n
+    real*8, allocatable                :: tmp(:,:)
+
+    if ( .not.allocated(array) ) allocate(array(dim,1))
+    if ( dim > size(array,1) ) STOP 'append_vec_d : dim > size(array,1)'
+
+    if ( n + 1 > size(array,2) ) then
+       call move_alloc(from=array, to=tmp)
+       allocate(array(dim,n+1))
+       array(:,1:n) = tmp(:,1:n)
+       deallocate(tmp)
+    end if
+    n = n + 1
+    array(1:dim,n) = vec(1:dim)
+
+  end subroutine append_vec_d
+
 
 
 end module mod_util

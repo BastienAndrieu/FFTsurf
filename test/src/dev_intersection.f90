@@ -507,6 +507,101 @@ end subroutine characterize_tangential_intersection_point
 
 
 
+subroutine check_curve_surface_intersection_point( &
+   curv, &
+   surf, &
+   t, &
+   uv, &
+   stat )
+  use mod_math
+  use mod_diffgeom2
+  use mod_tolerances
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  type(type_curve),   intent(in)  :: curv
+  type(type_surface), intent(in)  :: surf
+  real(kind=fp),      intent(in)  :: t
+  real(kind=fp),      intent(in)  :: uv(2)
+  integer,            intent(out) :: stat
+  real(kind=fp)                   :: dxyz_dt(3), dxyz_duv(3,2), n(3)
+  real(kind=fp)                   :: EFG(3), duv_dt(2)
+  logical                         :: singular
+  real(kind=fp)                   :: d2xyz_dt2(3), d2xyz_duv2(3,3), y(3)
+  integer                         :: ivar, jvar
+
+  ! curve tangent
+  call evald1( &
+       dxyz_dt, &
+       curv, &
+       t )
+  
+  ! surface tangents
+  do ivar = 1,2
+     call evald1( &
+          dxyz_duv(:,ivar), &
+          surf, &
+          uv, &
+          ivar)
+  end do
+
+  ! surface normal
+  n = cross(dxyz_duv(:,1), dxyz_duv(:,2))
+  n = n / norm2(n)
+  
+  IF ( DEBUG ) PRINT *,'TUV =',T,UV
+  IF ( DEBUG ) PRINT *,'CT.N =',DOT_PRODUCT(DXYZ_DT, N)
+
+  if ( abs(dot_product(dxyz_dt, n)) > EPSxyz ) then
+     stat = 0
+  else
+     do ivar = 1,2
+        do jvar = ivar,2
+           EFG(ivar+jvar-1) = dot_product(dxyz_duv(:,ivar), dxyz_duv(:,jvar))
+        end do
+     end do
+     call solve_2x2( &
+          duv_dt, &
+          EFG(1), &
+          EFG(2), &
+          EFG(2), &
+          EFG(3), &
+          [ dot_product(dxyz_dt, dxyz_duv(:,1)), &
+          dot_product(dxyz_dt, dxyz_duv(:,2)) ], &
+          singular )
+     
+     ! curve 2nd derivative
+     call evald2( &
+          d2xyz_dt2, &
+          curv, &
+          t )
+
+     ! surface 2nd derivatives
+     do ivar = 1,3
+        call evald2( &
+             d2xyz_duv2(:,ivar), &
+             surf, &
+             uv, &
+             ivar)
+     end do
+
+     y = d2xyz_dt2 - ( &
+          d2xyz_duv2(:,1)*duv_dt(1)**2 + &
+          d2xyz_duv2(:,2)*duv_dt(1)*duv_dt(2) + &
+          d2xyz_duv2(:,3)*duv_dt(2)**2 )
+     IF ( DEBUG ) PRINT *,'Y.N =',DOT_PRODUCT(Y, N)
+     if ( dot_product(y, n) > EPSxyz ) then
+        stat = 1
+     else
+        stat = 2
+     end if
+  end if
+
+end subroutine check_curve_surface_intersection_point
+
+
+
+
+
 subroutine check_unicity( &
      vec, &
      dim, &
@@ -578,6 +673,8 @@ subroutine classify_border_surface_intersection_point( &
           duv_ds, &                                               !
           dxyz_ds, &                                              !
           stat_contactpoint )                                     !
+     !PRINT *,'    UV =',UV(:,:,IPT)
+     !PRINT *,'DUV_DS =',DUV_DS(:,1,:)
      !                                                            !
      if ( stat_contactpoint > 1 ) then ! <---------------------+  !
         PRINT *,'classify_border_surface_intersection_point : &
@@ -601,7 +698,9 @@ subroutine classify_border_surface_intersection_point( &
      end do                                                       !
      !                                                            !
      sumstat = sum(stat)                                          !
-     if ( sumstat == 0 ) then ! <---------+                       !
+     if ( any(stat == 2) ) then ! <-------+                       !
+        STOP 'AMBIGUOUS POINT'
+     elseif ( sumstat == 0 ) then ! <-----+                       !
         stat_point(ipt) = 0               !                       !
      elseif ( sumstat < 0 ) then ! -------+                       !
         stat_point(ipt) = -1              !                       !
@@ -622,29 +721,44 @@ subroutine classify_endpoint( &
      uvbox, &
      stat )
   use mod_math
+  use mod_tolerances
   !stat = -1 : exiting
   !        0 : interior
   !        1 : entering
+  !        2 : ambiguous
   implicit none
   real(kind=fp), intent(in)  :: uv(2)
   real(kind=fp), intent(in)  :: tng(2) ! tangential direction
   real(kind=fp), intent(in)  :: uvbox(4)
   integer,       intent(out) :: stat
   real(kind=fp)              :: uvloc
+  integer                    :: statvar(2)
   integer                    :: ivar
 
-  stat = 0
   do ivar = 1,2
      uvloc = ab2n1p1( uv(ivar), uvbox(2*ivar-1), uvbox(2*ivar) )
-     if ( abs(uvloc) > 1._fp - EPSmath ) then
-        if ( tng(ivar)*uvloc > 0._fp ) then
-           stat = -1 ! exiting
-           return
+     if ( is_in_open_interval(uvloc, -1._fp, 1._fp, tolerance=EPSuv) ) then
+        statvar(ivar) = 0
+     else
+        if ( abs(tng(ivar)) < EPSuv ) then
+           statvar(ivar) = 2
+        elseif ( tng(ivar)*uvloc > 0._fp ) then
+           statvar(ivar) = -1
         else
-           stat = 1 ! entering
+           statvar(ivar) =  1
         end if
      end if
   end do
+  
+  if ( any(statvar == -1) ) then
+     stat = -1 ! exiting
+  else
+     if ( any(statvar == 1) ) then
+        stat = 1 ! entering
+     else
+        stat = sum(statvar) ! interior or ambiguous
+     end if
+  end if
 
 end subroutine classify_endpoint
 
@@ -957,18 +1071,23 @@ subroutine find_collineal_points( &
      IF ( DEBUG ) PRINT *,'F =',F 
 
      !! termination criteria
-     if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then ! <---+
-        if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+                      !
-           ! converged to a tangential intersection point  !                      !
-           stat = -1                                       !                      !
-           xyz_collineal = 0.5_fp * sum(xyz, 2)            !                      !
-        else ! --------------------------------------------+                      !
-           ! converged to a pair of collineal points       !                      !
-           stat = 0                                        !                      !
-        end if ! <-----------------------------------------+                      !
-        n_collineal = n / norm2( n )                                              !
-        return                                                                    !
-     end if ! <-------------------------------------------------------------------+
+     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then ! <---+
+        !if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then ! <---+
+        if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+                !
+           if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !                !
+              ! converged to a tangential intersection point  !    !                !
+              stat = -1                                       !    !                !
+              xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !                !
+           else ! --------------------------------------------+    !                !
+              ! converged to a pair of collineal points       !    !                !
+              stat = 0                                        !    !                !
+           end if ! <-----------------------------------------+    !                !
+           n_collineal = n / norm2( n )                            !                !
+        else ! ----------------------------------------------------+                !
+           IF ( DEBUG ) PRINT *,'STAGNATION'                       !                !
+        end if ! <-------------------------------------------------+                !
+        return                                                                      !
+     end if ! <---------------------------------------------------------------------+
 
 
      !! compute Jacobian matrix
@@ -1155,6 +1274,106 @@ end subroutine insert_polyline_point
 
 
 
+recursive subroutine intersect_2Dpolylines( &
+     xy, &
+     head, &
+     tail, &
+     npts, &
+     isegments, &
+     lambda )
+  use mod_util
+  use mod_math
+  implicit none
+  type(type_matrix),          intent(in)    :: xy(2)
+  integer,                    intent(in)    :: head(2)
+  integer,                    intent(in)    :: tail(2)
+  integer,                    intent(inout) :: npts
+  integer, allocatable,       intent(inout) :: isegments(:,:)
+  real(kind=fp), allocatable, intent(inout) :: lambda(:,:)
+  integer                                   :: nchild(2), ind(3,2)
+  real(kind=fp)                             :: mat(2,2), rhs(2), t(2)
+  logical                                   :: singular
+  real(kind=fp)                             :: xybox(2,2,2,2) ! x/y, min/max, #child, #polyline
+  integer                                   :: ntmp
+  integer                                   :: i, ichild, jchild
+
+  !if ( npts > 0 ) return
+
+  do i = 1,2
+     if ( tail(i) > head(i) + 1 ) then
+        nchild(i) = 2
+        ind(1:3,i) = [head(i), (head(i) + tail(i))/2, tail(i)]
+     else
+        nchild(i) = 1
+        ind(1:2,i) = [head(i), tail(i)]
+     end if
+  end do
+
+  if ( all(nchild == 1) ) then
+     ! solve intersection of two segments
+     mat(:,1) = xy(1)%mat(:,tail(1)) - xy(1)%mat(:,head(1))
+     mat(:,2) = xy(2)%mat(:,head(2)) - xy(2)%mat(:,tail(2))
+     rhs      = xy(2)%mat(:,head(2)) - xy(1)%mat(:,head(1))
+
+     call solve_2x2( &
+          t, &
+          mat(1,1), &
+          mat(1,2), &
+          mat(2,1), &
+          mat(2,2), &
+          rhs, &
+          singular )
+
+     if ( .not.singular ) then
+        if ( minval(t) > -EPSmath .and. maxval(t) - 1._fp < EPSmath ) then
+           ntmp = npts
+           call append_vec( &
+                head, &
+                2, &
+                isegments, &
+                ntmp )
+           call append_vec( &
+                t, &
+                2, &
+                lambda, &
+                npts )
+        end if
+     end if
+
+     return
+  end if
+
+  ! compute axis-aligned bounding boxes for children
+  do i = 1,2
+     do ichild = 1,nchild(i)
+        xybox(:,1,ichild,i) = minval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
+        xybox(:,2,ichild,i) = maxval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
+     end do
+  end do
+
+  ! recurse with pairs of children
+  do jchild = 1,nchild(2)
+     do ichild = 1,nchild(1)
+        if ( overlap_intervals(xybox(1,:,ichild,1), xybox(1,:,jchild,2)) .and. &
+             overlap_intervals(xybox(2,:,ichild,1), xybox(2,:,jchild,2)) ) then
+           call intersect_2Dpolylines( &
+                xy, &
+                [ind(ichild,1),   ind(jchild,2)  ], &
+                [ind(ichild+1,1), ind(jchild+1,2)], &
+                npts, &
+                isegments, &
+                lambda )
+        end if
+     end do
+  end do
+
+
+end subroutine intersect_2Dpolylines
+
+
+
+
+
 subroutine intersect_all_surfaces( &
      surf, &
      nsurf, &
@@ -1234,6 +1453,11 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
+        IF ( DEBUG ) THEN
+           PRINT *,''; PRINT *,''; PRINT *,''
+           PRINT *,'PAIR :',ISURF,JSURF
+        END IF
+
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -1279,9 +1503,6 @@ subroutine intersect_all_surfaces( &
            !END DO
         END IF
 
-        ! if a degeneracy has been encountered, report it
-        if ( stat_degeneracy > 0 ) exit outer
-
         ! trace intersection curves and append them to the global intersection data collection
         call merge_intersection_data( &
              surfpair, &
@@ -1294,6 +1515,9 @@ subroutine intersect_all_surfaces( &
         call free_intersection_data(interdata_local)
         call free_ipts(region(1)%ptr)
         call free_ipts(region(2)%ptr)
+
+        ! if a degeneracy has been encountered, report it
+        if ( stat_degeneracy > 0 ) exit outer
 
      end do inner
   end do outer
@@ -1368,6 +1592,10 @@ subroutine intersect_border_surface( &
      PRINT *,''; PRINT *,'';
      PRINT *,'INTERSECT_BORDER_SURFACE'
      PRINT *,'ICURV, IVAR, IVAL =',ICURV,IVAR,IVAL
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2 ! <-----------------+
+        PRINT *,REGION(ISURF)%PTR%UVBOX !
+     END DO ! <-------------------------+
   END IF
 
   isurf = 1 + mod(icurv,2)
@@ -1468,6 +1696,8 @@ subroutine intersect_border_surface( &
   END IF
 
   IF ( stat_degeneracy > 0 ) THEN
+     CALL WRITE_POLYNOMIAL( ROOT_C%X, 'dev_intersection/debugbsi_c.cheb' )
+     CALL WRITE_POLYNOMIAL( ROOT_S(isurf)%ptr%X, 'dev_intersection/debugbsi_s.cheb' )
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugbsi_c.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugbsi_s.bern' )
      CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )
@@ -1632,11 +1862,29 @@ recursive subroutine intersect_curve_surface( &
                    1 )                                                       !  !  !          !
               if ( sum( (xyz_s - xyz_c)**2 ) < EPSxyzsqr ) then ! <----+     !  !  !          !
                  xyz = 0.5_fp * ( xyz_c + xyz_s )                      !     !  !  !          !
-                 tuv = real( [i,j,k]-1, kind=fp ) / real( &            !     !  !  !          !
-                      [ region_c%poly(1)%ptr%degr(1), &                !     !  !  !          !
-                      region_s%poly(1)%ptr%degr(1:2) ], &              !     !  !  !          !
-                      kind=fp )                                        !     !  !  !          !
-                 tuv = -1._fp + 2._fp * tuv                            !     !  !  !          !
+                 tuv = real([i,j,k]-1, kind=fp)
+                 !PRINT *,'TUV*=',TUV
+                 tuv(1) = (1._fp - tuv(1))*region_c%uvbox(1) + &
+                      tuv(1)*region_c%uvbox(2)
+                 tuv(2) = (1._fp - tuv(2))*region_s%uvbox(1) + &
+                      tuv(2)*region_s%uvbox(2)
+                 tuv(3) = (1._fp - tuv(3))*region_s%uvbox(3) + &
+                      tuv(3)*region_s%uvbox(4)
+                 IF ( DEBUG ) PRINT *,'TUV =',TUV
+                 IF ( DEBUG ) PRINT *,'XYZ =',XYZ
+                 !
+                 call check_curve_surface_intersection_point( &
+                      root_c, &
+                      root_s, &
+                      tuv(1), &
+                      tuv(2:3), &
+                      stat_newpoint )
+                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
+                 if ( stat_newpoint == 2 ) then
+                    ! high-order tangential contact point
+                    ! => the curve is presumably a subset of the surface
+                    RETURN 
+                 end if
                  !                                                     !     !  !  !          !
                  call append_vector( &                                 !     !  !  !          !
                       [tuv,xyz], &                                     !     !  !  !          !
@@ -1727,6 +1975,7 @@ recursive subroutine intersect_curve_surface( &
                 separable, &                                                    !         !   !
                 randomize=.true. )                                              !         !   !
            nullify(poly(1)%ptr, poly(2)%ptr)                                    !         !   !
+           IF ( DEBUG ) PRINT *,'CURVE-SURFACE SEPARABLE?',SEPARABLE
            !                                                                    !         !   !
            if ( separable ) return ! the pair cannot intersect at other points  !         !   !
         end if ! <--------------------------------------------------------------+         !   !
@@ -2374,6 +2623,10 @@ recursive subroutine intersect_simple_surfaces( &
            ! incorrect configuration                            !     !       !
            PRINT *,'------------------------------------------'
            PRINT *,'2 BSI POINTS - INCORRECT CONFIGURATION'
+           PRINT *,'UVBOXES ='
+           DO ISURF = 1,2 ! <-----------------+
+              PRINT *,REGION(ISURF)%PTR%UVBOX !
+           END DO ! <-------------------------+
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
            CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:2))) )
@@ -2384,12 +2637,16 @@ recursive subroutine intersect_simple_surfaces( &
         end if ! <----------------------------------------------+     !       !
         !                                                             !       !
      elseif ( npts_bs == 1 ) then ! ----------------------------------+       !
-        if ( stat_point(1) == 0 ) then ! <----------------------+     !       !
+        if ( .TRUE. ) THEN!stat_point(1) == 0 ) then ! <----------------------+     !       !
            ! 1 isolated point                                   !     !       !
         else ! -------------------------------------------------+     !       !
            ! incorrect configuration                            !     !       !
            PRINT *,'------------------------------------------'
            PRINT *,'1 BSI POINT - INCORRECT CONFIGURATION'
+           PRINT *,'UVBOXES ='
+           DO ISURF = 1,2 ! <-----------------+
+              PRINT *,REGION(ISURF)%PTR%UVBOX !
+           END DO ! <-------------------------+
            PRINT *,'STAT_POINT =',STAT_POINT(1)
            PRINT *,'UVXYZ ='
            PRINT *,UVXYZ(:,IPTS_BS(1))
@@ -3048,6 +3305,7 @@ subroutine merge_intersection_data( &
      nuvxyz, &
      interdata_local, &
      interdata_global )
+  USE MOD_UTIL
   use mod_math
   use mod_types_intersection
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
@@ -3060,7 +3318,14 @@ subroutine merge_intersection_data( &
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
   integer                                     :: nc
-  integer                                     :: ip, ic, jc, isurf, jsurf
+  real(kind=fp)                               :: uvbox(2,2)
+  integer                                     :: np(2)
+  type(type_matrix)                           :: polylineuv(2)
+  integer, allocatable                        :: isegm(:,:)
+  real(kind=fp), allocatable                  :: lambda(:,:)
+  integer                                     :: npts
+  integer                                     :: ip, ic, jc, isurf, jsurf, ivar
+  INTEGER :: FID, I
 
   ! add new intersection points
   do ip = 1,nuvxyz
@@ -3105,20 +3370,77 @@ subroutine merge_intersection_data( &
      ! check intersection with other curves
      do jc = 1,nc
         jloop : do jsurf = 1,2
-           do isurf = 1,2
+           iloop : do isurf = 1,2
               if ( associated(&
                    interdata_global%curves(jc)%surf(jsurf)%ptr, &
                    surf(isurf)%ptr) ) then
-                 if ( overlap_intervals(&
-                      interdata_global%curves(jc)%uvbox(:,1,jsurf), &
-                      interdata_local%curves(ic)%uvbox(:,1,isurf)) .and. &
-                      overlap_intervals(&
-                      interdata_global%curves(jc)%uvbox(:,2,jsurf), &
-                      interdata_local%curves(ic)%uvbox(:,2,isurf))) then!exit jloop
-                     PRINT *,'BLA'
-                 end if
+                 do ivar = 1,2
+                    uvbox(:,ivar) = [ &
+                         max( &
+                         interdata_global%curves(jc)%uvbox(1,ivar,jsurf), &
+                         interdata_local%curves(ic)%uvbox(1,ivar,isurf) ) , &
+                         min( &
+                         interdata_global%curves(jc)%uvbox(2,ivar,jsurf), &
+                         interdata_local%curves(ic)%uvbox(2,ivar,isurf) ) ]
+                    if ( uvbox(2,ivar) - uvbox(1,ivar) < epsilon(1._fp) ) cycle iloop
+                 end do
+
+                 np(1) = interdata_global%curves(nc+ic)%polyline%np
+                 np(2) = interdata_global%curves(jc   )%polyline%np
+                 allocate(polylineuv(1)%mat(2,np(1)), polylineuv(2)%mat(2,np(2)))
+                 polylineuv(1)%mat(1:2,1:np(1)) = interdata_global%curves(nc+ic)%polyline%uv(1:2,isurf,1:np(1))
+                 polylineuv(2)%mat(1:2,1:np(2)) = interdata_global%curves(jc   )%polyline%uv(1:2,jsurf,1:np(2))
+                 npts = 0
+                 call intersect_2Dpolylines( &
+                      polylineuv, &
+                      [1,1], &
+                      np, &
+                      npts, &
+                      isegm, &
+                      lambda )
+                 deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+ 
+                 IF ( NPTS > 0 ) THEN
+                    PRINT *,'NPTS =',NPTS
+                    PRINT *,'ISEGM ='
+                    CALL PRINT_MAT( TRANSPOSE(ISEGM(:,1:NPTS)) )
+                    PRINT *,'LAMBDA ='
+                    CALL PRINT_MAT( TRANSPOSE(LAMBDA(:,1:NPTS)) )
+                    PRINT *,''
+
+                    CALL WRITE_POLYNOMIAL(surf(isurf)%ptr%x, 'dev_intersection/debugmrg_surf1.cheb')
+                    CALL WRITE_POLYNOMIAL(surf(1+mod(isurf,2))%ptr%x, 'dev_intersection/debugmrg_surf2.cheb')
+                    CALL WRITE_POLYNOMIAL(interdata_global%curves(jc)%surf(1+mod(jsurf,2))%ptr%x, &
+                         'dev_intersection/debugmrg_surf3.cheb')
+
+                    CALL GET_FREE_UNIT(FID)
+                    OPEN(UNIT=FID, FILE='dev_intersection/merge_interdata.dat', ACTION='WRITE')
+                    WRITE(FID,*) interdata_local%curves(ic)%uvbox(:,:,isurf)
+                    WRITE(FID,*) interdata_global%curves(jc)%uvbox(:,:,jsurf)
+                    WRITE(FID,*) uvbox
+                    WRITE(FID,*) interdata_local%curves(ic)%uvbox(:,:,1+mod(isurf,2))
+                    WRITE(FID,*) interdata_global%curves(jc)%uvbox(:,:,1+mod(jsurf,2))
+                    WRITE(FID,*) interdata_global%curves(nc+ic)%polyline%np
+                    DO I = 1,interdata_global%curves(nc+ic)%polyline%np
+                       WRITE(FID,*) interdata_global%curves(nc+ic)%polyline%uv(:,isurf,i), &
+                            interdata_global%curves(nc+ic)%polyline%uv(:,1+mod(isurf,2),i), &
+                            interdata_global%curves(nc+ic)%polyline%xyz(:,i)
+                    END DO
+                    WRITE(FID,*) interdata_global%curves(jc)%polyline%np
+                    DO I = 1,interdata_global%curves(jc)%polyline%np
+                       WRITE(FID,*) interdata_global%curves(jc)%polyline%uv(:,jsurf,i), &
+                            interdata_global%curves(jc)%polyline%uv(:,1+mod(jsurf,2),i), &
+                            interdata_global%curves(jc)%polyline%xyz(:,i)
+                    END DO
+                    CLOSE(FID)
+                    IF ( NPTS > 1 ) STOP
+                 END IF
+
+                 if ( allocated(isegm ) ) deallocate(isegm )
+                 if ( allocated(lambda) ) deallocate(lambda)
+                 
               end if
-           end do
+           end do iloop
         end do jloop
         if ( jsurf > 2 ) cycle
      end do
@@ -3201,7 +3523,7 @@ subroutine newton_curve_surface( &
      end if
      
      !! termination criteria
-     if ( errtuv < EPSuvsqr*cond**2 .and. it > 1 ) then
+     if ( errtuv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
         if ( resxyz < EPSxyzsqr ) then
            ! converged to a curve-surface intersection point
            stat = 0
@@ -3289,7 +3611,6 @@ subroutine newton_intersection_polyline( &
      upperb, &
      xyzp_prev, &
      htargetsqr, &
-     tolhsqr, &
      stat, &
      uv, &
      xyzp )
@@ -3305,7 +3626,6 @@ subroutine newton_intersection_polyline( &
   real(kind=fp),     intent(in)    :: upperb(4)
   real(kind=fp),     intent(in)    :: xyzp_prev(3)
   real(kind=fp),     intent(in)    :: htargetsqr
-  real(kind=fp),     intent(in)    :: tolhsqr
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv(2,2)
   real(kind=fp),     intent(out)   :: xyzp(3)
@@ -3342,7 +3662,7 @@ subroutine newton_intersection_polyline( &
      resh   = sum(r2**2) - htargetsqr
      IF ( DEBUG ) PRINT *,sqrt(resxyz), sqrt(abs(resh)), sqrt(erruv), EPSuv*cond
 
-     if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
+     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
         if ( resxyz < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
            stat = 0
            xyzp = 0.5_fp * sum(xyz, 2)
@@ -3449,7 +3769,7 @@ subroutine newton_tracing( &
   
   !IF ( DEBUG ) THEN
   !   PRINT *,''; PRINT *,'';
-  !   PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+  !   PRINT *,'NEWTON_TRACING'
   !   PRINT *,'LOWERB =',LOWERB
   !   PRINT *,'UPPERB =',UPPERB
   !END IF
@@ -3657,12 +3977,9 @@ subroutine trace_intersection_polyline( &
   use mod_math
   use mod_diffgeom2
   use mod_types_intersection
+  use mod_tolerances
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
-  real(kind=fp), parameter                        :: tolchord = real(1.d-3, kind=fp)
-  real(kind=fp), parameter                        :: FRACcurvature_radius = 2._fp*sqrt(tolchord*(2._fp - tolchord))
-  real(kind=fp), parameter                        :: tolh = real(1.d-2, kind=fp)
-  real(kind=fp), parameter                        :: tolhsqr = tolh**2
   real(kind=fp), parameter                        :: FRACbacktrack = 0.5_fp
   real(kind=fp), parameter                        :: EPSbacktrack = real(1d-2, kind=fp)
   type(ptr_surface),                intent(in)    :: surf(2)
@@ -3675,14 +3992,14 @@ subroutine trace_intersection_polyline( &
   real(kind=fp), optional,          intent(in)    :: hmin, hmax
   real(kind=fp), dimension(4)                     :: lowerb, upperb
   real(kind=fp)                                   :: w0, Dw, w, wprev
-  real(kind=fp)                                   :: uv(2,2), xyz(3)
   real(kind=fp)                                   :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
-  real(kind=fp)                                   :: h, EPSh
-  
+  real(kind=fp)                                   :: h_endpoints(2), h, EPSh
+  real(kind=fp)                                   :: uv(2,2), xyz(3)
+  integer                                         :: ipt
+
   stat = 0
   lowerb = reshape(uvbox(1,1:2,1:2), [4])
   upperb = reshape(uvbox(2,1:2,1:2), [4])
-
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'TRACE_INTERSECTION_POLYLINE'
@@ -3696,8 +4013,25 @@ subroutine trace_intersection_polyline( &
      PRINT *,'LOWERB =',LOWERB
      PRINT *,'UPPERB =',UPPERB
   END IF
+
   w0 = dot_product( param_vector, xyz_endpoints(:,1) )
   Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
+
+  do ipt = 2,1,-1
+     ! get tangent direction and curvature of the intersection point at endpoints
+     ! (in reverse order, so data at first endpoint is kept in memory)
+     call diffgeom_intersection_curve( &
+          surf, &
+          uv_endpoints(:,:,ipt), &
+          duv_ds, &
+          dxyz_ds, &
+          stat, &
+          curvature )
+     h_endpoints(ipt) = FRACcurvature_radius / curvature(1)
+  end do
+  if ( present(hmin) ) h_endpoints = max(h_endpoints, hmin) 
+  if ( present(hmax) ) h_endpoints = min(h_endpoints, hmax)
+
   
   ! first point
   call insert_polyline_point( &
@@ -3712,50 +4046,13 @@ subroutine trace_intersection_polyline( &
   end if
 
   wprev = 0._fp
-  
+  h = h_endpoints(1)
   outer : do
-     ! get tangent direction and curvature of the intersection point at the current point
-     call diffgeom_intersection_curve( &
-          surf, &
-          polyline%uv(1:2,1:2,polyline%np), &
-          duv_ds, &
-          dxyz_ds, &
-          stat, &
-          curvature )
-
-     IF ( POLYLINE%NP > 1 ) THEN
-        IF ( NORM2( POLYLINE%XYZ(:,POLYLINE%NP) - POLYLINE%XYZ(:,POLYLINE%NP-1) ) > FRACcurvature_radius / curvature(1) ) &
-             PRINT *,NORM2( POLYLINE%XYZ(:,POLYLINE%NP) - POLYLINE%XYZ(:,POLYLINE%NP-1) ) / ( FRACcurvature_radius / curvature(1) )
-     END IF
-     
-     if ( stat > 1 ) then
-        select case (stat)
-        case (2) 
-           STOP 'trace_intersection_polyline : BRANCH POINT'
-        case (3)
-           STOP 'trace_intersection_polyline : ISOLATED CONTACT POINT'
-        case (4)
-           STOP 'trace_intersection_polyline : HIGH-ORDER CONTACT POINT'
-        end select
-     end if
-
-     IF ( DEBUG) PRINT *,'DXYZ_DS.P =',dot_product( dxyz_ds(:,1), param_vector )
-
-     ! target segment length
-     h = FRACcurvature_radius / curvature(1)
-
-     ! enforce bounds on segment length
-     if ( present(hmin) ) h = max(h, hmin) 
-     if ( present(hmax) ) h = min(h, hmax)
-     IF ( DEBUG ) PRINT *,'HTARGET =',H
-
      ! check if the current is close enough to the end of the polyline
      if ( sum( (polyline%xyz(:,polyline%np) - xyz_endpoints(:,2))**2 ) < &
-          ((1._fp + tolh)*h)**2 ) then
-        exit outer
-     end if
+          min(h, h_endpoints(2))**2 ) exit outer
 
-     ! compute next point using a Newton-Raphson algorithm
+     ! compute next point
      EPSh = EPSbacktrack * h
      inner : do
         ! initial iterate
@@ -3767,11 +4064,10 @@ subroutine trace_intersection_polyline( &
              upperb, &
              polyline%xyz(1:3,polyline%np), &
              h**2, &
-             tolhsqr, &
              stat, &
              uv, &
              xyz )
-     
+
         if ( stat == 0 ) then
            ! Newton has converged, check whether w is monotonic along the polyline
            w = dot_product( param_vector, xyz )
@@ -3786,29 +4082,23 @@ subroutine trace_intersection_polyline( &
                    stat, &
                    curvature )
               if ( h <= FRACcurvature_radius / curvature(1) ) then
+                 h = FRACcurvature_radius / curvature(1)
                  exit inner
               end if
-           else
-              IF ( DEBUG ) THEN
-                 PRINT *,'XYZ =', XYZ
-                 PRINT *,'  W*=', W
-                 PRINT *,'BACKTRACK...'
-              END IF
            end if
         elseif ( stat == 2 ) then
            ! a singular Jacobian matrix has been encountered 
            return
         end if
 
-        ! Newton failed to converge or the step was too large, backtrack
-        !PRINT *,'BACKTRACK, W=',W,', WPREV=',WPREV
+        ! Newton either failed to converge or produced an unsatisfactory solution => backtrack
         h = FRACbacktrack * h
         if ( h < EPSh ) then
            ! h << h0 (indefinite backtracking)
            stat = 1
            return
         end if
-        
+
      end do inner
 
      ! insert the new point
@@ -3824,14 +4114,6 @@ subroutine trace_intersection_polyline( &
      end if
 
      wprev = w
-
-     IF ( DEBUG ) THEN
-        PRINT *,'+1 POINT :'
-        PRINT *,'     UV =',UV
-        PRINT *,'    XYZ =',XYZ
-        PRINT *,'     W* =',W
-        PRINT *,''
-     END IF
 
   end do outer
 

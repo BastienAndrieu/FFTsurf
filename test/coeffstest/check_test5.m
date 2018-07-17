@@ -9,17 +9,44 @@ format long
 % verification de la coincidences des coins des deux surfaces du test 5
 % (cone/cylindre)
 
-u = [-1.0, -1.0;
+uvc = [-1.0, -1.0;
     1.0, -1.0;
     -1.0, 1.0;
     1.0, 1.0];
 
 for isurf = 1:2
-    S(isurf).c = readCoeffs2( sprintf( 'C%d_test05.txt', isurf ) );
-%     S(isurf).c = readCoeffs2( ...
-%         sprintf('/d/bandrieu/GitHub/FFTsurf/test/dev_intersection_surface_surface/c_%d.cheb',isurf) );
+    if 0
+        S(isurf).c = readCoeffs2( sprintf( 'C%d_test05.txt', isurf ) );
+    else
+        [M,N] = deal(16);
+        r1 = 0.1;
+        r2 = 0.2;
+        l1 = 1;
+        l2 = 0.1;
+        ang = pi()/5;
+        if isurf == 1
+            [u,v] = tpgrid( 0.5*pi()+cglpoints(-ang,ang,M), cglpoints(0,l1,N) );
+            x = v;
+            y = (r1 + (r2-r1)*v/l1).*cos(u);
+            z = (r1 + (r2-r1)*v/l1).*sin(u);
+        else
+            [u,v] = tpgrid( 0.5*pi()+cglpoints(-ang,ang,M), l1+cglpoints(0,l2,N) );
+            x = v;
+            y = r2*cos(u);
+            z = r2*sin(u);
+        end
+        S(isurf).c = cat(3, fcht2d(x), fcht2d(y), fcht2d(z));
+    end
+    
+    
+    writeCoeffs2( S(isurf).c, sprintf('C%d_test%2.2d.txt',isurf,5) );
+    %     make_PN_coeff_matrices
+    
+    
+    %     S(isurf).c = readCoeffs2( ...
+    %         sprintf('/d/bandrieu/GitHub/FFTsurf/test/dev_intersection_surface_surface/c_%d.cheb',isurf) );
     S(isurf).b = chebyshev2bezier_2( S(isurf).c );
-    S(isurf).x = ICT2unstr( S(isurf).c, u );
+    S(isurf).x = ICT2unstr( S(isurf).c, uvc );
     [m,n,~] = size( S(isurf).b );
     for k = 1:2
         for j = 1:2
@@ -28,15 +55,17 @@ for isurf = 1:2
         end
     end
     
-%     S(isurf).x - S(isurf).y
+    %     S(isurf).x - S(isurf).y
 end
 
 for j = 1:4
     for i = 1:4
-        fprintf('i = %d, j = %d, dc = %e\t db = %e\n', ...
-            i, j, ...
-            norm( S(1).x(i,:) - S(2).x(j,:) ), ...
-            norm( S(1).y(i,:) - S(2).y(j,:) ) );
+        dx = norm( S(1).x(i,:) - S(2).x(j,:) );
+        dy = norm( S(1).y(i,:) - S(2).y(j,:) );
+        if min(dx,dy) < 1e-6
+            fprintf('i = %d, j = %d, dc = %e\t db = %e\n', ...
+                i, j, dx, dy );
+        end
     end
 end
 
@@ -52,10 +81,10 @@ for isurf = 1:2
     si = surf_chebyshev( S(isurf).c, 1 );
     set( si, 'facecolor', cls(isurf,:), 'specularstrength', 0 );
     
-%     surf( S(isurf).b(:,:,1), S(isurf).b(:,:,2), S(isurf).b(:,:,3), ...
-%     'facecolor', 'none', 'edgecolor', clb(isurf,:), 'linestyle', '-' );
-
-
+    %     surf( S(isurf).b(:,:,1), S(isurf).b(:,:,2), S(isurf).b(:,:,3), ...
+    %     'facecolor', 'none', 'edgecolor', clb(isurf,:), 'linestyle', '-' );
+    
+    
     quiver3( S(isurf).b(1,1,1), S(isurf).b(1,1,2), S(isurf).b(1,1,3), ...
         S(isurf).b(2,1,1) - S(isurf).b(1,1,1), ...
         S(isurf).b(2,1,2) - S(isurf).b(1,1,2), ...

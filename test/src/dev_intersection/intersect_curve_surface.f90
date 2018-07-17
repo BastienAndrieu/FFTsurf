@@ -87,11 +87,29 @@ recursive subroutine intersect_curve_surface( &
                    1 )                                                       !  !  !          !
               if ( sum( (xyz_s - xyz_c)**2 ) < EPSxyzsqr ) then ! <----+     !  !  !          !
                  xyz = 0.5_fp * ( xyz_c + xyz_s )                      !     !  !  !          !
-                 tuv = real( [i,j,k]-1, kind=fp ) / real( &            !     !  !  !          !
-                      [ region_c%poly(1)%ptr%degr(1), &                !     !  !  !          !
-                      region_s%poly(1)%ptr%degr(1:2) ], &              !     !  !  !          !
-                      kind=fp )                                        !     !  !  !          !
-                 tuv = -1._fp + 2._fp * tuv                            !     !  !  !          !
+                 tuv = real([i,j,k]-1, kind=fp)
+                 !PRINT *,'TUV*=',TUV
+                 tuv(1) = (1._fp - tuv(1))*region_c%uvbox(1) + &
+                      tuv(1)*region_c%uvbox(2)
+                 tuv(2) = (1._fp - tuv(2))*region_s%uvbox(1) + &
+                      tuv(2)*region_s%uvbox(2)
+                 tuv(3) = (1._fp - tuv(3))*region_s%uvbox(3) + &
+                      tuv(3)*region_s%uvbox(4)
+                 IF ( DEBUG ) PRINT *,'TUV =',TUV
+                 IF ( DEBUG ) PRINT *,'XYZ =',XYZ
+                 !
+                 call check_curve_surface_intersection_point( &
+                      root_c, &
+                      root_s, &
+                      tuv(1), &
+                      tuv(2:3), &
+                      stat_newpoint )
+                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
+                 if ( stat_newpoint == 2 ) then
+                    ! high-order tangential contact point
+                    ! => the curve is presumably a subset of the surface
+                    RETURN 
+                 end if
                  !                                                     !     !  !  !          !
                  call append_vector( &                                 !     !  !  !          !
                       [tuv,xyz], &                                     !     !  !  !          !
@@ -182,6 +200,7 @@ recursive subroutine intersect_curve_surface( &
                 separable, &                                                    !         !   !
                 randomize=.true. )                                              !         !   !
            nullify(poly(1)%ptr, poly(2)%ptr)                                    !         !   !
+           IF ( DEBUG ) PRINT *,'CURVE-SURFACE SEPARABLE?',SEPARABLE
            !                                                                    !         !   !
            if ( separable ) return ! the pair cannot intersect at other points  !         !   !
         end if ! <--------------------------------------------------------------+         !   !
