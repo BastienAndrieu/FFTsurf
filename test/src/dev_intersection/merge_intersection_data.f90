@@ -57,7 +57,7 @@ subroutine merge_intersection_data( &
           HMAX=REAL(1.E-1,KIND=FP) )
 
      if ( stat > 0 ) then
-        PRINT *,'STAT = ',STAT
+        PRINT *,'STAT_TRACE_INTERSECITON_POLYLINE = ',STAT
         return
      end if
 
@@ -71,13 +71,13 @@ subroutine merge_intersection_data( &
      do jc = 1,nc
         call intersect_intersection_curves( &
              interdata_global, &
-             [nc+ic,jc] )
+             [nc+ic,jc], &
+             stat )
+        if ( stat > 0 ) then
+           PRINT *,'STAT_INTERSECT_INTERSECTION_CURVES = ',STAT
+           return
+        end if
      end do
-
   end do
-
-
-
-
 
 end subroutine merge_intersection_data

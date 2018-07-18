@@ -99,6 +99,8 @@ contains
        do ic = 1,interdata%nc
           nullify(interdata%curves(ic)%surf(1)%ptr, interdata%curves(ic)%surf(2)%ptr)
 
+          if ( allocated(interdata%curves(ic)%isplit) ) deallocate(interdata%curves(ic)%isplit)
+
           if ( associated(interdata%curves(ic)%polyline) ) then
              if ( allocated(interdata%curves(ic)%polyline%s  ) ) deallocate(interdata%curves(ic)%polyline%s  )
              if ( allocated(interdata%curves(ic)%polyline%uv ) ) deallocate(interdata%curves(ic)%polyline%uv )
