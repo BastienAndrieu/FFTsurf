@@ -12,12 +12,11 @@ subroutine merge_intersection_data( &
   type(ptr_surface),            intent(in)    :: surf(2)
   integer,                      intent(in)    :: nuvxyz
   real(kind=fp),                intent(in)    :: uvxyz(7,nuvxyz)
-  type(type_intersection_data), intent(in),    target    :: interdata_local
-  type(type_intersection_data), intent(inout), target :: interdata_global
+  type(type_intersection_data), intent(in)    :: interdata_local
+  type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
   integer                                     :: nc
-  type(ptr_intersection_curve)                :: curv(2)
   integer                                     :: ip, ic, jc
 
   ! add new intersection points
@@ -26,6 +25,7 @@ subroutine merge_intersection_data( &
           reshape(uvxyz(1:4,ip), [2,2]), &
           uvxyz(5:7,ip), &
           surf, &
+          2, &
           interdata_global, &
           id_global(ip) ) 
   end do
@@ -46,12 +46,13 @@ subroutine merge_intersection_data( &
      allocate(interdata_global%curves(interdata_global%nc)%polyline)
      call trace_intersection_polyline( &
           surf, &
-          interdata_local%curves(ic)%uvbox, &
-          interdata_local%curves(ic)%param_vector, &
+          interdata_global%curves(nc+ic)%uvbox, &
+          interdata_global%curves(nc+ic)%param_vector, &
           reshape(uvxyz(1:4,interdata_local%curves(ic)%root%endpoints),[2,2,2]), &
           uvxyz(5:7,interdata_local%curves(ic)%root%endpoints), &
           stat, &
-          interdata_global%curves(interdata_global%nc)%polyline, &
+          interdata_global%curves(nc+ic)%polyline, &
+          interdata_global%curves(nc+ic)%w0, &
           HMIN=REAL(1.E-3,KIND=FP), &
           HMAX=REAL(1.E-1,KIND=FP) )
 
@@ -60,11 +61,17 @@ subroutine merge_intersection_data( &
         return
      end if
 
+     ! add endpoints as split points
+     interdata_global%curves(nc+ic)%nsplit = 2
+     allocate(interdata_global%curves(nc+ic)%isplit(2,2))
+     interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
+     interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
+
      ! intersection with other curves
-     curv(1)%ptr => interdata_global%curves(nc+ic)
      do jc = 1,nc
-        curv(2)%ptr => interdata_global%curves(jc)
-        call intersect_intersection_curves(curv)
+        call intersect_intersection_curves( &
+             interdata_global, &
+             [nc+ic,jc] )
      end do
 
   end do

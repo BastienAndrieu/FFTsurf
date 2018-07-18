@@ -23,8 +23,8 @@ program dev_intersection
   integer                                 :: nsurf
   type(type_surface), target, allocatable :: surf(:)
   logical, allocatable                    :: mask(:)
-  type(type_intersection_data)            :: interdata_global
-  integer                                 :: isurf
+  type(type_intersection_data)            :: interdata
+  integer                                 :: isurf, i, j
 
   ! =================================================================================
   ! Read command line arguments
@@ -110,21 +110,35 @@ program dev_intersection
   call intersect_all_surfaces( &
        surf, &
        nsurf, &
-       interdata_global, &
+       interdata, &
        mask )
   call system_clock( toc )
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_intersection_data( &
-       interdata_global, &
+  call write_intersection_data_bis( &
+       interdata, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
 
-  call free_intersection_data(interdata_global)
+  PRINT *,'TOTAL :'
+  PRINT *,INTERDATA%NP,' INTERSECTION POINT(S)'
+  PRINT *,INTERDATA%NC,' INTERSECTION CURVE(S)'
+
+  IF ( .FALSE. ) THEN
+     DO I = 1,INTERDATA%NC
+        PRINT *,'- - - - - -'
+        PRINT *,'CURV #',I
+        PRINT *,'NP =',INTERDATA%CURVES(I)%POLYLINE%NP
+        PRINT *,'NSPLIT =',INTERDATA%CURVES(I)%NSPLIT, ALLOCATED(INTERDATA%CURVES(I)%ISPLIT)
+        DO J = 1,INTERDATA%CURVES(I)%NSPLIT
+           PRINT *,INTERDATA%CURVES(I)%ISPLIT(:,J)
+        END DO
+     END DO
+  END IF
+
+  call free_intersection_data(interdata)
   ! =================================================================================
-
-
 
   ! =================================================================================
   ! Free memory
@@ -188,6 +202,59 @@ contains
 
   end subroutine write_intersection_data
 
+
+
+
+
+
+
+  subroutine write_intersection_data_bis( &
+       interdat, &
+       filepoints, &
+       filecurves )
+    use mod_util
+    use mod_types_intersection
+    implicit none
+    type(type_intersection_data), intent(in) :: interdat
+    character(*),                 intent(in) :: filepoints, filecurves
+    integer                                  :: fileunit
+    integer                                  :: ip, ic
+
+    call get_free_unit( fileunit )
+
+    open( &
+         unit = fileunit, &
+         file = filepoints, &
+         action = 'write' )
+    do ip = 1,interdat%np
+       write ( fileunit, * ) interdat%points(ip)%xyz
+    end do
+    close( fileunit )
+
+    open( &
+         unit = fileunit, &
+         file = filecurves, &
+         action = 'write' )
+    write ( fileunit, * ) interdat%nc
+    do ic = 1,interdat%nc
+       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,1)
+       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,2)
+       write ( fileunit, * ) interdat%curves(ic)%nsplit
+       do ip = 1,interdat%curves(ic)%nsplit
+          write ( fileunit, * ) interdat%curves(ic)%isplit(:,ip)
+       end do
+       if ( associated(interdat%curves(ic)%polyline) ) then
+          write ( fileunit, * ) interdat%curves(ic)%polyline%np
+          do ip = 1,interdat%curves(ic)%polyline%np
+             write ( fileunit, * ) interdat%curves(ic)%polyline%uv(:,:,ip), interdat%curves(ic)%polyline%xyz(:,ip)
+          end do
+       else
+          write ( fileunit, * ) 0
+       end if
+    end do
+    close( fileunit )
+
+  end subroutine write_intersection_data_bis
 
 
 
@@ -257,6 +324,7 @@ subroutine add_intersection_point( &
     uv, &
     xyz, &
     surf, &
+    nsurf, &
     interdata, &
     id ) 
   use mod_math
@@ -264,90 +332,79 @@ subroutine add_intersection_point( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer, parameter                          :: PARAM_xtra_np = 10
-  real(kind=fp),                intent(in)    :: uv(2,2)
+  integer,                      intent(in)    :: nsurf
+  real(kind=fp),                intent(in)    :: uv(2,nsurf)
   real(kind=fp),                intent(in)    :: xyz(3)
-  type(ptr_surface),            intent(in)    :: surf(2)
+  type(ptr_surface),            intent(in)    :: surf(nsurf)
   type(type_intersection_data), intent(inout) :: interdata
   integer,                      intent(out)   :: id
   type(type_point_on_surface), pointer        :: pos
-  logical                                     :: newsurf(2)
-  type(type_intersection_point), allocatable  :: tmp(:)
-  integer                                     :: ipt, isurf, ipos
+  logical                                     :: newsurf(nsurf)
+  type(type_intersection_data)                :: tmp
+  integer                                     :: isurf, ipos
 
-  do ipt = 1,interdata%np ! <------------------------------------------------------------------------+
-     if ( interdata%points(ipt)%npos > 0 ) then ! <----------------------------------------------+   !
-        if ( sum( (xyz - interdata%points(ipt)%xyz)**2 ) < EPSxyzsqr ) then ! <--------------+   !   !
-           ! this is a duplicate point                                                       !   !   !
-           pos => interdata%points(ipt)%pos                                                  !   !   !
-           newsurf(:) = .true.                                                               !   !   !
-           do ipos = 1,interdata%points(ipt)%npos ! <------------------------------------+   !   !   !
-              do isurf = 1,2 ! <------------------------------------------------------+  !   !   !   !
-                 if ( associated(pos%surf,surf(isurf)%ptr) ) newsurf(isurf) = .false. !  !   !   !   !
-              end do ! <--------------------------------------------------------------+  !   !   !   !
-              if ( ipos < interdata%points(ipt)%npos ) pos => pos%next                   !   !   !   !
-           end do ! <--------------------------------------------------------------------+   !   !   !
-           !                                                                                 !   !   !
-           do isurf = 1,2 ! <---------------------------------------------------+            !   !   !
-              if ( newsurf(isurf) ) then ! <---------------------------------+  !            !   !   !
-                 interdata%points(ipt)%npos = interdata%points(ipt)%npos + 1 !  !            !   !   !
-                 allocate( pos%next )                                        !  !            !   !   !
-                 pos => pos%next                                             !  !            !   !   !
-                 pos%uv = uv(:,isurf)                                        !  !            !   !   !
-                 pos%surf => surf(isurf)%ptr                                 !  !            !   !   !
-              end if ! <-----------------------------------------------------+  !            !   !   !
-           end do ! <-----------------------------------------------------------+            !   !   !
-           !                                                                                 !   !   !
-           id = ipt                                                                          !   !   !
-           nullify(pos)                                                                      !   !   !
-           return                                                                            !   !   !
-        end if ! <---------------------------------------------------------------------------+   !   !
-     else ! -------------------------------------------------------------------------------------+   !
-           STOP 'add_intersection_point : npos <= 0'                                             !   !
-     end if ! <----------------------------------------------------------------------------------+   !
-  end do ! <-----------------------------------------------------------------------------------------+
+  ! compare the point to be inserted with already collected points
+  do id = 1,interdata%np ! <-------------------------------------------------------+
+     if ( sum((xyz - interdata%points(id)%xyz)**2) < EPSxyzsqr ) then ! <-------+  !
+        pos => interdata%points(id)%pos                                         !  !
+        newsurf(1:nsurf) = .true.                                               !  !
+        do ipos = 1,interdata%points(id)%npos ! <----------------------------+  !  !
+           if ( all(.not.newsurf) ) exit                                     !  !  !
+           do isurf = 1,nsurf ! <-----------------------------------------+  !  !  !
+              if ( .not.newsurf(isurf) ) cycle                            !  !  !  !
+              if ( associated(pos%surf, surf(isurf)%ptr) ) then ! <----+  !  !  !  !
+                 newsurf(isurf)= .false.                               !  !  !  !  !
+                 exit                                                  !  !  !  !  !
+              end if ! <-----------------------------------------------+  !  !  !  !
+           end do ! <-----------------------------------------------------+  !  !  !
+           if ( ipos < interdata%points(id)%npos ) pos => pos%next           !  !  !
+        end do ! <-----------------------------------------------------------+  !  !
+        !                                                                       !  !
+        do isurf = 1,nsurf ! <-----------------------------------------------+  !  !
+           if ( newsurf(isurf) ) then ! <---------------------------------+  !  !  !
+              interdata%points(id)%npos = interdata%points(id)%npos + 1   !  !  !  !
+              allocate(pos%next)                                          !  !  !  !
+              pos => pos%next                                             !  !  !  !
+              pos%uv = uv(:,isurf)                                        !  !  !  !
+              pos%surf => surf(isurf)%ptr                                 !  !  !  !
+           end if ! <-----------------------------------------------------+  !  !  !
+        end do ! <-----------------------------------------------------------+  !  !
+        nullify(pos)                                                            !  !
+        return                                                                  !  !
+        !                                                                       !  !
+     end if ! <-----------------------------------------------------------------+  !
+  end do ! <-----------------------------------------------------------------------+
 
+  
   if ( .not.allocated(interdata%points) ) allocate(interdata%points(PARAM_xtra_np) )
 
-  ! this is a new point
-  IF ( DEBUG ) THEN
-     PRINT *,'ADDING INTERSECTION POINT :'
-     PRINT *,'XYZ =',XYZ
-     PRINT *,' UV =',UV
-  END IF
+  ! the point to be inserted is not a duplicate, we insert it
 
+  ! reallocate if necessary
+  if ( interdata%np + 1 > size(interdata%points) ) then
+     allocate(tmp%points(interdata%np))
+     call transfer_intersection_points( &
+          from=interdata, &
+          to=tmp )
+
+     allocate(interdata%points(tmp%np + PARAM_xtra_np))
+     call transfer_intersection_points( &
+          from=tmp, &
+          to=interdata )
+  end if
+  
+  ! insert new point
   interdata%np = interdata%np + 1
   id = interdata%np
-  if ( id > size(interdata%points) ) then ! <--------------------------+
-     ! reallocate interdata%points                                     !
-     allocate( tmp(size(interdata%points)) )                           !
-     do ipt = 1,size(interdata%points) ! <-----------+                 !
-        tmp(ipt)%xyz = interdata%points(ipt)%xyz     !                 !
-        tmp(ipt)%npos = interdata%points(ipt)%npos   !                 !
-        tmp(ipt)%pos => interdata%points(ipt)%pos    !                 !
-        nullify( interdata%points(ipt)%pos )         !                 !
-     end do ! <-------------------------------------+                  !
-     deallocate( interdata%points )                                    !
-     !                                                                 !
-     allocate( interdata%points(interdata%np + PARAM_xtra_np) )        !
-     do ipt = 1,size(tmp) ! <-----------------------+                  !
-        interdata%points(ipt)%xyz = tmp(ipt)%xyz     !                 !
-        interdata%points(ipt)%npos = tmp(ipt)%npos   !                 !
-        interdata%points(ipt)%pos => tmp(ipt)%pos    !                 !
-        nullify( tmp(ipt)%pos )                     !                  !
-     end do ! <-------------------------------------+                  !
-     deallocate( tmp )                                                 !
-  end if ! <-----------------------------------------------------------+
-
   interdata%points(id)%xyz = xyz
-  allocate( interdata%points(id)%pos )
+  interdata%points(id)%npos = nsurf
+  allocate(interdata%points(id)%pos)
   pos => interdata%points(id)%pos
-  do isurf = 1,2 ! <---------------------------------------------------+
-     interdata%points(id)%npos = interdata%points(id)%npos + 1         !
+  do isurf = 1,nsurf ! <-----------------------------------------------+
      pos%uv = uv(:,isurf)                                              !
      pos%surf => surf(isurf)%ptr                                       !
-     if ( isurf < 2 ) allocate( pos%next )                             !
+     if ( isurf < nsurf ) allocate(pos%next)                           !
      pos => pos%next                                                   !
   end do ! <-----------------------------------------------------------+
 
@@ -1241,18 +1298,19 @@ subroutine insert_polyline_point( &
   type(type_intersection_polyline), intent(inout) :: polyline
   integer, optional,                intent(in)    :: i
   integer                                         :: iprev
-  
+
   if ( present(i) ) then
      iprev = i
+     iprev = min(iprev,polyline%np)
+     iprev = max(iprev,0)
   else
      iprev = polyline%np
   end if
-  !PRINT *,'IPREV =',IPREV,', NP =',POLYLINE%NP
 
   if ( .not.allocated(polyline%uv)  ) allocate(polyline%uv(2,2,PARAM_xtra_np))
   if ( .not.allocated(polyline%xyz) ) allocate(polyline%xyz(3,PARAM_xtra_np) )
-  
-  if ( iprev >= size(polyline%xyz,2) ) then
+
+  if ( polyline%np + 1 > size(polyline%xyz,2) ) then
      call reallocate_polyline( &
           polyline, &
           polyline%np + PARAM_xtra_np, &
@@ -2350,27 +2408,37 @@ end subroutine intersect_gaussmaps_elsewhere
 
 
 subroutine intersect_intersection_curves( &
-     curv )
+     interdata, &
+     curvpair )
   USE MOD_UTIL
   use mod_math
+  use mod_tolerances
   use mod_types_intersection
   implicit none
-  type(ptr_intersection_curve), intent(inout) :: curv(2)
-  logical                                     :: may_intersect
-  real(kind=fp)                               :: uvbox(2,2)
-  integer                                     :: numsurf(2)
-  type(type_matrix)                           :: polylineuv(2)
-  integer                                     :: np(2)
-  integer, allocatable                        :: ipls(:,:)
-  real(kind=fp), allocatable                  :: lambda(:,:)
-  integer                                     :: npts
-  type(ptr_surface)                           :: surf(3)
-  real(kind=fp), allocatable                  :: uv(:,:,:), xyz(:,:)
-  real(kind=fp), dimension(6)                 :: lowerb, upperb
-  integer                                     :: stat
-  real(kind=fp)                               :: w
-  integer                                     :: isurf, jsurf, ivar, icurv, ipt
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  type(type_intersection_data), target, intent(inout) :: interdata
+  integer,                              intent(in)    :: curvpair(2)
+  type(ptr_intersection_curve)                        :: curv(2)
+  logical                                             :: may_intersect
+  real(kind=fp)                                       :: uvbox(2,2)
+  integer                                             :: numsurf(2)
+  type(type_matrix)                                   :: polylineuv(2)
+  integer                                             :: np(2)
+  integer, allocatable                                :: ipls(:,:)
+  real(kind=fp), allocatable                          :: lambda(:,:)
+  integer                                             :: npts
+  type(ptr_surface)                                   :: surf(3)
+  real(kind=fp)                                       :: uv3(2,3), xyz(3), uv2(2,2)
+  real(kind=fp)                                       :: w, wi, wip1
+  real(kind=fp), dimension(6)                         :: lowerb, upperb
+  integer                                             :: stat
+  integer                                             :: idpt
+  integer                                             :: isurf, jsurf, ivar, icurv, ipt, jpt
   INTEGER :: FID, I
+
+  do icurv = 1,2
+     curv(icurv)%ptr => interdata%curves(curvpair(icurv))
+  end do
 
   may_intersect = .false.
   jloop : do jsurf = 1,2
@@ -2413,21 +2481,20 @@ subroutine intersect_intersection_curves( &
 
   if ( npts < 1 ) return ! the polylines do not intersect, we assume the curves do not either
 
-  allocate(uv(2,3,npts), xyz(3,npts))
   do ipt = 1,npts
-     !! refine all intersection points using Newton algorithm
+     !! refine all intersection points using Newton-Raphson algorithm
      surf(1)%ptr => curv(1)%ptr%surf(numsurf(1))%ptr
      do icurv = 1,2
         surf(1+icurv)%ptr => curv(icurv)%ptr%surf(1+mod(numsurf(icurv),2))%ptr
      end do
 
      ! set initial iterate
-     uv(:,1,ipt) = &
+     uv3(:,1) = &
           (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &
           lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)
      do icurv = 1,2
         isurf = 1 + mod(numsurf(icurv),2)
-        uv(:,1+icurv,ipt) = &
+        uv3(:,1+icurv) = &
              (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + &
              lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)
      end do
@@ -2441,18 +2508,21 @@ subroutine intersect_intersection_curves( &
         upperb(2*(icurv+1)-1:2*(icurv+1)) = curv(icurv)%ptr%uvbox(2,1:2,isurf)
      end do
 
+     ! run Newton-Raphson algorithm
      call newton_three_surfaces( &
           surf, &
           lowerb, &
           upperb, &
           stat, &
-          uv(:,:,ipt), &
-          xyz(:,ipt) )
+          uv3, &
+          xyz )
 
      IF ( STAT == 0 ) THEN
-        PRINT *,'NEWTON 3 SURFACES CONVERGED'
-        PRINT *,' UV =',UV
-        PRINT *,'XYZ =',XYZ
+        IF ( DEBUG ) THEN
+           PRINT *,'NEWTON 3 SURFACES CONVERGED'
+           PRINT *,' UV =',UV3
+           PRINT *,'XYZ =',XYZ
+        END IF
      ELSE
         CALL WRITE_POLYNOMIAL( SURF(1)%PTR%X, 'dev_intersection/debug3si_surf1.cheb' )
         CALL WRITE_POLYNOMIAL( SURF(2)%PTR%X, 'dev_intersection/debug3si_surf2.cheb' )
@@ -2469,15 +2539,93 @@ subroutine intersect_intersection_curves( &
            END DO
         END DO
         CLOSE(FID)
-        PRINT *,'UV0 =',uv(:,:,ipt)
         STOP '----> DEBUG 3SI'
      END IF
+
+     ! add the split point the intersection points collection
+     call add_intersection_point( &
+          uv3, &
+          xyz, &
+          surf, &
+          nsurf, &
+          interdata, &
+          idpt )
      
-     
-     do icurv = 1,2
-        w = dot_product(xyz(:,ipt), curv(icurv)%ptr%param_vector)
+     ! add the split point to each intersected curve's polyline
+     outer : do icurv = 1,2
+        ! compare the new split point to already discovered split points
+        do jpt = 1,curv(icurv)%ptr%nsplit
+           if ( idpt == curv(icurv)%ptr%isplit(1,jpt) ) cycle outer
+        end do
+
+        ! locate the segement in which the new split point must be inserted
+        ! (we use the monotony of w)
+        w    = dot_product(curv(icurv)%ptr%param_vector, xyz)
+        wi   = dot_product(curv(icurv)%ptr%param_vector, &
+                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))
+        wip1 = dot_product(curv(icurv)%ptr%param_vector, &
+                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1))
+        do 
+           if ( ipls(icurv,ipt) < 1 .or. &
+                ipls(icurv,ipt) >= curv(icurv)%ptr%polyline%np ) then
+              STOP 'COULD NOT FIND CORRECT SEGMENT'
+           end if
+           if ( w > wip1 ) then
+              ! the split point is located downstream
+              ipls(icurv,ipt) = ipls(icurv,ipt) + 1
+              wi = wip1
+              wip1 = dot_product(curv(icurv)%ptr%param_vector, &
+                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1))
+           elseif ( w < wi ) then
+              ! the split point is located upstream
+              ipls(icurv,ipt) = ipls(icurv,ipt) - 1
+              wi = dot_product(curv(icurv)%ptr%param_vector, &
+                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))
+              wip1 = wi
+           else
+              ! we found the correct segment
+              exit
+           end if
+        end do
+
+        ! insert a new polyline point
+        uv2(:,numsurf(icurv)) = uv3(:,1)
+        uv2(:,1+mod(numsurf(icurv),2)) = uv3(:,1+icurv)
+        call insert_polyline_point( &
+             uv2, &
+             xyz, &
+             stat, &
+             curv(icurv)%ptr%polyline, &
+             i=ipls(icurv,ipt) )
+        IF ( STAT > 0 ) STOP 'UNABLE TO INSERT POLYLINE POINT (SPLIT)'
         
-     end do
+        do jpt = curv(icurv)%ptr%nsplit,1,-1
+           if ( curv(icurv)%ptr%isplit(2,jpt) > ipls(icurv,ipt) ) then
+              curv(icurv)%ptr%isplit(2,jpt) = curv(icurv)%ptr%isplit(2,jpt) + 1
+           else
+              exit
+           end if
+        end do
+
+        IF ( DEBUG ) THEN
+           PRINT *,'CURVE #',CURVPAIR(ICURV)
+           PRINT *,'BEFORE :'
+           CALL PRINT_MAT( TRANSPOSE(curv(icurv)%ptr%isplit(:,1:curv(icurv)%ptr%nsplit)) )
+           PRINT *,'INSERT',[idpt, ipls(icurv,ipt)+1]
+        END IF
+        ! add the split point the curve's split points list
+        call insert_column_after( &
+             curv(icurv)%ptr%isplit, &
+             2, &
+             curv(icurv)%ptr%nsplit, &
+             [idpt, ipls(icurv,ipt)+1], &
+             jpt )
+        IF ( DEBUG ) THEN
+           PRINT *,'AFTER :'
+           CALL PRINT_MAT( TRANSPOSE(curv(icurv)%ptr%isplit(:,1:curv(icurv)%ptr%nsplit)) )
+           PRINT *,''
+        END IF
+     end do outer
 
   end do
 
@@ -3451,20 +3599,12 @@ subroutine merge_intersection_data( &
   type(ptr_surface),            intent(in)    :: surf(2)
   integer,                      intent(in)    :: nuvxyz
   real(kind=fp),                intent(in)    :: uvxyz(7,nuvxyz)
-  type(type_intersection_data), intent(in),    target    :: interdata_local
-  type(type_intersection_data), intent(inout), target :: interdata_global
+  type(type_intersection_data), intent(in)    :: interdata_local
+  type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
   integer                                     :: nc
-  !real(kind=fp)                               :: uvbox(2,2)
-  !integer                                     :: np(2)
-  !type(type_matrix)                           :: polylineuv(2)
-  !integer, allocatable                        :: isegm(:,:)
-  !real(kind=fp), allocatable                  :: lambda(:,:)
-  !integer                                     :: npts
-  type(ptr_intersection_curve)                :: curv(2)
-  integer                                     :: ip, ic, jc!, isurf, jsurf, ivar
-  !INTEGER :: FID, I
+  integer                                     :: ip, ic, jc
 
   ! add new intersection points
   do ip = 1,nuvxyz
@@ -3472,6 +3612,7 @@ subroutine merge_intersection_data( &
           reshape(uvxyz(1:4,ip), [2,2]), &
           uvxyz(5:7,ip), &
           surf, &
+          2, &
           interdata_global, &
           id_global(ip) ) 
   end do
@@ -3492,26 +3633,32 @@ subroutine merge_intersection_data( &
      allocate(interdata_global%curves(interdata_global%nc)%polyline)
      call trace_intersection_polyline( &
           surf, &
-          interdata_local%curves(ic)%uvbox, &
-          interdata_local%curves(ic)%param_vector, &
+          interdata_global%curves(nc+ic)%uvbox, &
+          interdata_global%curves(nc+ic)%param_vector, &
           reshape(uvxyz(1:4,interdata_local%curves(ic)%root%endpoints),[2,2,2]), &
           uvxyz(5:7,interdata_local%curves(ic)%root%endpoints), &
           stat, &
-          interdata_global%curves(interdata_global%nc)%polyline, &
+          interdata_global%curves(nc+ic)%polyline, &
+          interdata_global%curves(nc+ic)%w0, &
           HMIN=REAL(1.E-3,KIND=FP), &
           HMAX=REAL(1.E-1,KIND=FP) )
 
      if ( stat > 0 ) then
         PRINT *,'STAT = ',STAT
-        return!STOP
+        return
      end if
 
-     ! check intersection with other curves
-     curv(1)%ptr => interdata_global%curves(nc+ic)
+     ! add endpoints as split points
+     interdata_global%curves(nc+ic)%nsplit = 2
+     allocate(interdata_global%curves(nc+ic)%isplit(2,2))
+     interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
+     interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
+
+     ! intersection with other curves
      do jc = 1,nc
-        curv(2)%ptr => interdata_global%curves(jc)
         call intersect_intersection_curves( &
-     curv )
+             interdata_global, &
+             [nc+ic,jc] )
      end do
 
   end do
@@ -4157,6 +4304,7 @@ subroutine trace_intersection_polyline( &
      xyz_endpoints, &
      stat, &
      polyline, &
+     w0, &
      hmin, &
      hmax )
   use mod_math
@@ -4169,14 +4317,15 @@ subroutine trace_intersection_polyline( &
   real(kind=fp), parameter                        :: EPSbacktrack = real(1d-2, kind=fp)
   type(ptr_surface),                intent(in)    :: surf(2)
   real(kind=fp),                    intent(in)    :: uvbox(2,2,2)
-  real(kind=fp),                    intent(in)    :: param_vector(3)
+  real(kind=fp),                    intent(inout) :: param_vector(3)
   real(kind=fp),                    intent(in)    :: uv_endpoints(2,2,2) ! u/v, #surf, #point
   real(kind=fp),                    intent(in)    :: xyz_endpoints(3,2)
   integer,                          intent(out)   :: stat
   type(type_intersection_polyline), intent(inout) :: polyline
+  real(kind=fp),                    intent(out)   :: w0
   real(kind=fp), optional,          intent(in)    :: hmin, hmax
   real(kind=fp), dimension(4)                     :: lowerb, upperb
-  real(kind=fp)                                   :: w0, Dw, w, wprev
+  real(kind=fp)                                   :: Dw, w, wprev
   real(kind=fp)                                   :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                                   :: h_endpoints(2), h, EPSh
   real(kind=fp)                                   :: uv(2,2), xyz(3)
@@ -4199,8 +4348,10 @@ subroutine trace_intersection_polyline( &
      PRINT *,'UPPERB =',UPPERB
   END IF
 
-  w0 = dot_product( param_vector, xyz_endpoints(:,1) )
-  Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
+  w0 = dot_product(param_vector, xyz_endpoints(:,1))
+  Dw = dot_product(param_vector, xyz_endpoints(:,2)) - w0
+  param_vector = param_vector/Dw
+  w0 = w0/Dw
 
   do ipt = 2,1,-1
      ! get tangent direction and curvature of the intersection point at endpoints
@@ -4255,8 +4406,7 @@ subroutine trace_intersection_polyline( &
 
         if ( stat == 0 ) then
            ! Newton has converged, check whether w is monotonic along the polyline
-           w = dot_product( param_vector, xyz )
-           w = ( w - w0 ) / Dw
+           w = dot_product(param_vector, xyz) - w0
            if ( is_in_open_interval(w, wprev, 1._fp) ) then
               ! get tangent direction and curvature of the intersection point at the current point
               call diffgeom_intersection_curve( &
@@ -4323,6 +4473,7 @@ end subroutine trace_intersection_polyline
 subroutine transfer_intersection_curves( &
      from, &
      to )
+  use mod_types_intersection
   implicit none
   type(type_intersection_data), intent(inout) :: from
   type(type_intersection_data), intent(inout) :: to
@@ -4336,14 +4487,45 @@ subroutine transfer_intersection_curves( &
      to%curves(ic)%surf(2)%ptr  => from%curves(ic)%surf(2)%ptr
      to%curves(ic)%uvbox        =  from%curves(ic)%uvbox
      to%curves(ic)%param_vector =  from%curves(ic)%param_vector
+     to%curves(ic)%w0           =  from%curves(ic)%w0
+     if ( allocated(from%curves(ic)%isplit) ) then
+        call move_alloc(from=from%curves(ic)%isplit, to=to%curves(ic)%isplit)
+     end if
+     to%curves(ic)%nsplit       =  from%curves(ic)%nsplit
      to%curves(ic)%root         => from%curves(ic)%root
      to%curves(ic)%polyline     => from%curves(ic)%polyline
      nullify(from%curves(ic)%surf(1)%ptr,from%curves(ic)%surf(2)%ptr)
      nullify(from%curves(ic)%root, from%curves(ic)%polyline)
   end do
 
-  deallocate( from%curves )
+  deallocate(from%curves)
   from%nc = 0
 
 end subroutine transfer_intersection_curves
+
+
+
+
+
+subroutine transfer_intersection_points( &
+     from, &
+     to )
+  use mod_types_intersection
+  implicit none
+  type(type_intersection_data), intent(inout) :: from
+  type(type_intersection_data), intent(inout) :: to
+  integer                                     :: ip
+  
+  to%np = from%np
+
+  do ip = 1,from%np
+     to%points(ip)%xyz  =  from%points(ip)%xyz
+     to%points(ip)%pos  => from%points(ip)%pos
+     to%points(ip)%npos =  from%points(ip)%npos
+     nullify(from%points(ip)%pos)
+  end do
+  deallocate(from%points)
+  from%np = 0
+
+end subroutine transfer_intersection_points
 end program dev_intersection

@@ -6,6 +6,7 @@ subroutine trace_intersection_polyline( &
      xyz_endpoints, &
      stat, &
      polyline, &
+     w0, &
      hmin, &
      hmax )
   use mod_math
@@ -18,14 +19,15 @@ subroutine trace_intersection_polyline( &
   real(kind=fp), parameter                        :: EPSbacktrack = real(1d-2, kind=fp)
   type(ptr_surface),                intent(in)    :: surf(2)
   real(kind=fp),                    intent(in)    :: uvbox(2,2,2)
-  real(kind=fp),                    intent(in)    :: param_vector(3)
+  real(kind=fp),                    intent(inout) :: param_vector(3)
   real(kind=fp),                    intent(in)    :: uv_endpoints(2,2,2) ! u/v, #surf, #point
   real(kind=fp),                    intent(in)    :: xyz_endpoints(3,2)
   integer,                          intent(out)   :: stat
   type(type_intersection_polyline), intent(inout) :: polyline
+  real(kind=fp),                    intent(out)   :: w0
   real(kind=fp), optional,          intent(in)    :: hmin, hmax
   real(kind=fp), dimension(4)                     :: lowerb, upperb
-  real(kind=fp)                                   :: w0, Dw, w, wprev
+  real(kind=fp)                                   :: Dw, w, wprev
   real(kind=fp)                                   :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                                   :: h_endpoints(2), h, EPSh
   real(kind=fp)                                   :: uv(2,2), xyz(3)
@@ -48,8 +50,10 @@ subroutine trace_intersection_polyline( &
      PRINT *,'UPPERB =',UPPERB
   END IF
 
-  w0 = dot_product( param_vector, xyz_endpoints(:,1) )
-  Dw = dot_product( param_vector, xyz_endpoints(:,2) ) - w0
+  w0 = dot_product(param_vector, xyz_endpoints(:,1))
+  Dw = dot_product(param_vector, xyz_endpoints(:,2)) - w0
+  param_vector = param_vector/Dw
+  w0 = w0/Dw
 
   do ipt = 2,1,-1
      ! get tangent direction and curvature of the intersection point at endpoints
@@ -104,8 +108,7 @@ subroutine trace_intersection_polyline( &
 
         if ( stat == 0 ) then
            ! Newton has converged, check whether w is monotonic along the polyline
-           w = dot_product( param_vector, xyz )
-           w = ( w - w0 ) / Dw
+           w = dot_product(param_vector, xyz) - w0
            if ( is_in_open_interval(w, wprev, 1._fp) ) then
               ! get tangent direction and curvature of the intersection point at the current point
               call diffgeom_intersection_curve( &

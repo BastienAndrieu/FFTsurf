@@ -37,9 +37,10 @@ points = np.loadtxt( pth + 'interdataglobal_points.dat' )
 f = open( pth + 'interdataglobal_curves.dat', 'r' )
 curves = []
 nc = int(f.readline())
+aabb = np.vstack((1.e6*np.ones(3), -1.e6*np.ones(3)))
 
 for ic in range(nc):
-    endpoints = [ int(a) for a in f.readline().split() ]
+    #endpoints = [ int(a) for a in f.readline().split() ]
     uvbox = np.zeros( (2,2,2) )
     for isurf in range(2):
         umin, umax, vmin, vmax = [ float(a) for a in f.readline().split() ]
@@ -47,6 +48,11 @@ for ic in range(nc):
         uvbox[1,0,isurf] = umax
         uvbox[0,1,isurf] = vmin
         uvbox[1,1,isurf] = vmax
+    
+    ns = int(f.readline())
+    endpoints = np.zeros((ns,2))
+    for ip in range(ns):
+        endpoints[ip] = [ int(a)-1 for a in f.readline().split() ]
     
     n = int(f.readline())
     uv = np.zeros( (n,2,2) )
@@ -60,15 +66,21 @@ for ic in range(nc):
         xyz[ip,0] = x
         xyz[ip,1] = y
         xyz[ip,2] = z
+    for idim in range(3):
+        aabb[0,idim] = min(aabb[0,idim], np.amin(xyz[:,idim]))
+        aabb[1,idim] = max(aabb[1,idim], np.amax(xyz[:,idim]))
     c = intersection_curve( endpoints, uvbox, uv, xyz )
     curves.append( c )
 
 f.close()
 ##########################################################
 
+scn_diameter = np.sqrt( np.sum( np.power(aabb[1] - aabb[0], 2) ) )
+print("scene diameter =",scn_diameter)
+
 cls = myc.random_pastels(nsurf)
 clc = [1.0,0.0,0.0]
-thc = 2.5e-3
+thc = 2.e-3 * scn_diameter#2.5e-3
 rad = 1.5*thc
 ns = 200
 

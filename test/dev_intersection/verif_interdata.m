@@ -4,12 +4,12 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
-nsurf = 4;
+nsurf = 5;
 PLOT_TREE = 0;
 
 cl = colorcet( 'I2', 'N', nsurf );
 cl = CC( cl, 0.0, 0.8, 1.5 );
-cli = 'k';%'k';
+cli = 'k';%'y';
 
 %% read interdata
 
@@ -19,12 +19,18 @@ fid = fopen( 'interdataglobal_curves.dat', 'r' );
 nc = str2num( fgetl( fid ) );
 
 for ic = 1:nc
-    curves(ic).endpoints = str2num( fgetl( fid ) );
+    %curves(ic).endpoints = str2num( fgetl( fid ) );
     curves(ic).uvbox = zeros( 2, 4 );
     for isurf = 1:2
         curves(ic).uvbox(isurf,:) = str2num( fgetl( fid ) );
     end
+    curves(ic).nsplit = str2num( fgetl( fid ) );
+    curves(ic).isplit = zeros( curves(ic).nsplit, 2 );
+    for ip = 1:curves(ic).nsplit
+        curves(ic).isplit(ip,:) = str2num( fgetl( fid ) );
+    end
     n = str2num( fgetl( fid ) );
+    curves(ic).np = n;
     curves(ic).uv = zeros( n, 2, 2 );
     curves(ic).xyz = zeros( n, 3 );
     for ip = 1:n
@@ -68,7 +74,7 @@ for ic = 1:nc
         '-', 'color', cli, 'linewidth', 1.0 )
 end
 
-plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 6 );
+plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
 
 
 axis image vis3d
@@ -83,13 +89,35 @@ light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] 
 
 
 %%
+
+ncs = 0;
+for ic = 1:nc
+    if curves(ic).nsplit > 0
+        ncs = ncs + curves(ic).nsplit - 1;
+    end
+end
+
+clrc = hsv(ncs);
+clrc = clrc(randperm(ncs),:);
+
 figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
 hold on
 
+plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
 
+js = 0;
 for ic = 1:nc
-    plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
-        '.-', 'color', cli, 'markersize', 4 )
+    if curves(ic).nsplit > 0
+        for is = 1:curves(ic).nsplit - 1
+            js = js + 1;
+            l = curves(ic).isplit(is,2):curves(ic).isplit(is+1,2);
+            plot3( curves(ic).xyz(l,1), curves(ic).xyz(l,2), curves(ic).xyz(l,3), ...
+                '-', 'color', clrc(js,:), 'markersize', 5 )
+        end
+    else
+        plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
+            '-', 'color', cli, 'markersize', 5 )
+    end
 end
 
 axis image vis3d

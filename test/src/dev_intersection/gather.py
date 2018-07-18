@@ -40,7 +40,8 @@ listfiles = ['add_intersection_curve.f90',
              'reallocate_polyline.f90',
              'rearrange_for_separability_test.f90',
              'trace_intersection_polyline.f90',
-             'transfer_intersection_curves.f90']
+             'transfer_intersection_curves.f90', 
+             'transfer_intersection_points.f90']
 
 
 for filename in listfiles:

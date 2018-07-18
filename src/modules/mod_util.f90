@@ -546,4 +546,80 @@ contains
 
 
 
+
+
+  subroutine insert_after( &
+      list, &
+      nlist, &
+      elem, &
+      iprev )
+    implicit none
+    integer, allocatable, intent(inout) :: list(:)
+    integer,              intent(inout) :: nlist
+    integer,              intent(in)    :: elem
+    integer,              intent(inout) :: iprev
+    integer, allocatable                :: tmp(:)
+
+    if ( .not.allocated(list) ) then
+       allocate(list(1))
+       iprev = 0
+       nlist = 1
+       list(1) = elem
+    else
+       iprev = min(iprev, nlist)
+       iprev = max(iprev, 0)
+       if ( nlist + 1 > size(list) ) then
+          call move_alloc( from=list, to=tmp )
+          allocate(list(nlist+1))
+          list(1:nlist) = tmp
+          deallocate(tmp)
+       end if
+       list(iprev+2:nlist+1) = list(iprev+1:nlist)
+       list(iprev+1) = elem
+       nlist = nlist + 1
+    end if
+
+  end subroutine insert_after
+
+
+
+
+
+  subroutine insert_column_after( &
+      array, &
+      m, &
+      n, &
+      col, &
+      iprev )
+    implicit none
+    integer, parameter                  :: n_xtra = 1
+    integer, allocatable, intent(inout) :: array(:,:)
+    integer,              intent(in)    :: m
+    integer,              intent(inout) :: n
+    integer,              intent(in)    :: col(m)
+    integer,              intent(inout) :: iprev
+    integer, allocatable                :: tmp(:,:)
+
+    if ( .not.allocated(array) ) then
+       allocate(array(m,n_xtra))
+       iprev = 0
+       n = 1
+       array(1:m,1) = col(1:m)
+    else
+       iprev = min(iprev, n)
+       iprev = max(iprev, 0)
+       if ( n + 1 > size(array,2) ) then
+          call move_alloc( from=array, to=tmp )
+          allocate(array(m,n + n_xtra))
+          array(1:m,1:n) = tmp(1:m,1:n)
+          deallocate(tmp)
+       end if
+       array(1:m,iprev+2:n+1) = array(1:m,iprev+1:n)
+       array(1:m,iprev+1)     = col(1:m)
+       n = n + 1
+    end if
+
+  end subroutine insert_column_after
+
+
 end module mod_util

@@ -22,8 +22,8 @@
   integer                                 :: nsurf
   type(type_surface), target, allocatable :: surf(:)
   logical, allocatable                    :: mask(:)
-  type(type_intersection_data)            :: interdata_global
-  integer                                 :: isurf
+  type(type_intersection_data)            :: interdata
+  integer                                 :: isurf, i, j
 
   ! =================================================================================
   ! Read command line arguments
@@ -109,21 +109,35 @@
   call intersect_all_surfaces( &
        surf, &
        nsurf, &
-       interdata_global, &
+       interdata, &
        mask )
   call system_clock( toc )
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_intersection_data( &
-       interdata_global, &
+  call write_intersection_data_bis( &
+       interdata, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
 
-  call free_intersection_data(interdata_global)
+  PRINT *,'TOTAL :'
+  PRINT *,INTERDATA%NP,' INTERSECTION POINT(S)'
+  PRINT *,INTERDATA%NC,' INTERSECTION CURVE(S)'
+
+  IF ( .FALSE. ) THEN
+     DO I = 1,INTERDATA%NC
+        PRINT *,'- - - - - -'
+        PRINT *,'CURV #',I
+        PRINT *,'NP =',INTERDATA%CURVES(I)%POLYLINE%NP
+        PRINT *,'NSPLIT =',INTERDATA%CURVES(I)%NSPLIT, ALLOCATED(INTERDATA%CURVES(I)%ISPLIT)
+        DO J = 1,INTERDATA%CURVES(I)%NSPLIT
+           PRINT *,INTERDATA%CURVES(I)%ISPLIT(:,J)
+        END DO
+     END DO
+  END IF
+
+  call free_intersection_data(interdata)
   ! =================================================================================
-
-
 
   ! =================================================================================
   ! Free memory
@@ -187,3 +201,56 @@ contains
 
   end subroutine write_intersection_data
 
+
+
+
+
+
+
+  subroutine write_intersection_data_bis( &
+       interdat, &
+       filepoints, &
+       filecurves )
+    use mod_util
+    use mod_types_intersection
+    implicit none
+    type(type_intersection_data), intent(in) :: interdat
+    character(*),                 intent(in) :: filepoints, filecurves
+    integer                                  :: fileunit
+    integer                                  :: ip, ic
+
+    call get_free_unit( fileunit )
+
+    open( &
+         unit = fileunit, &
+         file = filepoints, &
+         action = 'write' )
+    do ip = 1,interdat%np
+       write ( fileunit, * ) interdat%points(ip)%xyz
+    end do
+    close( fileunit )
+
+    open( &
+         unit = fileunit, &
+         file = filecurves, &
+         action = 'write' )
+    write ( fileunit, * ) interdat%nc
+    do ic = 1,interdat%nc
+       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,1)
+       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,2)
+       write ( fileunit, * ) interdat%curves(ic)%nsplit
+       do ip = 1,interdat%curves(ic)%nsplit
+          write ( fileunit, * ) interdat%curves(ic)%isplit(:,ip)
+       end do
+       if ( associated(interdat%curves(ic)%polyline) ) then
+          write ( fileunit, * ) interdat%curves(ic)%polyline%np
+          do ip = 1,interdat%curves(ic)%polyline%np
+             write ( fileunit, * ) interdat%curves(ic)%polyline%uv(:,:,ip), interdat%curves(ic)%polyline%xyz(:,ip)
+          end do
+       else
+          write ( fileunit, * ) 0
+       end if
+    end do
+    close( fileunit )
+
+  end subroutine write_intersection_data_bis

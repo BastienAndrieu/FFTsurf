@@ -2,6 +2,7 @@ subroutine add_intersection_point( &
     uv, &
     xyz, &
     surf, &
+    nsurf, &
     interdata, &
     id ) 
   use mod_math
@@ -9,90 +10,79 @@ subroutine add_intersection_point( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer, parameter                          :: PARAM_xtra_np = 10
-  real(kind=fp),                intent(in)    :: uv(2,2)
+  integer,                      intent(in)    :: nsurf
+  real(kind=fp),                intent(in)    :: uv(2,nsurf)
   real(kind=fp),                intent(in)    :: xyz(3)
-  type(ptr_surface),            intent(in)    :: surf(2)
+  type(ptr_surface),            intent(in)    :: surf(nsurf)
   type(type_intersection_data), intent(inout) :: interdata
   integer,                      intent(out)   :: id
   type(type_point_on_surface), pointer        :: pos
-  logical                                     :: newsurf(2)
-  type(type_intersection_point), allocatable  :: tmp(:)
-  integer                                     :: ipt, isurf, ipos
+  logical                                     :: newsurf(nsurf)
+  type(type_intersection_data)                :: tmp
+  integer                                     :: isurf, ipos
 
-  do ipt = 1,interdata%np ! <------------------------------------------------------------------------+
-     if ( interdata%points(ipt)%npos > 0 ) then ! <----------------------------------------------+   !
-        if ( sum( (xyz - interdata%points(ipt)%xyz)**2 ) < EPSxyzsqr ) then ! <--------------+   !   !
-           ! this is a duplicate point                                                       !   !   !
-           pos => interdata%points(ipt)%pos                                                  !   !   !
-           newsurf(:) = .true.                                                               !   !   !
-           do ipos = 1,interdata%points(ipt)%npos ! <------------------------------------+   !   !   !
-              do isurf = 1,2 ! <------------------------------------------------------+  !   !   !   !
-                 if ( associated(pos%surf,surf(isurf)%ptr) ) newsurf(isurf) = .false. !  !   !   !   !
-              end do ! <--------------------------------------------------------------+  !   !   !   !
-              if ( ipos < interdata%points(ipt)%npos ) pos => pos%next                   !   !   !   !
-           end do ! <--------------------------------------------------------------------+   !   !   !
-           !                                                                                 !   !   !
-           do isurf = 1,2 ! <---------------------------------------------------+            !   !   !
-              if ( newsurf(isurf) ) then ! <---------------------------------+  !            !   !   !
-                 interdata%points(ipt)%npos = interdata%points(ipt)%npos + 1 !  !            !   !   !
-                 allocate( pos%next )                                        !  !            !   !   !
-                 pos => pos%next                                             !  !            !   !   !
-                 pos%uv = uv(:,isurf)                                        !  !            !   !   !
-                 pos%surf => surf(isurf)%ptr                                 !  !            !   !   !
-              end if ! <-----------------------------------------------------+  !            !   !   !
-           end do ! <-----------------------------------------------------------+            !   !   !
-           !                                                                                 !   !   !
-           id = ipt                                                                          !   !   !
-           nullify(pos)                                                                      !   !   !
-           return                                                                            !   !   !
-        end if ! <---------------------------------------------------------------------------+   !   !
-     else ! -------------------------------------------------------------------------------------+   !
-           STOP 'add_intersection_point : npos <= 0'                                             !   !
-     end if ! <----------------------------------------------------------------------------------+   !
-  end do ! <-----------------------------------------------------------------------------------------+
+  ! compare the point to be inserted with already collected points
+  do id = 1,interdata%np ! <-------------------------------------------------------+
+     if ( sum((xyz - interdata%points(id)%xyz)**2) < EPSxyzsqr ) then ! <-------+  !
+        pos => interdata%points(id)%pos                                         !  !
+        newsurf(1:nsurf) = .true.                                               !  !
+        do ipos = 1,interdata%points(id)%npos ! <----------------------------+  !  !
+           if ( all(.not.newsurf) ) exit                                     !  !  !
+           do isurf = 1,nsurf ! <-----------------------------------------+  !  !  !
+              if ( .not.newsurf(isurf) ) cycle                            !  !  !  !
+              if ( associated(pos%surf, surf(isurf)%ptr) ) then ! <----+  !  !  !  !
+                 newsurf(isurf)= .false.                               !  !  !  !  !
+                 exit                                                  !  !  !  !  !
+              end if ! <-----------------------------------------------+  !  !  !  !
+           end do ! <-----------------------------------------------------+  !  !  !
+           if ( ipos < interdata%points(id)%npos ) pos => pos%next           !  !  !
+        end do ! <-----------------------------------------------------------+  !  !
+        !                                                                       !  !
+        do isurf = 1,nsurf ! <-----------------------------------------------+  !  !
+           if ( newsurf(isurf) ) then ! <---------------------------------+  !  !  !
+              interdata%points(id)%npos = interdata%points(id)%npos + 1   !  !  !  !
+              allocate(pos%next)                                          !  !  !  !
+              pos => pos%next                                             !  !  !  !
+              pos%uv = uv(:,isurf)                                        !  !  !  !
+              pos%surf => surf(isurf)%ptr                                 !  !  !  !
+           end if ! <-----------------------------------------------------+  !  !  !
+        end do ! <-----------------------------------------------------------+  !  !
+        nullify(pos)                                                            !  !
+        return                                                                  !  !
+        !                                                                       !  !
+     end if ! <-----------------------------------------------------------------+  !
+  end do ! <-----------------------------------------------------------------------+
 
+  
   if ( .not.allocated(interdata%points) ) allocate(interdata%points(PARAM_xtra_np) )
 
-  ! this is a new point
-  IF ( DEBUG ) THEN
-     PRINT *,'ADDING INTERSECTION POINT :'
-     PRINT *,'XYZ =',XYZ
-     PRINT *,' UV =',UV
-  END IF
+  ! the point to be inserted is not a duplicate, we insert it
 
+  ! reallocate if necessary
+  if ( interdata%np + 1 > size(interdata%points) ) then
+     allocate(tmp%points(interdata%np))
+     call transfer_intersection_points( &
+          from=interdata, &
+          to=tmp )
+
+     allocate(interdata%points(tmp%np + PARAM_xtra_np))
+     call transfer_intersection_points( &
+          from=tmp, &
+          to=interdata )
+  end if
+  
+  ! insert new point
   interdata%np = interdata%np + 1
   id = interdata%np
-  if ( id > size(interdata%points) ) then ! <--------------------------+
-     ! reallocate interdata%points                                     !
-     allocate( tmp(size(interdata%points)) )                           !
-     do ipt = 1,size(interdata%points) ! <-----------+                 !
-        tmp(ipt)%xyz = interdata%points(ipt)%xyz     !                 !
-        tmp(ipt)%npos = interdata%points(ipt)%npos   !                 !
-        tmp(ipt)%pos => interdata%points(ipt)%pos    !                 !
-        nullify( interdata%points(ipt)%pos )         !                 !
-     end do ! <-------------------------------------+                  !
-     deallocate( interdata%points )                                    !
-     !                                                                 !
-     allocate( interdata%points(interdata%np + PARAM_xtra_np) )        !
-     do ipt = 1,size(tmp) ! <-----------------------+                  !
-        interdata%points(ipt)%xyz = tmp(ipt)%xyz     !                 !
-        interdata%points(ipt)%npos = tmp(ipt)%npos   !                 !
-        interdata%points(ipt)%pos => tmp(ipt)%pos    !                 !
-        nullify( tmp(ipt)%pos )                     !                  !
-     end do ! <-------------------------------------+                  !
-     deallocate( tmp )                                                 !
-  end if ! <-----------------------------------------------------------+
-
   interdata%points(id)%xyz = xyz
-  allocate( interdata%points(id)%pos )
+  interdata%points(id)%npos = nsurf
+  allocate(interdata%points(id)%pos)
   pos => interdata%points(id)%pos
-  do isurf = 1,2 ! <---------------------------------------------------+
-     interdata%points(id)%npos = interdata%points(id)%npos + 1         !
+  do isurf = 1,nsurf ! <-----------------------------------------------+
      pos%uv = uv(:,isurf)                                              !
      pos%surf => surf(isurf)%ptr                                       !
-     if ( isurf < 2 ) allocate( pos%next )                             !
+     if ( isurf < nsurf ) allocate(pos%next)                           !
      pos => pos%next                                                   !
   end do ! <-----------------------------------------------------------+
 

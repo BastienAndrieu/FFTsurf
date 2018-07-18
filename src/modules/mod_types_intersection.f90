@@ -45,6 +45,9 @@ module mod_types_intersection
      type(ptr_surface)                          :: surf(2)
      real(kind=fp)                              :: uvbox(2,2,2) ! umin/max, vmin/max, #surf
      real(kind=fp)                              :: param_vector(3)
+     real(kind=fp)                              :: w0
+     integer, allocatable                       :: isplit(:,:) ! row 1: #intersection point, row 2: #polyline point
+     integer                                    :: nsplit = 0
      type(type_intersection_segment), pointer   :: root => null()
      type(type_intersection_polyline), pointer  :: polyline => null()
   end type type_intersection_curve
@@ -53,7 +56,7 @@ module mod_types_intersection
 
   type type_intersection_data
      integer                                    :: np = 0
-     type(type_intersection_point), allocatable:: points(:)
+     type(type_intersection_point), allocatable :: points(:)
      integer                                    :: nc = 0
      type(type_intersection_curve), allocatable :: curves(:)
   end type type_intersection_data
