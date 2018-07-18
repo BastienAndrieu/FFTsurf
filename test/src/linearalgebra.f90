@@ -11,9 +11,9 @@ program linearalgebra
   end type string
 
 
-  LOGICAL :: VERBOSE = .FALSE.
-  LOGICAL :: TEST_LINSOLVE = .false.
-  LOGICAL :: TEST_SCALING = .true.
+  LOGICAL :: VERBOSE = .true.
+  LOGICAL :: TEST_LINSOLVE = .true.
+  LOGICAL :: TEST_SCALING = .false.
   
   integer, parameter :: repeat = 100
   integer, parameter :: pow_min = 1
@@ -50,10 +50,10 @@ program linearalgebra
   END IF
 
   u = a
-  !call system_clock( tic, count_rate )
-  !call svdcmp( u, m, n, w, v )
-  !call system_clock( toc )
-  !print *,'elapsed :', real(toc - tic) / real(count_rate)
+  call system_clock( tic, count_rate )
+  call svdcmp( u, m, n, w, v )
+  call system_clock( toc )
+  print *,'svdcmp - elapsed :', real(toc - tic) / real(count_rate)
 
   IF (VERBOSE) THEN
      print *,'U ='

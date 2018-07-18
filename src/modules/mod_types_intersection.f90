@@ -53,12 +53,17 @@ module mod_types_intersection
 
   type type_intersection_data
      integer                                    :: np = 0
-     type(type_intersection_point), allocatable :: points(:)
+     type(type_intersection_point), allocatable:: points(:)
      integer                                    :: nc = 0
      type(type_intersection_curve), allocatable :: curves(:)
   end type type_intersection_data
 
 
+
+  
+  type ptr_intersection_curve
+     type(type_intersection_curve), pointer     :: ptr => null()
+  end type ptr_intersection_curve
 
 
 
