@@ -44,7 +44,7 @@ subroutine intersect_intersection_curves( &
               uvbox(:,ivar) = [ &                                                           !  !  !  !
                    max(curv(1)%ptr%uvbox(1,ivar,isurf), curv(2)%ptr%uvbox(1,ivar,jsurf)), & !  !  !  !
                    min(curv(1)%ptr%uvbox(2,ivar,isurf), curv(2)%ptr%uvbox(2,ivar,jsurf)) ]  !  !  !  !
-              if ( uvbox(2,ivar) - uvbox(1,ivar) < epsilon(1._fp) ) then ! <---+            !  !  !  !
+              if ( uvbox(2,ivar) - uvbox(1,ivar) < EPSuv ) then ! <------------+            !  !  !  !
                  ! the uv-boxes do not overlap                                 !            !  !  !  !
                  cycle iloop                                                   !            !  !  !  !
               end if ! <-------------------------------------------------------+            !  !  !  !

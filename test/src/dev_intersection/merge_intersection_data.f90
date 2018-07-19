@@ -9,6 +9,7 @@ subroutine merge_intersection_data( &
   use mod_types_intersection
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surf(2)
   integer,                      intent(in)    :: nuvxyz
   real(kind=fp),                intent(in)    :: uvxyz(7,nuvxyz)
@@ -43,6 +44,7 @@ subroutine merge_intersection_data( &
      end do
 
      ! trace polyline
+     IF ( DEBUG ) PRINT *,'TRACE POLYLINE...'
      allocate(interdata_global%curves(interdata_global%nc)%polyline)
      call trace_intersection_polyline( &
           surf, &
@@ -53,9 +55,9 @@ subroutine merge_intersection_data( &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
-          HMIN=REAL(1.E-3,KIND=FP), &
-          HMAX=REAL(1.E-1,KIND=FP) )
-
+          HMIN=REAL(1.D-3,KIND=FP), &
+          HMAX=REAL(1.D-1,KIND=FP) )
+     IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECITON_POLYLINE = ',STAT
         return
@@ -68,7 +70,9 @@ subroutine merge_intersection_data( &
      interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
 
      ! intersection with other curves
+     IF ( DEBUG ) PRINT *,'INTERSECT WITH OTHER CURVES...'
      do jc = 1,nc
+        IF ( DEBUG ) PRINT *,'CURVE #',JC
         call intersect_intersection_curves( &
              interdata_global, &
              [nc+ic,jc], &
@@ -78,6 +82,7 @@ subroutine merge_intersection_data( &
            return
         end if
      end do
+     IF ( DEBUG ) PRINT *,'...OK'
   end do
 
 end subroutine merge_intersection_data

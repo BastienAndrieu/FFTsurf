@@ -32,7 +32,6 @@ subroutine find_collineal_points( &
   real(kind=fp),     intent(in)    :: upperb(4)
   real(kind=fp)                    :: xyz(3,2), dxyz_duv(3,2,2), d2xyz_duv2(3,3,2), n(3), r(3)
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
-  integer                          :: rank
   real(kind=fp)                    :: cond, erruv, lambda
   integer                          :: it, isurf, ivar
 
@@ -77,26 +76,6 @@ subroutine find_collineal_points( &
 
      IF ( DEBUG ) PRINT *,'F =',F 
 
-     !! termination criteria
-     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then ! <---+
-        !if ( sum(f**2) < EPScollinealsqr .and. erruv < EPSuvsqr*cond**2 ) then ! <---+
-        if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+                !
-           if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !                !
-              ! converged to a tangential intersection point  !    !                !
-              stat = -1                                       !    !                !
-              xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !                !
-           else ! --------------------------------------------+    !                !
-              ! converged to a pair of collineal points       !    !                !
-              stat = 0                                        !    !                !
-           end if ! <-----------------------------------------+    !                !
-           n_collineal = n / norm2( n )                            !                !
-        else ! ----------------------------------------------------+                !
-           IF ( DEBUG ) PRINT *,'STAGNATION'                       !                !
-        end if ! <-------------------------------------------------+                !
-        return                                                                      !
-     end if ! <---------------------------------------------------------------------+
-
-
      !! compute Jacobian matrix
      do isurf = 1,2 ! <-----------------------------+
         do ivar = 1,3 ! <-----------------------+   !
@@ -131,37 +110,54 @@ subroutine find_collineal_points( &
           4, &
           4, &
           1, &
-          cond, &
-          rank )
+          cond )
+     erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
-     erruv = sum( duv**2 )
-
-     if ( rank < 4 ) then ! <------------------+
-        ! singular Jacobian matrix             !
-        stat = 2                               !
-        return                                 !
-     end if ! <--------------------------------+
-
-     ! scale down Newton step to keep the solution inside feasible region
-     call nd_box_constraint( &
-          reshape( uv_collineal, [4] ), &
-          lowerb, &
-          upperb, &
-          duv, &
-          lambda )
-
-     if ( lambda < epsilon(1._fp) ) then ! <---+
-        ! non-positive scaling factor          !
-        return                                 !
-     end if ! <--------------------------------+
-
+     IF (.true.) THEN
+        ! (seems to be faster)
+        ! scale down Newton step to keep the solution inside feasible region
+        call nd_box_constraint( &
+             reshape( uv_collineal, [4] ), &
+             lowerb, &
+             upperb, &
+             duv, &
+             lambda )
+        if ( lambda < EPSfp ) then ! <---+
+           ! non-positive scaling factor !
+           return                        !
+        end if ! <-----------------------+
+        duv = lambda * duv
+     ELSE
+        ! correct Newton step to keep the iterate inside feasible region
+        call nd_box_reflexions( &
+             reshape( uv_collineal, [4] ), &
+             lowerb, &
+             upperb, &
+             duv, &
+             4 )
+     END IF
      ! update solution
-     duv = lambda * duv
      uv_collineal(:,1) = uv_collineal(:,1) + duv(1:2)
      uv_collineal(:,2) = uv_collineal(:,2) + duv(3:4)
      
+     !! termination criteria
+     if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <------------+
+        if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+    !
+           if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !    !
+              ! converged to a tangential intersection point  !    !    !
+              stat = -1                                       !    !    !
+              xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !    !
+           else ! --------------------------------------------+    !    !
+              ! converged to a pair of collineal points       !    !    !
+              stat = 0                                        !    !    !
+           end if ! <-----------------------------------------+    !    !
+           n_collineal = n / norm2( n )                            !    !
+        else ! ----------------------------------------------------+    !
+           IF ( DEBUG ) PRINT *,'STAGNATION'                       !    !
+        end if ! <-------------------------------------------------+    !
+        return                                                          !
+     end if ! <---------------------------------------------------------+
+
   end do
-
-
 
 end subroutine find_collineal_points

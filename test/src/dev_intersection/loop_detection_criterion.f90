@@ -116,7 +116,7 @@ subroutine loop_detection_criterion( &
   if ( separable ) then ! <----------------------------------------------------+
      param_vector = cross( vec1, vec2 )                                        !
      vecsqr = sum( param_vector**2 )                                           !
-     if ( vecsqr > epsilon(1._fp)**2 ) then ! <-------+                        !
+     if ( vecsqr > EPSfpsqr ) then ! <----------------+                        !
         stat = 0                                      !                        !
         param_vector = param_vector / sqrt( vecsqr )  !                        !
         if ( present(randomize) ) then ! <--------+
@@ -125,10 +125,8 @@ subroutine loop_detection_criterion( &
                    matmul( rot, param_vector ) !  !
            end if ! <--------------------------+  !
         end if ! <--------------------------------+
-
-        IF ( DEBUG ) PRINT *,'P = ',param_vector
-
         IF ( DEBUG ) THEN
+           PRINT *,'P = ',param_vector
            DO ISURF = 1,2
               WRITE (STRNUM,'(I1)') ISURF
               CALL WRITE_MATRIX( SEP(ISURF)%MAT(1:NSEP(ISURF),1:3), NSEP(ISURF), 3, &
@@ -137,8 +135,6 @@ subroutine loop_detection_criterion( &
            END DO
            STOP
         END IF
-
-
      else ! ------------------------------------------+                        !
         ! an error has occured                        !                        !
         stat = -1                                     !                        !

@@ -265,16 +265,17 @@ recursive subroutine intersect_surface_pair( &
      select case (stat_singularpoint) ! <-------------------------------+       !
         case (1) ! -----------------------------------------------------+       !
            ! point on tangential intersection curve                     !       !
-           ! (...)                                                      !       !
+           PRINT *,'>>> POINT ON TAGENTIAL INTSERSECTION CURVE'         !       !
         case (2) ! -----------------------------------------------------+       !
            ! branch point (two curves meet at that point)               !       !
            stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
+           PRINT *,'>>> BRANCH POINT'                                   !       !
         case (3) ! -----------------------------------------------------+       !
            ! isolated tangential contact point                          !       !
-           ! (...)                                                      !       !
+           PRINT *,'>>> ISOLATED TANGENTIAL CONTACT POINT'              !       !
         case (4) ! -----------------------------------------------------+       !
            ! high-order contact point                                   !       !
-           ! (...)                                                      !       !
+           PRINT *,'>>> HIGH-ORDER CONTACT POINT'                       !       !
      end select ! <-----------------------------------------------------+       !
      !                                                                          !
   elseif ( stat_collineal > 0 ) then ! -----------------------------------------+

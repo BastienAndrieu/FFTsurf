@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_tolerances.f90
-MD5:5328db56abd2d015d5f300043c4fc5c1 -- If you edit this, you'll get what you deserve.
+MD5:a08ca25979f6aad38a66f135557cc093 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -52,13 +52,12 @@ CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.112e0be826d695@-6') () 0 () () () 0
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.12725dd1d243ac@-13') () 0 () () ()
 0 0)
-32 'epsfp' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+32 'epsfp' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.10000000000000@-12') () 0 () () () 0 0)
-33 'epsfpsqr' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT
-UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.10000000000000@-25') () 0 () () ()
-0 0)
+33 'epsfpsqr' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
+REAL 8 0 0 0 REAL ()) 0 '0.10000000000000@-25') () 0 () () () 0 0)
 34 'epsilon' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 34
 () () () 0 0)

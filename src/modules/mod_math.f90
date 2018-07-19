@@ -5,6 +5,8 @@ module mod_math
   
   integer,       parameter :: fp = SELECTED_REAL_KIND(15,307)!kind(1.d0)
 
+  real(kind=fp), parameter :: EPSfp = epsilon( 1._fp )
+  real(kind=fp), parameter :: EPSfpsqr = EPSfp**2
   real(kind=fp), parameter :: EPSmath = 10._fp * EPSILON( 1._fp )
   real(kind=fp), parameter :: CSTpi = real( 3.14159265358979323846, kind=fp )
 

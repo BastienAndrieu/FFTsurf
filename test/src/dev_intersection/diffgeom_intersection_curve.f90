@@ -7,7 +7,8 @@ subroutine diffgeom_intersection_curve( &
     curvature )
   ! Computes tangent direction(s) and curvature of the intersection curve between
   ! two surfaces at a given intersection point.
-  ! Returns: stat = 0 if the point is on a single transveral intersection curve
+  ! Returns: stat =-1 if one surface is singular at that point (normal = zero vector)
+  !               = 0 if the point is on a single transveral intersection curve
   !               = 1 if the point is on a single tangential intersection curve
   !               = 2 if the point is a branch point (junction of two intersection curves)
   !               = 3 if the point is an isolated tangential contact point (degenerate curve)
@@ -17,7 +18,6 @@ subroutine diffgeom_intersection_curve( &
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.166-175)
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)
   real(kind=fp),           intent(out) :: duv_ds(2,2,2) ! u/v, #branch, #surf
@@ -25,13 +25,14 @@ subroutine diffgeom_intersection_curve( &
   integer,                 intent(out) :: stat
   real(kind=fp), optional, intent(out) :: curvature(2)
   real(kind=fp)                        :: dxyz_duv(3,2,2), n(3,2), d2xyz_duv2(3)
-  real(kind=fp)                        :: cosn, nsqr(2), aux(3), kn(2)
+  real(kind=fp)                        :: cosn, nsqr(2), aux(3), kn(2), denom
   real(kind=fp), dimension(3,2)        :: EFG, LMN
   integer                              :: ndir
   integer                              :: isurf, ivar, jvar, i
 
   ! compute tangent and normal vectors to both surfaces at the intersection point
   do isurf = 1,2 ! <--------------------------------------------------+
+     ! tangent vectors                                                !
      do ivar = 1,2 ! <-------------------------+                      !
         call evald1( &                         !                      !
              dxyz_duv(:,ivar,isurf), &         !                      !
@@ -39,20 +40,21 @@ subroutine diffgeom_intersection_curve( &
              uv(:,isurf), &                    !                      !
              ivar )                            !                      !
      end do ! <--------------------------------+                      !
+     ! (pseudo)normal vector                                          !
      n(:,isurf) = cross( dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf) )   !
-     IF ( DEBUG ) THEN
-        PRINT *,'ISURF =',ISURF
-        PRINT *,'        UV =',uv(:,isurf)
-        PRINT *,'   DXYZ_DU =',dxyz_duv(:,1,isurf)
-        PRINT *,'   DXYZ_DV =',dxyz_duv(:,2,isurf)
-        PRINT *,'         N =',N(:,ISURF)
-     END IF
-     n(:,isurf) = n(:,isurf) / norm2( n(:,isurf) )                    !
+     ! unit normal vector                                             !
+     nsqr(isurf) = sum(n(:,isurf)**2)                                 !
+     if ( nsqr(isurf) < 3._fp*EPSfpsqr ) then ! <----+                !
+        ! singular surface                           !                !
+        stat = -1                                    !                !
+        return                                       !                !
+     else ! -----------------------------------------+                !
+        n(:,isurf) = n(:,isurf) / sqrt(nsqr(isurf))  !                !
+     end if ! <--------------------------------------+                !
   end do ! <----------------------------------------------------------+
 
   ! cosine of the angle between the two normal vectors
   cosn = dot_product( n(:,1), n(:,2) )
-  IF ( DEBUG ) PRINT *,'COSN =',COSN
 
   if ( abs(cosn) < 1._fp - EPSmath ) then ! <--------------------------------------------+
      ! the normals are not parallel, this is a transversal intersection point            !
@@ -70,10 +72,10 @@ subroutine diffgeom_intersection_curve( &
           n, &                                                                           !
           stat, &                                                                        !
           dxyz_ds )                                                                      !
-     ndir = 1 ! 1 or 2 tangential direction(s)                                           !
+     ndir = stat ! 1 or 2 tangential direction(s)                                        !
   end if ! <-----------------------------------------------------------------------------+
 
-  if ( stat > 1 ) then ! <-----------------------+
+  if ( stat > 2 ) then ! <-----------------------+
      ! isolated or high-order contact point      !
      ! => the tangential direction is undefined  !
      return                                      !
@@ -82,13 +84,12 @@ subroutine diffgeom_intersection_curve( &
   ! (at this stage, the number of intersection branches is equal to ndir)
 
   ! compute tangential direction(s) in the uv-space of each surface
-  nsqr = sum( n**2, 1 )
   do isurf = 1,2 ! loop over surfaces ! <------------------------------------------------+
      do i = 1,ndir ! loop over tangential directions ! <------------------------------+  !
-        aux = cross( dxyz_ds(:,i), n(:,isurf) )                                       !  !
+        aux = cross(dxyz_ds(:,i), n(:,isurf))                                         !  !
         do ivar = 1,2 ! loop over parameters u,v <---------------------------------+  !  !
-           duv_ds(ivar,i,isurf) = real( (-1)**ivar, kind=fp) * &                   !  !  !
-                dot_product( dxyz_duv(:,1+mod(ivar,2),isurf), aux ) / nsqr(isurf)  !  !  !
+           duv_ds(ivar,i,isurf) = real((-1)**ivar, kind=fp) * &                    !  !  !
+                dot_product(dxyz_duv(:,1+mod(ivar,2),isurf), aux) / nsqr(isurf)    !  !  !
         end do ! <-----------------------------------------------------------------+  !  !
      end do ! <-----------------------------------------------------------------------+  !
   end do ! <-----------------------------------------------------------------------------+
@@ -111,7 +112,7 @@ subroutine diffgeom_intersection_curve( &
                 surf(isurf)%ptr, &                                      !            !   !
                 uv(:,isurf), &                                          !            !   !
                 ivar )                                                  !            !   !
-           LMN(ivar,isurf) = dot_product( n(:,isurf), d2xyz_duv2 )      !            !   !
+           LMN(ivar,isurf) = dot_product(n(:,isurf), d2xyz_duv2)        !            !   !
         end do ! <------------------------------------------------------+            !   !
      end do ! <----------------------------------------------------------------------+   !
      !                                                                                   !
@@ -125,9 +126,9 @@ subroutine diffgeom_intersection_curve( &
                 2._fp * EFG(2,isurf) * duv_ds(1,i,isurf) * duv_ds(2,i,isurf) + &  !  !   !
                 EFG(3,isurf) * duv_ds(2,i,isurf)**2 )                             !  !   !
         end do ! <----------------------------------------------------------------+  !   !
-        curvature(i) = sqrt( &                                                       !   !
-             (kn(1)**2 - 2._fp*kn(1)*kn(2)*cosn + kn(2)**2 ) / (1._fp - cosn**2 ) &  !   !
-             )                                                                       !   !
+        denom = max(1._fp - cosn**2, EPSfp)                                          !   !
+        curvature(i) = (kn(1)**2 - 2._fp*kn(1)*kn(2)*cosn + kn(2)**2) / denom        !   !
+        curvature(i) = sqrt(max(0._fp, curvature(i)))                                !   !
      end do ! <----------------------------------------------------------------------+   !
   end if  ! <----------------------------------------------------------------------------+
 

@@ -1,10 +1,9 @@
-subroutine newton_tracing( &
+subroutine newton_intersection_polyline( &
      surf, &
      lowerb, &
      upperb, &
-     p, &
-     wtarget, &
-     tolw, &
+     xyzp_prev, &
+     htargetsqr, &
      stat, &
      uv, &
      xyzp )
@@ -18,22 +17,21 @@ subroutine newton_tracing( &
   type(ptr_surface), intent(in)    :: surf(2)
   real(kind=fp),     intent(in)    :: lowerb(4)
   real(kind=fp),     intent(in)    :: upperb(4)
-  real(kind=fp),     intent(in)    :: p(3)
-  real(kind=fp),     intent(in)    :: wtarget
-  real(kind=fp),     intent(in)    :: tolw
+  real(kind=fp),     intent(in)    :: xyzp_prev(3)
+  real(kind=fp),     intent(in)    :: htargetsqr
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv(2,2)
   real(kind=fp),     intent(out)   :: xyzp(3)
   real(kind=fp)                    :: xyz(3,2), dxyz_duv(3,2,2)
-  real(kind=fp)                    :: resxyz, resw
-  real(kind=fp)                    :: r(3), jac(4,4), duv(4)
+  real(kind=fp)                    :: resxyz, resh
+  real(kind=fp)                    :: r1(3), r2(3), jac(4,4), duv(4)
   integer                          :: rank
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-  
+
   !IF ( DEBUG ) THEN
   !   PRINT *,''; PRINT *,'';
-  !   PRINT *,'NEWTON_TRACING'
+  !   PRINT *,'NEWTON_INTERSECTION_POLYLINE'
   !   PRINT *,'LOWERB =',LOWERB
   !   PRINT *,'UPPERB =',UPPERB
   !END IF
@@ -49,15 +47,16 @@ subroutine newton_tracing( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
-     r = xyz(:,1) - xyz(:,2)
+     r1 = xyz(:,1) - xyz(:,2)
+     r2 = xyz(:,1) - xyzp_prev
 
      !! termination criteria
-     resxyz = sum(r**2)
-     resw   = dot_product(p, xyz(:,1)) - wtarget
-     IF ( DEBUG ) PRINT *,sqrt(resxyz), abs(resw), sqrt(erruv), EPSuv*cond
+     resxyz = sum(r1**2)
+     resh   = sum(r2**2) - htargetsqr
+     IF ( DEBUG ) PRINT *,sqrt(resxyz), sqrt(abs(resh)), sqrt(erruv), EPSuv*cond
 
-     if ( erruv < EPSuvsqr*cond**2 .and. it > 1 ) then
-        if ( resxyz < EPSxyzsqr .and. abs(resw) < tolw ) then
+     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
+        if ( resxyz < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
            stat = 0
            xyzp = 0.5_fp * sum(xyz, 2)
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
@@ -79,7 +78,7 @@ subroutine newton_tracing( &
         jac(1:3,2*isurf-1:2*isurf) = real((-1)**(isurf+1), kind=fp) * dxyz_duv(1:3,1:2,isurf)
         if ( isurf == 1 ) then
            do ivar = 1,2
-              jac(4,ivar) = dot_product(p, dxyz_duv(1:3,ivar,1))
+              jac(4,ivar) = 2._fp * dot_product(dxyz_duv(1:3,ivar,1), r2)
            end do
         end if
      end do
@@ -89,13 +88,12 @@ subroutine newton_tracing( &
      call linsolve_svd( &
           duv, &
           jac, &
-          -[r,resw], &
+          -[r1,resh], &
           4, &
           4, &
           1, &
           cond, &
           rank )
-
      erruv = sum( duv**2 )
 
      if ( rank < 4 ) then ! <------------------+
@@ -122,4 +120,4 @@ subroutine newton_tracing( &
   end do
 
 
-end subroutine newton_tracing
+end subroutine newton_intersection_polyline

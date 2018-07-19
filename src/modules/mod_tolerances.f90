@@ -4,9 +4,6 @@ module mod_tolerances
 
   implicit none
 
-  real(kind=fp), parameter :: EPSfp = epsilon( 1._fp )
-  real(kind=fp), parameter :: EPSfpsqr = EPSfp**2
-
   real(kind=fp), parameter :: EPSuv = real( 1.d-12, kind=fp )
   real(kind=fp), parameter :: EPSuvsqr = EPSuv**2
 

@@ -9,7 +9,7 @@ import my_colors as myc
 
 ##########################################################
 
-pth = '/home/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
+pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
 #pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
 
 ##########################################################

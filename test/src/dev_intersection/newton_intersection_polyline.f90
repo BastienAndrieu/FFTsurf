@@ -22,19 +22,18 @@ subroutine newton_intersection_polyline( &
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv(2,2)
   real(kind=fp),     intent(out)   :: xyzp(3)
-  real(kind=fp)                    :: xyz(3,2), dxyz_duv(3,2,2)
-  real(kind=fp)                    :: resxyz, resh
+  real(kind=fp)                    :: xyz(3,2), resh
   real(kind=fp)                    :: r1(3), r2(3), jac(4,4), duv(4)
-  integer                          :: rank
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-  
-  !IF ( DEBUG ) THEN
-  !   PRINT *,''; PRINT *,'';
-  !   PRINT *,'NEWTON_INTERSECTION_POLYLINE'
-  !   PRINT *,'LOWERB =',LOWERB
-  !   PRINT *,'UPPERB =',UPPERB
-  !END IF
+
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+     PRINT *,'LOWERB =',LOWERB
+     PRINT *,'UPPERB =',UPPERB
+  END IF
+
   stat = 1
   erruv = 0._fp
   cond = 1._fp
@@ -49,38 +48,21 @@ subroutine newton_intersection_polyline( &
      end do
      r1 = xyz(:,1) - xyz(:,2)
      r2 = xyz(:,1) - xyzp_prev
-
-     !! termination criteria
-     resxyz = sum(r1**2)
-     resh   = sum(r2**2) - htargetsqr
-     IF ( DEBUG ) PRINT *,sqrt(resxyz), sqrt(abs(resh)), sqrt(erruv), EPSuv*cond
-
-     if ( erruv < max(EPSuvsqr, (epsilon(1._fp)*cond)**2) .and. it > 1 ) then
-        if ( resxyz < EPSxyzsqr .and. abs(resh) < tolhsqr ) then
-           stat = 0
-           xyzp = 0.5_fp * sum(xyz, 2)
-           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
-        else
-           IF ( DEBUG ) PRINT *,'STAGNATION'
-        end if
-        return
-     end if
+     resh = sum(r2**2) - htargetsqr
 
      !! compute Jacobian matrix
      do isurf = 1,2
         do ivar = 1,2
            call evald1( &
-                dxyz_duv(:,ivar,isurf), &
+                jac(1:3,2*(isurf-1)+ivar), &
                 surf(isurf)%ptr, &
                 uv(:,isurf), &
-                ivar )
+                ivar)
         end do
-        jac(1:3,2*isurf-1:2*isurf) = real( (-1)**(isurf+1), kind=fp ) * dxyz_duv(1:3,1:2,isurf)
-        if ( isurf == 1 ) then
-           do ivar = 1,2
-              jac(4,ivar) = 2._fp * dot_product( dxyz_duv(1:3,ivar,1), r2 )
-           end do
-        end if
+     end do
+     jac(1:3,3:4) = -jac(1:3,3:4)
+     do ivar = 1,2
+        jac(4,ivar) = 2._fp*dot_product(jac(1:3,ivar), r2)
      end do
      jac(4,3:4) = 0._fp
 
@@ -92,19 +74,8 @@ subroutine newton_intersection_polyline( &
           4, &
           4, &
           1, &
-          cond, &
-          rank )
-
-     erruv = sum( duv**2 )
-
-     if ( rank < 4 ) then ! <------------------+
-        ! singular Jacobian matrix             !
-        if ( stat == 0 ) then ! <----+         !
-           stat = 2                  !         !
-           IF ( DEBUG ) PRINT *,'SINGULAR JACOBIAN AT SOLUTION'
-           return                    !         !
-        end if ! <-------------------+         !
-     end if ! <--------------------------------+
+          cond )
+     erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
      !! correct Newton step to keep the iterate inside feasible region
      call nd_box_reflexions( &
@@ -117,8 +88,21 @@ subroutine newton_intersection_polyline( &
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
      uv(:,2) = uv(:,2) + duv(3:4)
+     
+     !! termination criteria
+     IF ( DEBUG ) PRINT *,norm2(r1), sqrt(abs(resh)), sqrt(erruv), EPSfp*cond
+     if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <--------+
+        if ( sum(r1**2) < EPSxyzsqr .and. &                         !
+             abs(resh)  < tolhsqr ) then ! <---------------------+  !
+           stat = 0                                              !  !
+           xyzp = 0.5_fp * sum(xyz, 2)                           !  !
+           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
+        else ! --------------------------------------------------+  !
+           IF ( DEBUG ) PRINT *,'STAGNATION'                     !  !
+        end if ! ------------------------------------------------+  !
+        return                                                      !
+     end if ! <-----------------------------------------------------+
 
   end do
-
 
 end subroutine newton_intersection_polyline
