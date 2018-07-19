@@ -37,7 +37,8 @@ subroutine merge_intersection_data( &
      call add_intersection_curve( &
           interdata_global, &
           interdata_local%curves(ic)%param_vector, &
-          id_global(interdata_local%curves(ic)%root%endpoints), &
+          !id_global(interdata_local%curves(ic)%root%endpoints), &
+          id_global(interdata_local%curves(ic)%isplit(1,1:2)), &
           interdata_local%curves(ic)%uvbox )
      do isurf = 1,2
         interdata_global%curves(interdata_global%nc)%surf(isurf)%ptr => surf(isurf)%ptr
@@ -50,8 +51,8 @@ subroutine merge_intersection_data( &
           surf, &
           interdata_global%curves(nc+ic)%uvbox, &
           interdata_global%curves(nc+ic)%param_vector, &
-          reshape(uvxyz(1:4,interdata_local%curves(ic)%root%endpoints),[2,2,2]), &
-          uvxyz(5:7,interdata_local%curves(ic)%root%endpoints), &
+          reshape(uvxyz(1:4,interdata_local%curves(ic)%isplit(1,1:2)),[2,2,2]), &
+          uvxyz(5:7,interdata_local%curves(ic)%isplit(1,1:2)), &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
@@ -63,11 +64,15 @@ subroutine merge_intersection_data( &
         return
      end if
 
-     ! add endpoints as split points
-     interdata_global%curves(nc+ic)%nsplit = 2
-     allocate(interdata_global%curves(nc+ic)%isplit(2,2))
-     interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
-     interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
+     ! add the polyline's endpoints in isplit
+     interdata_global%curves(nc+ic)%isplit(2,1) = 1
+     interdata_global%curves(nc+ic)%isplit(2,2) = interdata_global%curves(nc+ic)%polyline%np
+
+     !! add endpoints as split points
+     !interdata_global%curves(nc+ic)%nsplit = 2
+     !allocate(interdata_global%curves(nc+ic)%isplit(2,2))
+     !interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
+     !interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
 
      ! intersection with other curves
      IF ( DEBUG ) PRINT *,'INTERSECT WITH OTHER CURVES...'

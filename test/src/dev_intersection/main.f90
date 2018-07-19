@@ -115,7 +115,7 @@
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_intersection_data_bis( &
+  call write_intersection_data( &
        interdata, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
@@ -153,61 +153,7 @@ contains
 !end program dev_intersection
 
 
-
-
-
   subroutine write_intersection_data( &
-       interdat, &
-       filepoints, &
-       filecurves )
-    use mod_util
-    use mod_types_intersection
-    implicit none
-    type(type_intersection_data), intent(in) :: interdat
-    character(*),                 intent(in) :: filepoints, filecurves
-    integer                                  :: fileunit
-    integer                                  :: ip, ic
-
-    call get_free_unit( fileunit )
-
-    open( &
-         unit = fileunit, &
-         file = filepoints, &
-         action = 'write' )
-    do ip = 1,interdat%np
-       write ( fileunit, * ) interdat%points(ip)%xyz!, interdat%points(ip)%pos%uv, interdat%points(ip)%pos%next%uv
-    end do
-    close( fileunit )
-
-    open( &
-         unit = fileunit, &
-         file = filecurves, &
-         action = 'write' )
-    write ( fileunit, * ) interdat%nc
-    do ic = 1,interdat%nc
-       write ( fileunit, * ) interdat%curves(ic)%root%endpoints
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,1)
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,2)
-       if ( associated(interdat%curves(ic)%polyline) ) then
-          write ( fileunit, * ) interdat%curves(ic)%polyline%np
-          do ip = 1,interdat%curves(ic)%polyline%np
-             write ( fileunit, * ) interdat%curves(ic)%polyline%uv(:,:,ip), interdat%curves(ic)%polyline%xyz(:,ip)
-          end do
-       else
-          write ( fileunit, * ) 0
-       end if
-    end do
-    close( fileunit )
-
-  end subroutine write_intersection_data
-
-
-
-
-
-
-
-  subroutine write_intersection_data_bis( &
        interdat, &
        filepoints, &
        filecurves )
@@ -253,4 +199,4 @@ contains
     end do
     close( fileunit )
 
-  end subroutine write_intersection_data_bis
+  end subroutine write_intersection_data

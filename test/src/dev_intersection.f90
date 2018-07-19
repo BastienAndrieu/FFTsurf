@@ -116,7 +116,7 @@ program dev_intersection
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_intersection_data_bis( &
+  call write_intersection_data( &
        interdata, &
        'dev_intersection/interdataglobal_points.dat', &
        'dev_intersection/interdataglobal_curves.dat' )
@@ -154,61 +154,7 @@ contains
 !end program dev_intersection
 
 
-
-
-
   subroutine write_intersection_data( &
-       interdat, &
-       filepoints, &
-       filecurves )
-    use mod_util
-    use mod_types_intersection
-    implicit none
-    type(type_intersection_data), intent(in) :: interdat
-    character(*),                 intent(in) :: filepoints, filecurves
-    integer                                  :: fileunit
-    integer                                  :: ip, ic
-
-    call get_free_unit( fileunit )
-
-    open( &
-         unit = fileunit, &
-         file = filepoints, &
-         action = 'write' )
-    do ip = 1,interdat%np
-       write ( fileunit, * ) interdat%points(ip)%xyz!, interdat%points(ip)%pos%uv, interdat%points(ip)%pos%next%uv
-    end do
-    close( fileunit )
-
-    open( &
-         unit = fileunit, &
-         file = filecurves, &
-         action = 'write' )
-    write ( fileunit, * ) interdat%nc
-    do ic = 1,interdat%nc
-       write ( fileunit, * ) interdat%curves(ic)%root%endpoints
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,1)
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,2)
-       if ( associated(interdat%curves(ic)%polyline) ) then
-          write ( fileunit, * ) interdat%curves(ic)%polyline%np
-          do ip = 1,interdat%curves(ic)%polyline%np
-             write ( fileunit, * ) interdat%curves(ic)%polyline%uv(:,:,ip), interdat%curves(ic)%polyline%xyz(:,ip)
-          end do
-       else
-          write ( fileunit, * ) 0
-       end if
-    end do
-    close( fileunit )
-
-  end subroutine write_intersection_data
-
-
-
-
-
-
-
-  subroutine write_intersection_data_bis( &
        interdat, &
        filepoints, &
        filecurves )
@@ -254,7 +200,7 @@ contains
     end do
     close( fileunit )
 
-  end subroutine write_intersection_data_bis
+  end subroutine write_intersection_data
 
 
 
@@ -265,54 +211,52 @@ subroutine add_intersection_curve( &
      param_vector, &
      iendpoints, &
      uvbox )
-   implicit none
-   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
-   integer, parameter                          :: PARAM_xtra_nc = 10
-   type(type_intersection_data), intent(inout) :: interdata
-   real(kind=fp),                intent(in)    :: param_vector(3)
-   integer,                      intent(in)    :: iendpoints(2)
-   real(kind=fp),                intent(in)    :: uvbox(2,2,2)
-   type(type_intersection_data)                :: tmp
-   integer                                     :: ic
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  integer, parameter                          :: PARAM_xtra_nc = 10
+  type(type_intersection_data), intent(inout) :: interdata
+  real(kind=fp),                intent(in)    :: param_vector(3)
+  integer,                      intent(in)    :: iendpoints(2)
+  real(kind=fp),                intent(in)    :: uvbox(2,2,2)
+  type(type_intersection_data)                :: tmp
+  integer                                     :: ic
 
-   IF ( DEBUG ) THEN
-      PRINT *,''; PRINT *,'';
-      PRINT *,'ADD_INTERSECTION_CURVE'
-      PRINT *,'INTERDATA%NC =',interdata%nc
-      PRINT *,'ALLOCATED(INTERDATA%CURVES)?',allocated(interdata%curves)
-      IF ( allocated(interdata%curves) ) PRINT *,'SIZE =',size(interdata%curves)
-   END IF
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'ADD_INTERSECTION_CURVE'
+     PRINT *,'INTERDATA%NC =',interdata%nc
+     PRINT *,'ALLOCATED(INTERDATA%CURVES)?',allocated(interdata%curves)
+     IF ( allocated(interdata%curves) ) PRINT *,'SIZE =',size(interdata%curves)
+  END IF
 
-   tmp%nc = 0
-   if ( allocated(interdata%curves) ) then
-      if ( interdata%nc + 1 > size(interdata%curves) ) then
-      IF ( DEBUG ) PRINT *,'INTERDATA%CURVES --> TMP'
-         allocate( tmp%curves(interdata%nc) )
-         call transfer_intersection_curves( &
-              from=interdata, &
-              to=tmp )
-      end if
-   end if
+  if ( .not.allocated(interdata%curves) ) allocate(interdata%curves(PARAM_xtra_nc) )
 
-   if ( .not.allocated(interdata%curves) ) then
-      allocate( interdata%curves(tmp%nc + PARAM_xtra_nc) )
-      if ( tmp%nc > 0 ) then
-         IF ( DEBUG ) PRINT *,'INTERDATA%CURVES <-- TMP'
-         call transfer_intersection_curves( &
-              from=tmp, &
-              to=interdata )
-      end if
-   end if
+  ! reallocate if necessary
+  if ( interdata%nc + 1 > size(interdata%curves) ) then
+     allocate(tmp%curves(interdata%nc))
+     IF ( DEBUG ) PRINT *,'INTERDATA%CURVES --> TMP'
+     call transfer_intersection_curves( &
+          from=interdata, &
+          to=tmp )
 
-   interdata%nc = interdata%nc + 1
-   ic = interdata%nc
-   IF ( DEBUG ) PRINT *,'BEFORE, ASSOCIATED(ROOT)?',ASSOCIATED(interdata%curves(ic)%root)
-   allocate(interdata%curves(ic)%root)
-   IF ( DEBUG ) PRINT *,'AFTER, ASSOCIATED(ROOT)?',ASSOCIATED(interdata%curves(ic)%root)
-   interdata%curves(ic)%uvbox          = uvbox
-   interdata%curves(ic)%param_vector   = param_vector
-   interdata%curves(ic)%root%endpoints = iendpoints
-   IF ( DEBUG ) PRINT *,'ALL IS OK, NC =',interdata%nc
+     IF ( DEBUG ) PRINT *,'INTERDATA%CURVES <-- TMP'
+     allocate(interdata%curves(tmp%nc + PARAM_xtra_nc))
+     call transfer_intersection_curves( &
+          from=tmp, &
+          to=interdata )
+  end if
+
+  !! insert new curve
+  interdata%nc = interdata%nc + 1
+  ic = interdata%nc
+  interdata%curves(ic)%uvbox          = uvbox
+  interdata%curves(ic)%param_vector   = param_vector
+  ! add endpoints as split points
+  interdata%curves(ic)%nsplit = 2
+  allocate(interdata%curves(ic)%isplit(2,2))
+  interdata%curves(ic)%isplit(1,1:2) = iendpoints
+  interdata%curves(ic)%isplit(2,1:2) = -1 ! do not forget to fill in when tracing the polyline!
+  IF ( DEBUG ) PRINT *,'ALL IS OK, NC =',interdata%nc
 
 end subroutine add_intersection_curve
 
@@ -3641,7 +3585,8 @@ subroutine merge_intersection_data( &
      call add_intersection_curve( &
           interdata_global, &
           interdata_local%curves(ic)%param_vector, &
-          id_global(interdata_local%curves(ic)%root%endpoints), &
+          !id_global(interdata_local%curves(ic)%root%endpoints), &
+          id_global(interdata_local%curves(ic)%isplit(1,1:2)), &
           interdata_local%curves(ic)%uvbox )
      do isurf = 1,2
         interdata_global%curves(interdata_global%nc)%surf(isurf)%ptr => surf(isurf)%ptr
@@ -3654,8 +3599,8 @@ subroutine merge_intersection_data( &
           surf, &
           interdata_global%curves(nc+ic)%uvbox, &
           interdata_global%curves(nc+ic)%param_vector, &
-          reshape(uvxyz(1:4,interdata_local%curves(ic)%root%endpoints),[2,2,2]), &
-          uvxyz(5:7,interdata_local%curves(ic)%root%endpoints), &
+          reshape(uvxyz(1:4,interdata_local%curves(ic)%isplit(1,1:2)),[2,2,2]), &
+          uvxyz(5:7,interdata_local%curves(ic)%isplit(1,1:2)), &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
@@ -3667,11 +3612,15 @@ subroutine merge_intersection_data( &
         return
      end if
 
-     ! add endpoints as split points
-     interdata_global%curves(nc+ic)%nsplit = 2
-     allocate(interdata_global%curves(nc+ic)%isplit(2,2))
-     interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
-     interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
+     ! add the polyline's endpoints in isplit
+     interdata_global%curves(nc+ic)%isplit(2,1) = 1
+     interdata_global%curves(nc+ic)%isplit(2,2) = interdata_global%curves(nc+ic)%polyline%np
+
+     !! add endpoints as split points
+     !interdata_global%curves(nc+ic)%nsplit = 2
+     !allocate(interdata_global%curves(nc+ic)%isplit(2,2))
+     !interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
+     !interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
 
      ! intersection with other curves
      IF ( DEBUG ) PRINT *,'INTERSECT WITH OTHER CURVES...'
@@ -4338,10 +4287,11 @@ subroutine transfer_intersection_curves( &
         call move_alloc(from=from%curves(ic)%isplit, to=to%curves(ic)%isplit)
      end if
      to%curves(ic)%nsplit       =  from%curves(ic)%nsplit
-     to%curves(ic)%root         => from%curves(ic)%root
      to%curves(ic)%polyline     => from%curves(ic)%polyline
-     nullify(from%curves(ic)%surf(1)%ptr,from%curves(ic)%surf(2)%ptr)
-     nullify(from%curves(ic)%root, from%curves(ic)%polyline)
+     nullify( &
+          from%curves(ic)%surf(1)%ptr, &
+          from%curves(ic)%surf(2)%ptr, &
+          from%curves(ic)%polyline)
   end do
 
   deallocate(from%curves)
