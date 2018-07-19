@@ -574,7 +574,7 @@ subroutine check_curve_surface_intersection_point( &
   use mod_diffgeom2
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(type_curve),   intent(in)  :: curv
   type(type_surface), intent(in)  :: surf
   real(kind=fp),      intent(in)  :: t
@@ -988,7 +988,7 @@ subroutine find_collineal_corners( &
   real(kind=fp),    intent(out) :: uv_collineal(2,2)
   real(kind=fp),    intent(out) :: n_collineal(3)
   real(kind=fp),    intent(out) :: xyz_collineal(3)
-  real(kind=fp)                 :: s(3,2), n(3,2), r(3)
+  real(kind=fp)                 :: s(3,2), n(3,2), r(3), nsqr
   integer                       :: i, j, k, l
 
   stat = 1
@@ -1004,6 +1004,13 @@ subroutine find_collineal_corners( &
              1 + (k-1)*region(2)%ptr%poly(2)%ptr%degr(1), &                                    !  !
              1 + (l-1)*region(2)%ptr%poly(2)%ptr%degr(2), &                                    !  !
              1:3)                                                                              !  !
+        nsqr = sum(n(:,2)**2)                                                                  !  !
+        if ( nsqr > EPSxyzsqr ) then ! <-----------------+                                     !  !
+           n(:,2) = n(:,2) / sqrt(nsqr)                  !                                     !  !
+        else ! ------------------------------------------+                                     !  !
+           stat = 2                                      !                                     !  !
+           return                                        !                                     !  !
+        end if ! <---------------------------------------+                                     !  !
         !                                                                                      !  !
         do j = 1,2 ! <----------------------------------------------------------------------+  !  !
            do i = 1,2 ! <----------------------------------------------------------------+  !  !  !
@@ -1016,6 +1023,13 @@ subroutine find_collineal_corners( &
                    1 + (i-1)*region(1)%ptr%poly(2)%ptr%degr(1), &                        !  !  !  !
                    1 + (j-1)*region(1)%ptr%poly(2)%ptr%degr(2), &                        !  !  !  !
                    1:3)                                                                  !  !  !  !
+              nsqr = sum(n(:,1)**2)                                                      !  !  !  !
+              if ( nsqr > EPSxyzsqr ) then ! <-----------------+                         !  !  !  !
+                 n(:,1) = n(:,1) / sqrt(nsqr)                  !                         !  !  !  !
+              else ! ------------------------------------------+                         !  !  !  !
+                 stat = 2                                      !                         !  !  !  !
+                 return                                        !                         !  !  !  !
+              end if ! <---------------------------------------+                         !  !  !  !
               !                                                                          !  !  !  !
               r = s(:,1) - s(:,2)                                                        !  !  !  !
               !                                                                          !  !  !  !
@@ -1041,7 +1055,6 @@ subroutine find_collineal_corners( &
         end do ! <--------------------------------------------------------------------------+  !  !
      end do ! <--------------------------------------------------------------------------------+  !
   end do ! <--------------------------------------------------------------------------------------+
-
 
 end subroutine find_collineal_corners
 
@@ -1315,6 +1328,7 @@ subroutine insert_polyline_point( &
      if ( stat > 0 ) return
   end if
 
+  stat = 0
   if ( iprev < polyline%np ) then
      polyline%uv(:,:,iprev+2:polyline%np+1) = polyline%uv(:,:,iprev+1:polyline%np)
      polyline%xyz(:,iprev+2:polyline%np+1)  = polyline%xyz(:,iprev+1:polyline%np)
@@ -1934,7 +1948,7 @@ recursive subroutine intersect_curve_surface( &
                       tuv(1), &
                       tuv(2:3), &
                       stat_newpoint )
-                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
+                 IF ( .true. ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
                  if ( stat_newpoint == 2 ) then
                     ! high-order tangential contact point
                     ! => the curve is presumably a subset of the surface
@@ -3060,8 +3074,12 @@ recursive subroutine intersect_surface_pair( &
              region(isurf)%ptr%uvbox([1,3]) + &    !             !
              region(isurf)%ptr%uvbox([2,4]) )      !             !
      end do ! <------------------------------------+             !
-  else ! --------------------------------------------------------+
+  elseif ( stat_collineal < 2 ) then ! --------------------------+
      n_collineal(:) = 0._fp                                      !
+  else ! --------------------------------------------------------+
+     ! one surface has a singular corner                         !
+     stat_degeneracy = 20                                        !
+     return                                                      !
   end if ! <-----------------------------------------------------+
 
 
@@ -3100,8 +3118,8 @@ recursive subroutine intersect_surface_pair( &
              newregion(isurf)%ptr )       !                                     !
      end do ! <---------------------------+                                     !
      !                                                                          !
-     IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
-          ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
+     !IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
+     !     ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
           newregion, &                                                          !
@@ -3110,23 +3128,23 @@ recursive subroutine intersect_surface_pair( &
           uvxyz, &                                                              !
           nuvxyz, &                                                             !
           stat_degeneracy )                                                     !
-     IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
+     !IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
      !                                                                          !
      do isurf = 1,2 ! <------------------------------------------------------+  !
         ! copy the data in temporay regions back to the current regions      !  !
         ! (essentially indices of newly discovered intersection points)...   !  !
         if ( newregion(isurf)%ptr%npts > 0 ) then ! <---------------------+  !  !
-           IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
+           !IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
            call append_n( &                                               !  !  !
                 region(isurf)%ptr%ipts, &                                 !  !  !
                 region(isurf)%ptr%npts, &                                 !  !  !
                 newregion(isurf)%ptr%ipts(1:newregion(isurf)%ptr%npts), & !  !  !
                 newregion(isurf)%ptr%npts, &                              !  !  !
                 unique=.true. )                                           !  !  !
-           IF ( DEBUG ) PRINT *,'OK'
+           !IF ( DEBUG ) PRINT *,'OK'
         end if ! <--------------------------------------------------------+  !  !
         ! ...then free the temporay region trees...                          !  !
-        IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
+        !IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
         nullify( &                                                           !  !
              newregion(isurf)%ptr%xyzbox,      &                             !  !
              newregion(isurf)%ptr%poly(1)%ptr, &                             !  !
@@ -3134,7 +3152,7 @@ recursive subroutine intersect_surface_pair( &
         deallocate( newregion(isurf)%ptr%poly )                              !  !
         call free_region_tree( newregion(isurf)%ptr )                        !  !
         deallocate( newregion(isurf)%ptr )                                   !  !
-        IF ( DEBUG ) PRINT *,'OK'
+        !IF ( DEBUG ) PRINT *,'OK'
      end do ! <--------------------------------------------------------------+  !
      !                                                                          !
      ! ... and finally return (there cannot be other intersection points/curves ! 
@@ -3645,7 +3663,7 @@ subroutine merge_intersection_data( &
           HMAX=REAL(1.D-1,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
-        PRINT *,'STAT_TRACE_INTERSECITON_POLYLINE = ',STAT
+        PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
         return
      end if
 
@@ -3729,7 +3747,7 @@ subroutine newton_curve_surface( &
 
      ! check signs of convergence
      resxyz = sum(r**2)
-     IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSUV*COND
+     IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
      if ( it == 1 ) resconv = THRESHOLD * resxyz
      if ( it > itconv .and. resxyz > resconv ) then
         ! Newton sequence not likely to converge, presumably no solution
@@ -4078,7 +4096,7 @@ subroutine rearrange_for_separability_test( &
   real(kind=fp)              :: tmp(3), tmpsqr
   integer                    :: i
 
-  if ( gaussmap ) tmpsqr = sum( vec**2 )
+  if ( gaussmap ) tmpsqr = sum(vec**2)
   nsep = 0
   do i = 1,nbcp
 

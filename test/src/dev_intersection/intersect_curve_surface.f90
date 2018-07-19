@@ -104,7 +104,7 @@ recursive subroutine intersect_curve_surface( &
                       tuv(1), &
                       tuv(2:3), &
                       stat_newpoint )
-                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
+                 IF ( .true. ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
                  if ( stat_newpoint == 2 ) then
                     ! high-order tangential contact point
                     ! => the curve is presumably a subset of the surface

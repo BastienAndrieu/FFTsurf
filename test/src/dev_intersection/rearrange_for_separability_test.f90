@@ -17,7 +17,7 @@ subroutine rearrange_for_separability_test( &
   real(kind=fp)              :: tmp(3), tmpsqr
   integer                    :: i
 
-  if ( gaussmap ) tmpsqr = sum( vec**2 )
+  if ( gaussmap ) tmpsqr = sum(vec**2)
   nsep = 0
   do i = 1,nbcp
 

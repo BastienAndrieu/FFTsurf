@@ -5,7 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
 nsurf = 2;
-PLOT_TREE = 1;
+PLOT_TREE = 0;
 
 cl = colorcet( 'I2', 'N', nsurf );
 cl = CC( cl, 0.0, 0.8, 1.5 );
@@ -123,3 +123,21 @@ end
 axis image vis3d
 view(3)
 camproj('persp');
+
+%%
+figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
+hold on
+
+for ic = 1:nc
+        plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
+            '-', 'color', cli, 'markersize', 5 )
+end
+
+axis image vis3d
+view(3)
+camproj('persp');
+
+
+
+
+

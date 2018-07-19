@@ -23,7 +23,7 @@ subroutine find_collineal_corners( &
   real(kind=fp),    intent(out) :: uv_collineal(2,2)
   real(kind=fp),    intent(out) :: n_collineal(3)
   real(kind=fp),    intent(out) :: xyz_collineal(3)
-  real(kind=fp)                 :: s(3,2), n(3,2), r(3)
+  real(kind=fp)                 :: s(3,2), n(3,2), r(3), nsqr
   integer                       :: i, j, k, l
 
   stat = 1
@@ -39,6 +39,13 @@ subroutine find_collineal_corners( &
              1 + (k-1)*region(2)%ptr%poly(2)%ptr%degr(1), &                                    !  !
              1 + (l-1)*region(2)%ptr%poly(2)%ptr%degr(2), &                                    !  !
              1:3)                                                                              !  !
+        nsqr = sum(n(:,2)**2)                                                                  !  !
+        if ( nsqr > EPSxyzsqr ) then ! <-----------------+                                     !  !
+           n(:,2) = n(:,2) / sqrt(nsqr)                  !                                     !  !
+        else ! ------------------------------------------+                                     !  !
+           stat = 2                                      !                                     !  !
+           return                                        !                                     !  !
+        end if ! <---------------------------------------+                                     !  !
         !                                                                                      !  !
         do j = 1,2 ! <----------------------------------------------------------------------+  !  !
            do i = 1,2 ! <----------------------------------------------------------------+  !  !  !
@@ -51,6 +58,13 @@ subroutine find_collineal_corners( &
                    1 + (i-1)*region(1)%ptr%poly(2)%ptr%degr(1), &                        !  !  !  !
                    1 + (j-1)*region(1)%ptr%poly(2)%ptr%degr(2), &                        !  !  !  !
                    1:3)                                                                  !  !  !  !
+              nsqr = sum(n(:,1)**2)                                                      !  !  !  !
+              if ( nsqr > EPSxyzsqr ) then ! <-----------------+                         !  !  !  !
+                 n(:,1) = n(:,1) / sqrt(nsqr)                  !                         !  !  !  !
+              else ! ------------------------------------------+                         !  !  !  !
+                 stat = 2                                      !                         !  !  !  !
+                 return                                        !                         !  !  !  !
+              end if ! <---------------------------------------+                         !  !  !  !
               !                                                                          !  !  !  !
               r = s(:,1) - s(:,2)                                                        !  !  !  !
               !                                                                          !  !  !  !
@@ -76,6 +90,5 @@ subroutine find_collineal_corners( &
         end do ! <--------------------------------------------------------------------------+  !  !
      end do ! <--------------------------------------------------------------------------------+  !
   end do ! <--------------------------------------------------------------------------------------+
-
 
 end subroutine find_collineal_corners

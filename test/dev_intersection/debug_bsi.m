@@ -5,25 +5,24 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/LIBS/mylib/TopologicalEntitites/tests/');
-
+addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/Bezier/');
+addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/separation/');
 
 cl = colorcet( 'I2', 'N', 2 );
 
 uvbox = [
-    0.0000000000000000        1.0000000000000000       -1.0000000000000000        0.0000000000000000     
-  -1.0000000000000000        0.0000000000000000        0.0000000000000000        1.0000000000000000
-%     -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000     
-%   -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000
+    -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000     
+  -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000
     ];
 
 tbox = [0,1];
 ubox = [-1,-1;0,0];
 
-[icurv, ivar, ival] = deal(1,2,1);
+[icurv, ivar, ival] = deal(2,2,1);
 jvar = 1 + mod(ivar,2);
 
 tuvxyz = [
-    -1.0000000000000000       -1.0000000000000000        1.0000000000000000 1.0000000000000000      -0.11755705045849460       0.16180339887498874
+    -0.99826431270797089      -0.49826431270797084      -0.12026596096041225       0.99826431274414062        1.7356872558593750E-003  0.12026596083178467
 ];
 
 uv = zeros(2,2,size(tuvxyz,1));

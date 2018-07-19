@@ -35,6 +35,7 @@ subroutine insert_polyline_point( &
      if ( stat > 0 ) return
   end if
 
+  stat = 0
   if ( iprev < polyline%np ) then
      polyline%uv(:,:,iprev+2:polyline%np+1) = polyline%uv(:,:,iprev+1:polyline%np)
      polyline%xyz(:,iprev+2:polyline%np+1)  = polyline%xyz(:,iprev+1:polyline%np)

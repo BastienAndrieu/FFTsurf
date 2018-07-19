@@ -50,7 +50,7 @@ subroutine newton_curve_surface( &
 
      ! check signs of convergence
      resxyz = sum(r**2)
-     IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSUV*COND
+     IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
      if ( it == 1 ) resconv = THRESHOLD * resxyz
      if ( it > itconv .and. resxyz > resconv ) then
         ! Newton sequence not likely to converge, presumably no solution

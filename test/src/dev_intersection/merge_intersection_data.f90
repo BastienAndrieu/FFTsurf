@@ -59,7 +59,7 @@ subroutine merge_intersection_data( &
           HMAX=REAL(1.D-1,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
-        PRINT *,'STAT_TRACE_INTERSECITON_POLYLINE = ',STAT
+        PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
         return
      end if
 

@@ -100,8 +100,12 @@ recursive subroutine intersect_surface_pair( &
              region(isurf)%ptr%uvbox([1,3]) + &    !             !
              region(isurf)%ptr%uvbox([2,4]) )      !             !
      end do ! <------------------------------------+             !
-  else ! --------------------------------------------------------+
+  elseif ( stat_collineal < 2 ) then ! --------------------------+
      n_collineal(:) = 0._fp                                      !
+  else ! --------------------------------------------------------+
+     ! one surface has a singular corner                         !
+     stat_degeneracy = 20                                        !
+     return                                                      !
   end if ! <-----------------------------------------------------+
 
 
@@ -140,8 +144,8 @@ recursive subroutine intersect_surface_pair( &
              newregion(isurf)%ptr )       !                                     !
      end do ! <---------------------------+                                     !
      !                                                                          !
-     IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
-          ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
+     !IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
+     !     ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
           newregion, &                                                          !
@@ -150,23 +154,23 @@ recursive subroutine intersect_surface_pair( &
           uvxyz, &                                                              !
           nuvxyz, &                                                             !
           stat_degeneracy )                                                     !
-     IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
+     !IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
      !                                                                          !
      do isurf = 1,2 ! <------------------------------------------------------+  !
         ! copy the data in temporay regions back to the current regions      !  !
         ! (essentially indices of newly discovered intersection points)...   !  !
         if ( newregion(isurf)%ptr%npts > 0 ) then ! <---------------------+  !  !
-           IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
+           !IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
            call append_n( &                                               !  !  !
                 region(isurf)%ptr%ipts, &                                 !  !  !
                 region(isurf)%ptr%npts, &                                 !  !  !
                 newregion(isurf)%ptr%ipts(1:newregion(isurf)%ptr%npts), & !  !  !
                 newregion(isurf)%ptr%npts, &                              !  !  !
                 unique=.true. )                                           !  !  !
-           IF ( DEBUG ) PRINT *,'OK'
+           !IF ( DEBUG ) PRINT *,'OK'
         end if ! <--------------------------------------------------------+  !  !
         ! ...then free the temporay region trees...                          !  !
-        IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
+        !IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
         nullify( &                                                           !  !
              newregion(isurf)%ptr%xyzbox,      &                             !  !
              newregion(isurf)%ptr%poly(1)%ptr, &                             !  !
@@ -174,7 +178,7 @@ recursive subroutine intersect_surface_pair( &
         deallocate( newregion(isurf)%ptr%poly )                              !  !
         call free_region_tree( newregion(isurf)%ptr )                        !  !
         deallocate( newregion(isurf)%ptr )                                   !  !
-        IF ( DEBUG ) PRINT *,'OK'
+        !IF ( DEBUG ) PRINT *,'OK'
      end do ! <--------------------------------------------------------------+  !
      !                                                                          !
      ! ... and finally return (there cannot be other intersection points/curves ! 
