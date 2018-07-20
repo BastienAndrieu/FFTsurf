@@ -6,7 +6,7 @@ subroutine intersect_all_surfaces( &
   USE MOD_UTIL
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   implicit none

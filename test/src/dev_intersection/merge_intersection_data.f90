@@ -6,6 +6,7 @@ subroutine merge_intersection_data( &
      interdata_global )
   USE MOD_UTIL
   use mod_math
+  use mod_diffgeom
   use mod_types_intersection
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
   implicit none

@@ -10,7 +10,7 @@ subroutine trace_intersection_polyline( &
      hmin, &
      hmax )
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_types_intersection
   use mod_tolerances
   ! Returns: stat =-1 if one surface is singular at a polyline point (normal = zero vector)

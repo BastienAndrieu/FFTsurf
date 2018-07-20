@@ -4,7 +4,7 @@ program newton_curve_surface_singular
   use mod_math
   use mod_linalg
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
 
   implicit none
   character(100)              :: arg
@@ -196,7 +196,7 @@ contains
        xyz )
     use mod_util
     use mod_math
-    use mod_diffgeom2
+    use mod_diffgeom
     use mod_tolerances    
     ! stat = 0 : converged
     !        1 : not converged
@@ -486,7 +486,7 @@ contains
        xyz )
     use mod_math
     use mod_linalg
-    use mod_diffgeom2
+    use mod_diffgeom
     use mod_tolerances    
     ! stat = 0 : converged
     !        1 : not converged
@@ -622,7 +622,7 @@ contains
        xyz )
     use mod_math
     use mod_linalg
-    use mod_diffgeom2
+    use mod_diffgeom
     use mod_tolerances    
     ! stat = 0 : converged
     !        1 : not converged

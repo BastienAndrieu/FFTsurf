@@ -14,7 +14,7 @@ subroutine diffgeom_intersection_curve( &
   !               = 3 if the point is an isolated tangential contact point (degenerate curve)
   !               = 4 if the point is an high-order tangential contact point (possible degeneracy)
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.166-175)
   implicit none

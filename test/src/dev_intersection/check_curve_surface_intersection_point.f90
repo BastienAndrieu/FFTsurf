@@ -5,7 +5,7 @@ subroutine check_curve_surface_intersection_point( &
    uv, &
    stat )
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )

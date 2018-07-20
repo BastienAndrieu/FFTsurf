@@ -1,3 +1,3 @@
-* uniformiser noms des constantes (EPSxxx, ...)
 * module I/O?
-* module linalg, linprog
+* gestion branch point
+* intersection de 2 intersection_curves tangential/transversal, tangential/tangential

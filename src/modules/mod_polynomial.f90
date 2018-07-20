@@ -1,8 +1,8 @@
 module mod_polynomial
 
   use mod_math
-  use mod_chebyshev2
-  use mod_bernstein2
+  use mod_chebyshev
+  use mod_bernstein
 
   implicit none
 

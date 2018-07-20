@@ -9,17 +9,6 @@ module mod_errors_intersection
 
 
 
-
-
-
-
-
-
-
-
-
-
-
   character(200) :: working_directory_errors = ''
   
 contains
@@ -32,18 +21,18 @@ contains
        logfile )
     use mod_math
     use mod_diffgeom
-    use mod_chebyshev
+    use mod_polynomial
     !...
     implicit none
-    character(*),                  intent(in)  :: msg
-    type(type_parametric_surface), intent(in)  :: surf(2)
-    real(kind=MATHpr),             intent(in)  :: uv(2,2)
-    real(kind=MATHpr),             intent(in)  :: xyz(3)
-    character(*),                  intent(out) :: logfile
-    character(16)                              :: name ! dd_mm_yyyy_xxhxx
-    character(200)                             :: filename
-    character                                  :: strnum
-    integer                                    :: file_unit, isurf
+    character(*),       intent(in)  :: msg
+    type(type_surface), intent(in)  :: surf(2)
+    real(kind=MATHpr),  intent(in)  :: uv(2,2)
+    real(kind=MATHpr),  intent(in)  :: xyz(3)
+    character(*),       intent(out) :: logfile
+    character(16)                   :: name ! dd_mm_yyyy_xxhxx
+    character(200)                  :: filename
+    character                       :: strnum
+    integer                         :: file_unit, isurf
 
     ! >>> common to all error-reporting subroutines ------
     call generate_name_from_date( name )
@@ -67,11 +56,11 @@ contains
     write ( file_unit, * ) 'xyz ='
     write ( file_unit, '(ES22.15)' ) xyz
     write ( file_unit, * ) 
-    write ( file_unit, * ) 'Surface Chebyhev coefficients:'
+    write ( file_unit, * ) 'Surface Chebyshev coefficients:'
     do isurf = 1,2
        write ( strnum, '(I1)' ) isurf
        filename = trim(working_directory_errors) // name // '/surface_' // strnum // '.cheb'
-       call write_chebyshev_series2( surf(isurf)%s, trim(filename) )
+       call write_polynomial(surf(isurf)%x, trim(filename))
        write ( file_unit, * ) trim(filename)
     end do
 

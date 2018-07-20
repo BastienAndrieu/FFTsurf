@@ -3,6 +3,8 @@ subroutine add_intersection_curve( &
      param_vector, &
      iendpoints, &
      uvbox )
+  use mod_math
+  use mod_types_intersection
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer, parameter                          :: PARAM_xtra_nc = 10

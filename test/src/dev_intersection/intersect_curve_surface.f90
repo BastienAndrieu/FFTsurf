@@ -8,9 +8,9 @@ recursive subroutine intersect_curve_surface( &
      stat_degeneracy )
   use mod_util
   use mod_math
-  use mod_bernstein2
+  use mod_bernstein
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_obb
   use mod_regiontree
   use mod_tolerances

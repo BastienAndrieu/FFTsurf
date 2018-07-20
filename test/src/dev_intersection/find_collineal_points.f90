@@ -8,7 +8,7 @@ subroutine find_collineal_points( &
      xyz_collineal )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances
   ! Searches for a pair of collineal points on two rectangular parametric surfaces
   ! using a box-constrained Newton-Raphson algorithm. 

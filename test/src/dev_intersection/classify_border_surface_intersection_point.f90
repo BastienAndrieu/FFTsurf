@@ -6,7 +6,7 @@ subroutine classify_border_surface_intersection_point( &
      npts, &
      stat_point ) 
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   !stat_point = -1 : exiting
   !              0 : isolated

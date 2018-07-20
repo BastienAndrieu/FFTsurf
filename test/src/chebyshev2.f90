@@ -2,7 +2,7 @@ program chebyshev2
 
   use mod_util
   use mod_math
-  use mod_chebyshev2
+  use mod_chebyshev
   use mod_polynomial
 
   implicit none

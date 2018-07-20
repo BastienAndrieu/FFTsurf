@@ -4,7 +4,7 @@ program dev_intersection
   use mod_util
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2  
+  use mod_diffgeom
   use mod_types_intersection
 
   implicit none
@@ -211,6 +211,8 @@ subroutine add_intersection_curve( &
      param_vector, &
      iendpoints, &
      uvbox )
+  use mod_math
+  use mod_types_intersection
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   integer, parameter                          :: PARAM_xtra_nc = 10
@@ -272,7 +274,7 @@ subroutine add_intersection_point( &
     interdata, &
     id ) 
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_types_intersection
   use mod_tolerances
   implicit none
@@ -399,7 +401,7 @@ subroutine characterize_tangential_intersection_point( &
      stat, &
      dxyz_ds )
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.172-175 )
   ! Returns stat = 1 : single tangential intersection curve
@@ -515,7 +517,7 @@ subroutine check_curve_surface_intersection_point( &
    uv, &
    stat )
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
@@ -651,7 +653,7 @@ subroutine classify_border_surface_intersection_point( &
      npts, &
      stat_point ) 
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   !stat_point = -1 : exiting
   !              0 : isolated
@@ -783,7 +785,7 @@ subroutine diffgeom_intersection_curve( &
   !               = 3 if the point is an isolated tangential contact point (degenerate curve)
   !               = 4 if the point is an high-order tangential contact point (possible degeneracy)
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.166-175)
   implicit none
@@ -1016,7 +1018,7 @@ subroutine find_collineal_points( &
      xyz_collineal )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances
   ! Searches for a pair of collineal points on two rectangular parametric surfaces
   ! using a box-constrained Newton-Raphson algorithm. 
@@ -1242,6 +1244,7 @@ subroutine insert_polyline_point( &
     polyline, &
     i )
   use mod_math
+  use mod_types_intersection
   ! Inserts a uv-xyz point in an intersection_polyline after the i-th point.
   ! If 'i' is not provided, the point is inserted after the current last point.
   implicit none
@@ -1395,7 +1398,7 @@ subroutine intersect_all_surfaces( &
   USE MOD_UTIL
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   implicit none
@@ -1576,7 +1579,7 @@ subroutine intersect_border_surface( &
      stat_degeneracy )
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   use mod_tolerances
@@ -1796,9 +1799,9 @@ recursive subroutine intersect_curve_surface( &
      stat_degeneracy )
   use mod_util
   use mod_math
-  use mod_bernstein2
+  use mod_bernstein
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_obb
   use mod_regiontree
   use mod_tolerances
@@ -2368,6 +2371,7 @@ subroutine intersect_intersection_curves( &
      stat )
   USE MOD_UTIL
   use mod_math
+  use mod_diffgeom
   use mod_tolerances
   use mod_types_intersection
   implicit none
@@ -2605,8 +2609,8 @@ recursive subroutine intersect_simple_surfaces( &
      stat_degeneracy )
   use mod_math
   use mod_polynomial
-  use mod_bernstein2
-  use mod_diffgeom2
+  use mod_bernstein
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   implicit none
@@ -2924,8 +2928,8 @@ recursive subroutine intersect_surface_pair( &
      nuvxyz, &
      stat_degeneracy )
   use mod_math
-  use mod_bernstein2
-  use mod_diffgeom2
+  use mod_bernstein
+  use mod_diffgeom
   use mod_regiontree
   use mod_tolerances
   use mod_types_intersection
@@ -3554,6 +3558,7 @@ subroutine merge_intersection_data( &
      interdata_global )
   USE MOD_UTIL
   use mod_math
+  use mod_diffgeom
   use mod_types_intersection
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
   implicit none
@@ -3654,7 +3659,7 @@ subroutine newton_curve_surface( &
      xyz )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances    
   ! stat = 0 : converged
   !        1 : not converged
@@ -3764,7 +3769,7 @@ subroutine newton_intersection_polyline( &
      xyzp )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances  
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
@@ -3875,7 +3880,7 @@ subroutine newton_three_surfaces( &
      xyz )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances  
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
@@ -4082,7 +4087,7 @@ subroutine trace_intersection_polyline( &
      hmin, &
      hmax )
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_types_intersection
   use mod_tolerances
   ! Returns: stat =-1 if one surface is singular at a polyline point (normal = zero vector)

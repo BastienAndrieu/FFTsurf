@@ -14,7 +14,7 @@ subroutine intersect_border_surface( &
      stat_degeneracy )
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   use mod_tolerances

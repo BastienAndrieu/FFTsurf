@@ -8,7 +8,7 @@ subroutine newton_curve_surface( &
      xyz )
   use mod_math
   use mod_linalg
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_tolerances    
   ! stat = 0 : converged
   !        1 : not converged

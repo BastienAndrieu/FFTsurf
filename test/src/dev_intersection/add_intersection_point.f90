@@ -6,7 +6,7 @@ subroutine add_intersection_point( &
     interdata, &
     id ) 
   use mod_math
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_types_intersection
   use mod_tolerances
   implicit none

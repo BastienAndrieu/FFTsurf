@@ -6,8 +6,8 @@ recursive subroutine intersect_surface_pair( &
      nuvxyz, &
      stat_degeneracy )
   use mod_math
-  use mod_bernstein2
-  use mod_diffgeom2
+  use mod_bernstein
+  use mod_diffgeom
   use mod_regiontree
   use mod_tolerances
   use mod_types_intersection

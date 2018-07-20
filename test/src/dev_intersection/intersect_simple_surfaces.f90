@@ -8,8 +8,8 @@ recursive subroutine intersect_simple_surfaces( &
      stat_degeneracy )
   use mod_math
   use mod_polynomial
-  use mod_bernstein2
-  use mod_diffgeom2
+  use mod_bernstein
+  use mod_diffgeom
   use mod_regiontree
   use mod_types_intersection
   implicit none

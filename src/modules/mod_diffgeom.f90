@@ -1,113 +1,145 @@
 module mod_diffgeom
   
   use mod_math
-  use mod_chebyshev
+  use mod_polynomial
 
-  implicit none
+  type type_curve
+     type(type_polynomial) :: x, xt, xtt
+  end type type_curve
+
+  type type_surface
+     type(type_polynomial) :: x, xu, xv, pn, xuu, xuv, xvv
+  end type type_surface
+
+  type ptr_surface
+     type(type_surface), pointer :: ptr => null()
+  end type ptr_surface
   
-  type type_parametric_surface
-     type(type_chebyshev_series2) :: s, su, sv, suu, suv, svv, pn
-  end type type_parametric_surface
 
-  type ptr_parametric_surface
-     type(type_parametric_surface), pointer :: ptr => null()
-  end type ptr_parametric_surface
 
-  type type_parametric_curve
-     type(type_chebyshev_series1) :: c, ct, ctt
-  end type type_parametric_curve
+  
+
+  interface compute_deriv1
+     module procedure compute_deriv1_curve, compute_deriv1_surface
+  end interface compute_deriv1
+     
+  interface compute_deriv2
+     module procedure compute_deriv2_curve, compute_deriv2_surface
+  end interface compute_deriv2
 
   interface eval
-     module procedure ceval_point, seval_point
+     module procedure eval_curve, eval_surface
   end interface eval
-
-  interface evald
-     module procedure cevald_point, sevald_point
-  end interface evald
+  
+  interface evald1
+     module procedure evald1_curve, evald1_surface
+  end interface evald1
 
   interface evald2
-     module procedure evald2_point
+     module procedure evald2_curve, evald2_surface
   end interface evald2
 
-  interface compute_first_derivatives
-     module procedure curv_compute_first_derivative, surf_compute_first_derivatives
-  end interface compute_first_derivatives
-
-  interface compute_second_derivatives
-     module procedure curv_compute_second_derivative, surf_compute_second_derivatives
-  end interface compute_second_derivatives
 
 contains
 
-  subroutine curv_compute_first_derivative( curv )
+
+  subroutine compute_deriv1_curve( curv )
     implicit none
-    type(type_parametric_curve), intent(inout) :: curv
+    type(type_curve), intent(inout) :: curv
 
-    call chebdiff1( curv%c, curv%ct )
-    
-  end subroutine curv_compute_first_derivative
+    call diff1( curv%x, curv%xt )
 
+  end subroutine compute_deriv1_curve
 
-  subroutine curv_compute_second_derivative( curv )
-    implicit none
-    type(type_parametric_curve), intent(inout) :: curv
-
-    call chebdiff1( curv%ct, curv%ctt )
-
-  end subroutine curv_compute_second_derivative
-
-
-  subroutine surf_compute_first_derivatives( surf )
-    implicit none
-    type(type_parametric_surface), intent(inout) :: surf
-    
-    call chebdiff2( surf%s, surf%su, surf%sv )
-
-  end subroutine surf_compute_first_derivatives
-
-
-
-  subroutine surf_compute_second_derivatives( surf )
-    implicit none
-    type(type_parametric_surface), intent(inout) :: surf
-    
-    call chebdiff2( surf%su, surf%suu )
-    call chebdiff2( surf%sv, surf%suv, surf%svv )
-
-  end subroutine surf_compute_second_derivatives
 
 
   
-  subroutine compute_pseudonormal( surf )
+  subroutine compute_deriv1_surface( surf )
     implicit none
-    type(type_parametric_surface), intent(inout)                      :: surf
-    real(kind=MATHpr), dimension(2*surf%s%degr(1),2*surf%s%degr(2),3) :: xu, xv, xn
-    integer                                                           :: k
+    type(type_surface), intent(inout) :: surf
 
-    if ( surf%s%dim < 3 ) STOP 'compute_pseudonormal : dim < 3'
+    call diff2( surf%x, du=surf%xu, dv=surf%xv )
+
+  end subroutine compute_deriv1_surface
+
+
+  
+  
+  subroutine compute_deriv2_curve( curv )
+    implicit none
+    type(type_curve), intent(inout) :: curv
+
+    call diff1( curv%xt, curv%xtt )
+
+  end subroutine compute_deriv2_curve
+
+
+
+
+  subroutine compute_deriv2_surface( surf )
+    implicit none
+    type(type_surface), intent(inout) :: surf
+
+    call diff2( surf%xu, du=surf%xuu, dv=surf%xuv )
+    call diff2( surf%xv, dv=surf%xvv )
+
+  end subroutine compute_deriv2_surface
+
+  
+
+
+  subroutine compute_pseudonormal( surf )
+    use mod_chebyshev
+    implicit none
+    type(type_surface), intent(inout) :: surf
+    real(kind=fp), allocatable        :: xu(:,:,:), xv(:,:,:), pn(:,:,:)
+    integer                           :: mu, nu, mv, nv, p, q, k
+
+    mu = surf%xu%degr(1)+1
+    nu = surf%xu%degr(2)+1
+    mv = surf%xv%degr(1)+1
+    nv = surf%xv%degr(2)+1
+
+    p = mu + mv
+    q = nu + nv
+
+    allocate( xu(p,q,3), xv(p,q,3), pn(p,q,3) )
     
-    call ifcht2_padded( &
-         surf%su, &
+    call ifcht2( &
+         surf%xu%coef(1:surf%xu%degr(1)+1,1:surf%xu%degr(2)+1,1:3), &
          xu, &
-         2*surf%s%degr(1), &
-         2*surf%s%degr(2) )
-    call ifcht2_padded( surf%sv, &
+         p, &
+         q, &
+         3 )
+    call ifcht2( &
+         surf%xv%coef(1:surf%xv%degr(1)+1,1:surf%xv%degr(2)+1,1:3), &
          xv, &
-         2*surf%s%degr(1), &
-         2*surf%s%degr(2) )
-    
-    do k = 1,3
-       xn(:,:,k) = xu(:,:,1+mod(k,3)) * xv(:,:,1+mod(k+1,3)) - &
-            xu(:,:,1+mod(k+1,3)) * xv(:,:,1+mod(k,3))
-    end do
-    
-    call fcht2( &
-         xn, &
-         surf%pn, &
-         2*surf%s%degr(1), &
-         2*surf%s%degr(2), &
+         p, &
+         q, &
          3 )
     
+    do k = 1,3
+       pn(:,:,k) = &
+            xu(:,:,1+mod(k,3))   * xv(:,:,1+mod(k+1,3)) - &
+            xu(:,:,1+mod(k+1,3)) * xv(:,:,1+mod(k,3))
+    end do
+
+    call reset_polynomial( &
+         poly=surf%pn, &
+         nvar=2, &
+         base=1, &
+         degr=[p-1,q-1], &
+         dim=3 )
+
+    call fcht2( &
+         pn, &
+         surf%pn%coef(1:p,1:q,1:3), &
+         p, &
+         q, &
+         3 )
+
+    deallocate( xu, xv, pn )
+
   end subroutine compute_pseudonormal
 
 
@@ -116,89 +148,120 @@ contains
 
 
 
-  subroutine ceval_point( &
+
+  subroutine eval_curve( &
        xyz, &
        curv, &
        t )
     implicit none
-    type(type_parametric_curve), intent(in)  :: curv
-    real(kind=MATHpr),           intent(in)  :: t
-    real(kind=MATHpr),           intent(out) :: xyz(3)
+    type(type_curve), intent(in)  :: curv
+    real(kind=fp),    intent(in)  :: t
+    real(kind=fp),    intent(out) :: xyz(3)
+    
+    call polyval1( xyz, curv%x, [t], 1 )
 
-    call chebval( xyz, curv%c, t )
+  end subroutine eval_curve
 
-  end subroutine ceval_point
+
+
+
+  subroutine evald1_curve( &
+       xyz, &
+       curv, &
+       t )
+    implicit none
+    type(type_curve), intent(in)  :: curv
+    real(kind=fp),    intent(in)  :: t
+    real(kind=fp),    intent(out) :: xyz(3)
+
+    call polyval1( xyz, curv%xt, [t], 1 )
+
+  end subroutine evald1_curve
+
+
 
   
-  subroutine seval_point( &
+  subroutine evald2_curve( &
+       xyz, &
+       curv, &
+       t )
+    implicit none
+    type(type_curve), intent(in)  :: curv
+    real(kind=fp),    intent(in)  :: t
+    real(kind=fp),    intent(out) :: xyz(3)
+
+    call polyval1( xyz, curv%xtt, [t], 1 )
+
+  end subroutine evald2_curve
+
+
+
+
+
+  subroutine eval_surface( &
        xyz, &
        surf, &
        uv )
     implicit none
-    type(type_parametric_surface), intent(in)  :: surf
-    real(kind=MATHpr),             intent(in)  :: uv(2)
-    real(kind=MATHpr),             intent(out) :: xyz(3)
+    type(type_surface), intent(in)  :: surf
+    real(kind=fp),      intent(in)  :: uv(2)
+    real(kind=fp),      intent(out) :: xyz(3)
+    
+    call polyval2( xyz, surf%x, uv, 1 )
 
-    call chebval( xyz, surf%s, uv )
-
-  end subroutine seval_point
+  end subroutine eval_surface
 
 
-
-  subroutine cevald_point( &
+  
+  subroutine evald1_surface( &
        xyz, &
-       curv, &
-       t )
+       surf, &
+       uv, &
+       ivar )
+    
     implicit none
-    type(type_parametric_curve), intent(in)  :: curv
-    real(kind=MATHpr),           intent(in)  :: t
-    real(kind=MATHpr),           intent(out) :: xyz(3)
+    type(type_surface), intent(in)  :: surf
+    real(kind=fp),      intent(in)  :: uv(2)
+    real(kind=fp),      intent(out) :: xyz(3)
+    integer,            intent(in)  :: ivar
 
-    call chebval( xyz, curv%ct, t )
+    select case (ivar)
+       case (1)
+       call polyval2( xyz, surf%xu, uv, 1 )
+    case (2)
+       call polyval2( xyz, surf%xv, uv, 1 )
+    case default
+       STOP 'evald1_surface : ivar =/ 1,2'
+    end select
+    
+  end subroutine evald1_surface
 
-  end subroutine cevald_point
 
 
-
-  subroutine sevald_point( &
+  
+  subroutine evald2_surface( &
        xyz, &
        surf, &
        uv, &
        ivar )
     implicit none
-    type(type_parametric_surface), intent(in)  :: surf
-    real(kind=MATHpr),             intent(in)  :: uv(2)
-    integer,                       intent(in)  :: ivar
-    real(kind=MATHpr),             intent(out) :: xyz(3)
+    type(type_surface), intent(in)  :: surf
+    real(kind=fp),      intent(in)  :: uv(2)
+    real(kind=fp),      intent(out) :: xyz(3)
+    integer,            intent(in)  :: ivar
 
-    if ( ivar == 2 ) then
-       call chebval( xyz, surf%sv, uv )
-    else
-       call chebval( xyz, surf%su, uv )
-    end if
+    select case (ivar)
+    case (1)
+       call polyval2( xyz, surf%xuu, uv, 1 )
+    case (2)
+       call polyval2( xyz, surf%xuv, uv, 1 )
+    case (3)
+       call polyval2( xyz, surf%xvv, uv, 1 )
+    case default
+       STOP 'evald1_surface : ivar =/ 1,2,3'
+    end select
 
-  end subroutine sevald_point
+  end subroutine evald2_surface
 
-
-  subroutine evald2_point( &
-       xyz, &
-       surf, &
-       uv, &
-       ivar )
-    implicit none
-    type(type_parametric_surface), intent(in)  :: surf
-    real(kind=MATHpr),             intent(in)  :: uv(2)
-    integer,                       intent(in)  :: ivar
-    real(kind=MATHpr),             intent(out) :: xyz(3)
-
-    if ( ivar == 3 ) then
-       call chebval( xyz, surf%svv, uv )
-    elseif ( ivar == 2 ) then
-       call chebval( xyz, surf%suv, uv )
-    else
-       call chebval( xyz, surf%suu, uv )
-    end if
-
-  end subroutine evald2_point
 
 end module mod_diffgeom

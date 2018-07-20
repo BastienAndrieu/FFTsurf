@@ -1,24 +1,23 @@
 GFORTRAN module version '10' created from src/modules/mod_types_intersection.f90
-MD5:4b6aa684bf181172c8970229a3dd452d -- If you edit this, you'll get what you deserve.
+MD5:d4f2eb05e1ad5b3c98f34e2a78e99c33 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
 
 ()
 
-(('compute_deriv1' 'mod_diffgeom2' 2 3) ('compute_deriv2' 'mod_diffgeom2'
-4 5) ('cross' 'mod_math' 6) ('eval' 'mod_diffgeom2' 7 8) ('evald1'
-'mod_diffgeom2' 9 10) ('evald2' 'mod_diffgeom2' 11 12) ('print_mat'
+(('compute_deriv1' 'mod_diffgeom' 2 3) ('compute_deriv2' 'mod_diffgeom'
+4 5) ('cross' 'mod_math' 6) ('eval' 'mod_diffgeom' 7 8) ('evald1'
+'mod_diffgeom' 9 10) ('evald2' 'mod_diffgeom' 11 12) ('print_mat'
 'mod_math' 13 14 15) ('ptr_intersection_curve' 'mod_types_intersection'
-16) ('ptr_polynomial' 'mod_polynomial' 17) ('ptr_surface' 'mod_diffgeom2'
-18) ('type_curve' 'mod_diffgeom2' 19) ('type_intersection_curve'
+16) ('ptr_polynomial' 'mod_polynomial' 17) ('ptr_surface' 'mod_diffgeom'
+18) ('type_curve' 'mod_diffgeom' 19) ('type_intersection_curve'
 'mod_types_intersection' 20) ('type_intersection_data'
 'mod_types_intersection' 21) ('type_intersection_point'
 'mod_types_intersection' 22) ('type_intersection_polyline'
 'mod_types_intersection' 23) ('type_matrix' 'mod_math' 24) ('type_obb'
 'mod_obb' 25) ('type_point_on_surface' 'mod_types_intersection' 26) (
-'type_polynomial' 'mod_polynomial' 27) ('type_surface' 'mod_diffgeom2'
-28))
+'type_polynomial' 'mod_polynomial' 27) ('type_surface' 'mod_diffgeom' 28))
 
 ()
 
@@ -38,13 +37,13 @@ UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 POINTER_COMP) (UNKNOWN 0 0 0 0 UNKNOWN
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 POINTER) UNKNOWN-ACCESS
 (NULL (UNKNOWN 0 0 0 0 UNKNOWN ()) 0))) PUBLIC (() () () ()) () 0 0
 83861747)
-18 'Ptr_surface' 'mod_diffgeom2' '' 1 ((DERIVED UNKNOWN-INTENT
+18 'Ptr_surface' 'mod_diffgeom' '' 1 ((DERIVED UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 POINTER_COMP) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 ((31 'ptr' (DERIVED 28 0 0 0 DERIVED ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 POINTER) UNKNOWN-ACCESS
 (NULL (UNKNOWN 0 0 0 0 UNKNOWN ()) 0))) PUBLIC (() () () ()) () 0 0
-14110705)
-19 'Type_curve' 'mod_diffgeom2' '' 1 ((DERIVED UNKNOWN-INTENT
+83670459)
+19 'Type_curve' 'mod_diffgeom' '' 1 ((DERIVED UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOC_COMP) (UNKNOWN 0 0 0 0 UNKNOWN ())
 0 0 () () 0 ((32 'x' (DERIVED 27 0 0 0 DERIVED ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
@@ -63,7 +62,7 @@ UNKNOWN 0 0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 27 0 0 0 DERIVED ()) 0 (
 ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4
 0 0 0 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
 '-1') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()) ((NULL (
-REAL 8 0 0 0 REAL ()) 0) ())) ()))) PUBLIC (() () () ()) () 0 0 88496757)
+REAL 8 0 0 0 REAL ()) 0) ())) ()))) PUBLIC (() () () ()) () 0 0 51615531)
 20 'Type_intersection_curve' 'mod_types_intersection' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOC_COMP POINTER_COMP)
 (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 0 ((35 'smooth' (LOGICAL 4 0 0 0
@@ -185,7 +184,7 @@ UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ())
 0 '0')) (65 'coef' (REAL 8 0 0 0 REAL ()) (3 0 DEFERRED () () () () () ())
 (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOCATABLE
 DIMENSION) UNKNOWN-ACCESS ())) PUBLIC (() () () ()) () 0 0 96549259)
-28 'Type_surface' 'mod_diffgeom2' '' 1 ((DERIVED UNKNOWN-INTENT
+28 'Type_surface' 'mod_diffgeom' '' 1 ((DERIVED UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOC_COMP) (UNKNOWN 0 0 0 0 UNKNOWN ())
 0 0 () () 0 ((66 'x' (DERIVED 27 0 0 0 DERIVED ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
@@ -228,14 +227,14 @@ UNKNOWN-ACCESS (STRUCTURE (DERIVED 27 0 0 0 DERIVED ()) 0 (((CONSTANT (
 INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4 0 0 0
 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '-1') ())
 ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()) ((NULL (REAL 8 0 0 0
-REAL ()) 0) ())) ()))) PUBLIC (() () () ()) () 0 0 89285843)
+REAL ()) 0) ())) ()))) PUBLIC (() () () ()) () 0 0 32638857)
 73 'ab2n1p1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
 UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 74 0 (75 76
 77) () 73 () () () 0 0)
-78 'bernbivar2univar' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+78 'bernbivar2univar' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 79 0 (80 81 82 83 84 85 86) () 0 () () () 0 0)
-87 'berndiff' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+87 'berndiff' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 88 0 (89 90 91 92) () 0 () () () 0 0)
 93 'bernobb1' 'mod_obb' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
@@ -253,10 +252,10 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 113 'cheb2bern_matrix' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 114 0 (115 116) () 0 () () () 0 0)
-117 'chebbivar2univar' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+117 'chebbivar2univar' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 118 0 (119 120 121 122 123 124 125) () 0 () () () 0 0)
-126 'chebdiff' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+126 'chebdiff' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 127 0 (128 129 130 131) () 0 () () () 0 0)
 132 'chebobb1' 'mod_obb' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
@@ -265,31 +264,31 @@ DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 133 0 (134 135
 137 'chebobb2' 'mod_obb' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 138 0 (139 140
 141) () 0 () () () 0 0)
-142 'chgvar' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 143 0 (144 145 146 147 148 149) () 0 () () () 0 0)
+142 'chgvar' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+143 0 (144 145 146 147 148 149) () 0 () () () 0 0)
 150 'chgvar1' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 151 0 (152 153 154 155) () 0 () () () 0 0)
 156 'chgvar2' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 157 0 (158 159 160 161) () 0 () () () 0 0)
-162 'clenshaw' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+162 'clenshaw' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 163 0 (164 165 166 167 168 169) () 0 () () () 0 0)
-3 'compute_deriv1_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+3 'compute_deriv1_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 170 0 (171) () 0 () () () 0 0)
-2 'compute_deriv1_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE
+2 'compute_deriv1_surface' 'mod_diffgeom' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 172 0 (173) () 0 () () () 0 0)
-5 'compute_deriv2_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+5 'compute_deriv2_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 174 0 (175) () 0 () () () 0 0)
-4 'compute_deriv2_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE
+4 'compute_deriv2_surface' 'mod_diffgeom' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 176 0 (177) () 0 () () () 0 0)
-178 'compute_pseudonormal' 'mod_diffgeom2' '' 1 ((PROCEDURE
+178 'compute_pseudonormal' 'mod_diffgeom' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 179 0 (180) () 0 () () () 0 0)
 6 'cross_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
@@ -299,7 +298,7 @@ UNKNOWN 0 0 DIMENSION FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ())
 185 'cstpi' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.3243f6c0000000@1') () 0 () () () 0 0)
-186 'de_casteljau' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+186 'de_casteljau' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 187 0 (188 189 190 191 192 193 194) () 0 ()
 () () 0 0)
@@ -345,31 +344,31 @@ REAL 8 0 0 0 REAL ()) 0 '0.a0000000000000@-12') () 0 () () () 0 0)
 228 'epsobb' 'mod_obb' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.2d093700000000@-11') () 0 () () () 0 0)
-8 'eval_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+8 'eval_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 229 0 (230 231 232) () 0 () () () 0 0)
-7 'eval_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+7 'eval_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 233 0 (234 235 236) () 0 () () () 0 0)
-10 'evald1_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+10 'evald1_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 237 0 (238 239 240) () 0 () () () 0 0)
-9 'evald1_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+9 'evald1_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 241 0 (242 243 244 245) () 0 () () () 0 0)
-12 'evald2_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+12 'evald2_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 246 0 (247 248 249) () 0 () () () 0 0)
-11 'evald2_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+11 'evald2_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 250 0 (251 252 253 254) () 0 () () () 0 0)
 255 'factln' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
 UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 256 0 (257) () 255 () () ()
 0 0)
-258 'fcht1' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+258 'fcht1' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
 259 0 (260 261 262 263 264) () 0 () () () 0 0)
-265 'fcht2' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+265 'fcht2' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
 266 0 (267 268 269 270 271 272) () 0 () () () 0 0)
 273 'fp' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
@@ -400,12 +399,12 @@ ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 294 0 (295) (2 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0
 INTEGER ()) 0 295 ()) (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (
 VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 295 ())) 293 () () () 0 0)
-296 'ifcht1' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
-0 UNKNOWN ()) 297 0 (298 299 300 301) () 0 () () () 0 0)
-302 'ifcht2' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
-0 UNKNOWN ()) 303 0 (304 305 306 307 308) () 0 () () () 0 0)
+296 'ifcht1' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
+297 0 (298 299 300 301) () 0 () () () 0 0)
+302 'ifcht2' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
+303 0 (304 305 306 307 308) () 0 () () () 0 0)
 309 'is_in_closed_interval' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE ALWAYS_EXPLICIT) (
 LOGICAL 4 0 0 0 LOGICAL ()) 310 0 (311 312 313 314) () 309 () () () 0 0)
@@ -423,7 +422,7 @@ DECL UNKNOWN 0 0 DIMENSION FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL
 ()) 330 0 (331 332 333) (1 0 EXPLICIT (CONSTANT (INTEGER 4 0 0 0 INTEGER
 ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 333 ())) 329 () () ()
 0 0)
-334 'manage_wsave' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+334 'manage_wsave' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
 0 UNKNOWN ()) 335 0 (336 337 338 339) () 0 () () () 0 0)
 340 'matheps' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
@@ -438,13 +437,13 @@ CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '8') () 0 () () () 0 0)
 343 'mean_angle' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE ALWAYS_EXPLICIT) (REAL 8 0 0 0
 REAL ()) 344 0 (345) () 343 () () () 0 0)
-346 'mod_bernstein2' 'mod_bernstein2' '' 1 ((MODULE UNKNOWN-INTENT
+346 'mod_bernstein' 'mod_bernstein' '' 1 ((MODULE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
-347 'mod_chebyshev2' 'mod_chebyshev2' '' 1 ((MODULE UNKNOWN-INTENT
+347 'mod_chebyshev' 'mod_chebyshev' '' 1 ((MODULE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
-348 'mod_diffgeom2' 'mod_diffgeom2' '' 1 ((MODULE UNKNOWN-INTENT
+348 'mod_diffgeom' 'mod_diffgeom' '' 1 ((MODULE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
 349 'mod_math' 'mod_math' '' 1 ((MODULE UNKNOWN-INTENT UNKNOWN-PROC
@@ -532,7 +531,7 @@ UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 431 'ptr_polynomial' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
-432 'ptr_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+432 'ptr_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
 0 () () 0 () () () 0 0)
 433 'read_polynomial' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
@@ -547,7 +546,7 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 447 'selected_real_kind' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ())
 0 0 () () 447 () () () 0 0)
-448 'sizeminwsave' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+448 'sizeminwsave' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (INTEGER 4 0 0 0
 INTEGER ()) 449 0 (450) () 448 () () () 0 0)
 451 'solve_2x2' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
@@ -581,7 +580,7 @@ DIMENSION) (DERIVED 24 0 0 0 DERIVED ()) 0 0 () (1 0 DEFERRED () ()) 0 ()
 505 'triple_product' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 506 0 (
 507 508 509) () 510 () () () 0 0)
-511 'type_curve' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+511 'type_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
 0 () () 0 () () () 0 0)
 512 'type_intersection_curve' 'mod_types_intersection' '' 1 ((PROCEDURE
@@ -608,7 +607,7 @@ UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 519 'type_polynomial' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
-520 'type_surface' 'mod_diffgeom2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+520 'type_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
 0 () () 0 () () () 0 0)
 521 'write_obb' 'mod_obb' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
@@ -1452,16 +1451,16 @@ UNKNOWN UNKNOWN 0 0 FUNCTION) (REAL 4 0 0 0 REAL ()) 0 0 () () 535 () ()
 'identity_matrix' 0 293 'ifcht1' 0 296 'ifcht2' 0 302
 'is_in_closed_interval' 0 309 'is_in_open_interval' 0 315 'is_inside_obb'
 0 321 'is_zero' 0 326 'linspace' 0 329 'manage_wsave' 0 334 'matheps' 0
-340 'mathpi' 0 341 'mathpr' 0 342 'mean_angle' 0 343 'mod_bernstein2' 0
-346 'mod_chebyshev2' 0 347 'mod_diffgeom2' 0 348 'mod_math' 0 349
-'mod_obb' 0 350 'mod_polynomial' 0 351 'mod_types_intersection' 0 352
-'mrgobb' 0 353 'myfact' 0 354 'myfactorial' 0 358 'n1p12ab' 0 362
-'nd_box_constraint' 0 367 'nd_box_reflexions' 0 374 'norm2_1' 0 381
-'norm2_n' 0 385 'null' 0 390 'obb_vertices' 0 391 'outer_product' 0 395
-'overlap_intervals' 0 400 'overlap_obbs' 0 404 'polyval1' 0 409 'polyval2'
-0 415 'print_mat_d' 0 13 'print_mat_i' 0 15 'print_mat_r' 0 14 'print_obb'
-0 427 'ptr_intersection_curve' 0 430 'ptr_polynomial' 0 431 'ptr_surface'
-0 432 'read_polynomial' 0 433 'real' 0 439 'reset_polynomial' 0 440
+340 'mathpi' 0 341 'mathpr' 0 342 'mean_angle' 0 343 'mod_bernstein' 0
+346 'mod_chebyshev' 0 347 'mod_diffgeom' 0 348 'mod_math' 0 349 'mod_obb'
+0 350 'mod_polynomial' 0 351 'mod_types_intersection' 0 352 'mrgobb' 0
+353 'myfact' 0 354 'myfactorial' 0 358 'n1p12ab' 0 362 'nd_box_constraint'
+0 367 'nd_box_reflexions' 0 374 'norm2_1' 0 381 'norm2_n' 0 385 'null' 0
+390 'obb_vertices' 0 391 'outer_product' 0 395 'overlap_intervals' 0 400
+'overlap_obbs' 0 404 'polyval1' 0 409 'polyval2' 0 415 'print_mat_d' 0
+13 'print_mat_i' 0 15 'print_mat_r' 0 14 'print_obb' 0 427
+'ptr_intersection_curve' 0 430 'ptr_polynomial' 0 431 'ptr_surface' 0
+432 'read_polynomial' 0 433 'real' 0 439 'reset_polynomial' 0 440
 'selected_real_kind' 0 447 'sizeminwsave' 0 448 'solve_2x2' 0 451
 'solve_nxn' 0 460 'solve_up_tri' 0 466 'subdiv_bezier1' 0 473
 'subdiv_bezier2' 0 479 'subdiv_bezier2_only_u' 0 487

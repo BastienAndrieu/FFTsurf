@@ -4,6 +4,7 @@ subroutine intersect_intersection_curves( &
      stat )
   USE MOD_UTIL
   use mod_math
+  use mod_diffgeom
   use mod_tolerances
   use mod_types_intersection
   implicit none

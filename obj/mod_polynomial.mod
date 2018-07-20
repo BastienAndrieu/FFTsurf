@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_polynomial.f90
-MD5:c680db6c0141306b4495efe8cd84f977 -- If you edit this, you'll get what you deserve.
+MD5:3ae55f00bfdadea8486e77ada485e200 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -46,10 +46,10 @@ DIMENSION) UNKNOWN-ACCESS ())) PUBLIC (() () () ()) () 0 0 96549259)
 16 'ab2n1p1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
 UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 17 0 (18 19
 20) () 16 () () () 0 0)
-21 'bernbivar2univar' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+21 'bernbivar2univar' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 22 0 (23 24 25 26 27 28 29) () 0 () () () 0 0)
-30 'berndiff' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+30 'berndiff' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 31 0 (32 33 34 35) () 0 () () () 0 0)
 36 'bivar2univar' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
@@ -61,13 +61,13 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 43
 46 'cheb2bern_matrix' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 47
 0 (48 49) () 0 () () () 0 0)
-50 'chebbivar2univar' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+50 'chebbivar2univar' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 51 0 (52 53 54 55 56 57 58) () 0 () () () 0 0)
-59 'chebdiff' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+59 'chebdiff' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 60 0 (61 62 63 64) () 0 () () () 0 0)
-65 'chgvar' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+65 'chgvar' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 66 0 (67 68 69 70 71 72) () 0 () () () 0 0)
 73 'chgvar1' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
@@ -76,7 +76,7 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 74
 79 'chgvar2' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 80
 0 (81 82 83 84) () 0 () () () 0 0)
-85 'clenshaw' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+85 'clenshaw' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
 UNKNOWN ()) 86 0 (87 88 89 90 91 92) () 0 () () () 0 0)
 2 'cross_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
@@ -86,7 +86,7 @@ UNKNOWN 0 0 DIMENSION FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ())
 97 'cstpi' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.3243f6c0000000@1') () 0 () () () 0 0)
-98 'de_casteljau' 'mod_bernstein2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+98 'de_casteljau' 'mod_bernstein' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 99 0 (100 101 102 103 104 105 106) () 0 () ()
 () 0 0)
@@ -132,10 +132,10 @@ REAL 8 0 0 0 REAL ()) 0 '0.a0000000000000@-12') () 0 () () () 0 0)
 140 'factln' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
 UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 141 0 (142) () 140 () () ()
 0 0)
-143 'fcht1' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+143 'fcht1' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
 144 0 (145 146 147 148 149) () 0 () () () 0 0)
-150 'fcht2' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+150 'fcht2' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
 151 0 (152 153 154 155 156 157) () 0 () () () 0 0)
 158 'fp' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
@@ -163,12 +163,12 @@ ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 176 0 (177) (2 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0
 INTEGER ()) 0 177 ()) (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (
 VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 177 ())) 175 () () () 0 0)
-178 'ifcht1' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
-0 UNKNOWN ()) 179 0 (180 181 182 183) () 0 () () () 0 0)
-184 'ifcht2' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
-0 UNKNOWN ()) 185 0 (186 187 188 189 190) () 0 () () () 0 0)
+178 'ifcht1' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
+179 0 (180 181 182 183) () 0 () () () 0 0)
+184 'ifcht2' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ())
+185 0 (186 187 188 189 190) () 0 () () () 0 0)
 191 'is_in_closed_interval' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE ALWAYS_EXPLICIT) (
 LOGICAL 4 0 0 0 LOGICAL ()) 192 0 (193 194 195 196) () 191 () () () 0 0)
@@ -183,7 +183,7 @@ DECL UNKNOWN 0 0 DIMENSION FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL
 ()) 207 0 (208 209 210) (1 0 EXPLICIT (CONSTANT (INTEGER 4 0 0 0 INTEGER
 ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 210 ())) 206 () () ()
 0 0)
-211 'manage_wsave' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+211 'manage_wsave' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
 0 UNKNOWN ()) 212 0 (213 214 215 216) () 0 () () () 0 0)
 217 'matheps' 'mod_math' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
@@ -198,10 +198,10 @@ CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '8') () 0 () () () 0 0)
 220 'mean_angle' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE ALWAYS_EXPLICIT) (REAL 8 0 0 0
 REAL ()) 221 0 (222) () 220 () () () 0 0)
-223 'mod_bernstein2' 'mod_bernstein2' '' 1 ((MODULE UNKNOWN-INTENT
+223 'mod_bernstein' 'mod_bernstein' '' 1 ((MODULE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
-224 'mod_chebyshev2' 'mod_chebyshev2' '' 1 ((MODULE UNKNOWN-INTENT
+224 'mod_chebyshev' 'mod_chebyshev' '' 1 ((MODULE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 0 () () () 0 0)
 225 'mod_math' 'mod_math' '' 1 ((MODULE UNKNOWN-INTENT UNKNOWN-PROC
@@ -280,7 +280,7 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 306 'selected_real_kind' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ())
 0 0 () () 306 () () () 0 0)
-307 'sizeminwsave' 'mod_chebyshev2' '' 1 ((PROCEDURE UNKNOWN-INTENT
+307 'sizeminwsave' 'mod_chebyshev' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (INTEGER 4 0 0 0
 INTEGER ()) 308 0 (309) () 307 () () () 0 0)
 310 'solve_2x2' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
@@ -997,7 +997,7 @@ UNKNOWN UNKNOWN 0 0 FUNCTION) (REAL 4 0 0 0 REAL ()) 0 0 () () 382 () ()
 'identity_matrix' 0 175 'ifcht1' 0 178 'ifcht2' 0 184
 'is_in_closed_interval' 0 191 'is_in_open_interval' 0 197 'is_zero' 0
 203 'linspace' 0 206 'manage_wsave' 0 211 'matheps' 0 217 'mathpi' 0 218
-'mathpr' 0 219 'mean_angle' 0 220 'mod_bernstein2' 0 223 'mod_chebyshev2'
+'mathpr' 0 219 'mean_angle' 0 220 'mod_bernstein' 0 223 'mod_chebyshev'
 0 224 'mod_math' 0 225 'mod_polynomial' 0 226 'myfact' 0 227 'myfactorial'
 0 231 'n1p12ab' 0 235 'nd_box_constraint' 0 240 'nd_box_reflexions' 0
 247 'norm2_1' 0 254 'norm2_n' 0 258 'null' 0 263 'outer_product' 0 264

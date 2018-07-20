@@ -2,7 +2,7 @@ module mod_types_intersection
 
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2
+  use mod_diffgeom
   use mod_obb
 
   implicit none

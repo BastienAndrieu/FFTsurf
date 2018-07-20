@@ -3,7 +3,7 @@
   use mod_util
   use mod_math
   use mod_polynomial
-  use mod_diffgeom2  
+  use mod_diffgeom
   use mod_types_intersection
 
   implicit none

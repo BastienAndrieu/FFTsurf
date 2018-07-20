@@ -5,6 +5,7 @@ subroutine insert_polyline_point( &
     polyline, &
     i )
   use mod_math
+  use mod_types_intersection
   ! Inserts a uv-xyz point in an intersection_polyline after the i-th point.
   ! If 'i' is not provided, the point is inserted after the current last point.
   implicit none
