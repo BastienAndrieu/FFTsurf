@@ -23,7 +23,8 @@ contains
 
     do j = 1,dim
        bip1(:) = 0._fp
-       bi(:) = 0._fp
+       bi(:)   = 0._fp
+       bim1(:) = 0._fp
        do i = degr+1,2,-1
           bim1 = c(i,j) + 2._fp * x * bi - bip1
           if ( i > 2 ) then
