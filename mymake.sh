@@ -1,4 +1,4 @@
-#python src/intersection/makemodule.py
+python src/intersection/makemodule.py
 
 # modules
 for f in src/modules/*.f90
@@ -31,9 +31,9 @@ echo ""
 #gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/bernstein2.out test/obj/bernstein2.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
 
 
-echo "...newton_curve_surface_singular.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/newton_curve_surface_singular.f90 -o test/obj/newton_curve_surface_singular.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/newton_curve_surface_singular.out test/obj/newton_curve_surface_singular.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
+#echo "...newton_curve_surface_singular.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/newton_curve_surface_singular.f90 -o test/obj/newton_curve_surface_singular.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/newton_curve_surface_singular.out test/obj/newton_curve_surface_singular.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_tolerances.o -Lsrc/dfftpack -ldfftpack
 
 
 #echo "...separation.out"
@@ -58,7 +58,7 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/newton_curve_surfac
 
 echo "...dev_intersection.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/dev_intersection.f90 -o test/obj/dev_intersection.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.out test/obj/dev_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o -Lsrc/dfftpack -ldfftpack
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.out test/obj/dev_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
 
 
 #echo "...polylines.out"

@@ -1,39 +1,48 @@
 subroutine insert_polyline_point( &
-     uv, &
-     xyz, &
-     pline, &
-     i )
+    uv, &
+    xyz, &
+    stat, &
+    polyline, &
+    i )
   use mod_math
   use mod_types_intersection
   ! Inserts a uv-xyz point in an intersection_polyline after the i-th point.
-  ! If 'i' is not provided, the point is inserted after the last point.
+  ! If 'i' is not provided, the point is inserted after the current last point.
   implicit none
-  real(kind=MATHpr),                intent(in)           :: uv(2,2)
-  real(kind=MATHpr),                intent(in)           :: xyz(3)
-  type(type_intersection_polyline), intent(inout)        :: pline
-  integer,                          intent(in), optional :: i
-  integer                                                :: iprev, stat
+  integer, parameter                              :: PARAM_xtra_np = 10
+  real(kind=fp),                    intent(in)    :: uv(2,2)
+  real(kind=fp),                    intent(in)    :: xyz(3)
+  integer,                          intent(out)   :: stat
+  type(type_intersection_polyline), intent(inout) :: polyline
+  integer, optional,                intent(in)    :: i
+  integer                                         :: iprev
 
   if ( present(i) ) then
      iprev = i
+     iprev = min(iprev,polyline%np)
+     iprev = max(iprev,0)
   else
-     iprev = pline%np
+     iprev = polyline%np
   end if
 
-  if ( iprev >= size(pline%xyz,2) ) then
+  if ( .not.allocated(polyline%uv)  ) allocate(polyline%uv(2,2,PARAM_xtra_np))
+  if ( .not.allocated(polyline%xyz) ) allocate(polyline%xyz(3,PARAM_xtra_np) )
+
+  if ( polyline%np + 1 > size(polyline%xyz,2) ) then
      call reallocate_polyline( &
-          pline, &
-          pline%np + param_xtra_polyline_np, &
+          polyline, &
+          polyline%np + PARAM_xtra_np, &
           stat )
-     if ( stat > 0 ) STOP 'insert_polyline_point : could not reallocate polyline'
+     if ( stat > 0 ) return
   end if
 
-  if ( iprev < pline%np ) then
-     pline%uv(:,:,iprev+2:pline%np+1) = pline%uv(:,:,iprev+1:pline%np)
-     pline%xyz(:,iprev+2:pline%np+1) = pline%xyz(:,iprev+1:pline%np)
+  stat = 0
+  if ( iprev < polyline%np ) then
+     polyline%uv(:,:,iprev+2:polyline%np+1) = polyline%uv(:,:,iprev+1:polyline%np)
+     polyline%xyz(:,iprev+2:polyline%np+1)  = polyline%xyz(:,iprev+1:polyline%np)
   end if
-  pline%uv(:,:,iprev+1) = uv
-  pline%xyz(:,iprev+1) = xyz
-  pline%np = pline%np + 1
+  polyline%uv(:,:,iprev+1) = uv
+  polyline%xyz(:,iprev+1)  = xyz
+  polyline%np = polyline%np + 1
 
 end subroutine insert_polyline_point

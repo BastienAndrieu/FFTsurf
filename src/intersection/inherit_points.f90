@@ -2,6 +2,7 @@ subroutine inherit_points( &
      region, &
      coords, &
      npts )
+  use mod_util
   use mod_math
   use mod_regiontree
   implicit none

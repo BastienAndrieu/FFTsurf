@@ -1,148 +1,164 @@
 subroutine find_collineal_points( &
-    surf, &
-    uv, &
-    lowerb, &
-    upperb, &
-    stat )
+     surf, &
+     lowerb, &
+     upperb, &
+     stat, &
+     uv_collineal, &
+     n_collineal, &
+     xyz_collineal )
   use mod_math
+  use mod_linalg
   use mod_diffgeom
   use mod_tolerances
   ! Searches for a pair of collineal points on two rectangular parametric surfaces
   ! using a box-constrained Newton-Raphson algorithm. 
   ! The lower (resp. upper) bounds of the 4-dimensional feasible domain are stored 
   ! in 'lowerb' (resp. 'upperb').
-  ! Returns 'stat' > 0 if no such pair has been found
-  !                  ('stat' = 2 if the Jacobian matrix becomes (near-)singular);
-  !         'stat' =-1 if a tangential contact point has been found;
-  !         'stat' = 0 else (pair of non-coincident collineal points);
-  ! as well as the uv-coordniates of those potential points.
+  ! Returns: stat > 0 if no such pair has been found;
+  !               =-1 if a tangential contact point has been found;
+  !               = 0 else (pair of non-coincident collineal points).
+  !          uv_collineal  : uv-coordinates of the collineal points
+  !          xyz_collineal : xyz-coordinates (relevent only if stat =-1)
+  !          n_collineal   : the common (unit) normal direction at the collineal points.
   implicit none
-  logical,                      parameter     :: VERBOSE = .true.
-  integer,                      parameter     :: nitmax = 10
-  type(ptr_parametric_surface), intent(in)    :: surf(2)
-  real(kind=MATHpr),            intent(inout) :: uv(2,2)
-  real(kind=MATHpr),            intent(in)    :: lowerb(4)
-  real(kind=MATHpr),            intent(in)    :: upperb(4)
-  integer,                      intent(out)   :: stat
-  real(kind=MATHpr)                           :: s(3,2), s1(3,2,2), s2(3,3,2)
-  real(kind=MATHpr)                           :: n(3), r(3)
-  real(kind=MATHpr)                           :: f(4), jac(4,4), duv(4)
-  logical                                     :: singular
-  real(kind=MATHpr)                           :: lambda
-  integer                                     :: it, isurf, ivar
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  integer,           parameter     :: itmax = 2 + ceiling(-log10(EPScollineal))
+  type(ptr_surface), intent(in)    :: surf(2)
+  integer,           intent(out)   :: stat
+  real(kind=fp),     intent(inout) :: uv_collineal(2,2)
+  real(kind=fp),     intent(out)   :: n_collineal(3)
+  real(kind=fp),     intent(out)   :: xyz_collineal(3)
+  real(kind=fp),     intent(in)    :: lowerb(4)
+  real(kind=fp),     intent(in)    :: upperb(4)
+  real(kind=fp)                    :: xyz(3,2), dxyz_duv(3,2,2), d2xyz_duv2(3,3,2), n(3), r(3)
+  real(kind=fp)                    :: f(4), jac(4,4), duv(4)
+  real(kind=fp)                    :: cond, erruv, lambda
+  integer                          :: it, isurf, ivar
+
+  IF ( DEBUG ) THEN
+     PRINT *,''; PRINT *,'';
+     PRINT *,'FIND_COLLINEAL_POINTS'
+     PRINT *,'LOWERB =',LOWERB
+     PRINT *,'UPPERB =',UPPERB
+  END IF
 
   stat = 1
-
-
-  !PRINT *,'LOWERB =', LOWERB
-  !PRINT *,'UPPERB =', UPPERB
-  !PRINT *,'   UV0 =', UV
-
-  do it = 1,nitmax
-     IF (VERBOSE) THEN
-        PRINT *,''
-        PRINT '(A4,1x,I0)','IT.#',IT
-     END IF
+  erruv = 0._fp
+  cond = 1._fp 
+  
+  do it = 1,itmax 
+     IF ( DEBUG ) PRINT *,'IT #',IT
+     !! compute residual
+     do isurf = 1,2 ! <--------------------------+
+        ! position vector                        !
+        call eval( &                             !
+             xyz(:,isurf), &                     !
+             surf(isurf)%ptr, &                  !
+             uv_collineal(:,isurf) )             !
+        !                                        !
+        ! tangent vectors                        !
+        do ivar = 1,2 ! <--------------------+   !
+           call evald1( &                    !   !
+                dxyz_duv(:,ivar,isurf), &    !   !
+                surf(isurf)%ptr, &           !   !
+                uv_collineal(:,isurf), &     !   !
+                ivar )                       !   !
+        end do ! <---------------------------+   !
+     end do ! <----------------------------------+
      
-     do isurf = 1,2
-        ! position vector s
-        call eval( s(:,isurf), surf(isurf)%ptr, uv(:,isurf) )
+     n = cross( dxyz_duv(:,1,1), dxyz_duv(:,2,1) ) ! (pseudo-)normal to surface 1
+     r = xyz(:,1) - xyz(:,2)
 
-        ! tangent vectors su, sv
-        do ivar = 1,2
-           call evald( s1(:,ivar,isurf), surf(isurf)%ptr, uv(:,isurf), ivar )
-        end do
-     end do
+     do ivar = 1,2 ! <-------------------------------------+
+        f(ivar)   = dot_product( dxyz_duv(:,ivar,2), n )   !
+        f(2+ivar) = dot_product( dxyz_duv(:,ivar,1), r )   !
+     end do ! <--------------------------------------------+
 
-     n = cross( s1(:,1,1), s1(:,2,1) ) ! (pseudo-)normal to surface 1
-     r = s(:,1) - s(:,2)
+     IF ( DEBUG ) PRINT *,'F =',F 
 
-     ! right-hand side
-     f(1:2) = matmul( transpose(s1(:,:,2)), n )
-     f(3:4) = matmul( transpose(s1(:,:,1)), r )
-     IF (VERBOSE) PRINT *,'    |F| =',REAL(NORM2(F))
+     !! compute Jacobian matrix
+     do isurf = 1,2 ! <-----------------------------+
+        do ivar = 1,3 ! <-----------------------+   !
+           call evald2( &                       !   !
+                d2xyz_duv2(:,ivar,isurf), &     !   !
+                surf(isurf)%ptr, &              !   !
+                uv_collineal(:,isurf), &        !   !
+                ivar )                          !   !
+        end do ! <------------------------------+   !
+     end do ! <-------------------------------------+
 
-     ! convergence criterion
-     if ( sum(f**2) < EPScollinealsqr ) then
-        IF (VERBOSE) PRINT *,'    CONVERGE |F|'
-        if ( sum(r**2) < EPSxyzsqr ) then
-           stat = -1
-        else
-           stat = 0
-        end if
-        return
-     end if
-
-     ! terminate if Newton step becomes too small
-     if ( it > 1 ) then
-        if ( sum(duv(1:2)**2) < EPSuvsqr .and. sum(duv(3:4)**2) < EPSuvsqr ) then
-           IF (VERBOSE) PRINT *,'    |DUV| << 1'
-           return
-        end if
-     end if
-
-     ! second-order partial derivatives
-     do isurf = 1,2
-        do ivar = 1,3
-           call evald2( s2(:,ivar,isurf), surf(isurf)%ptr, uv(:,isurf), ivar )
-        end do
-     end do
-
-     ! compute Jacobian matrix
      do ivar = 1,2
         jac(1:2,ivar) = matmul( &
-             transpose(s1(:,:,2)), &
-             cross( s2(:,ivar,1), s1(:,2,1) ) + cross( s1(:,1,1), s2(:,ivar+1,1) ) &
+             transpose(dxyz_duv(:,:,2)), &
+             cross( d2xyz_duv2(:,ivar,1), dxyz_duv(:,2,1) ) + &
+             cross( dxyz_duv(:,1,1), d2xyz_duv2(:,ivar+1,1) ) &
              )
         jac(3:4,ivar) = matmul( &
-             transpose(s2(:,ivar:ivar+1,1)), r ) + &
-             matmul( transpose(s1(:,:,1)), s1(:,ivar,1) &
+             transpose(d2xyz_duv2(:,ivar:ivar+1,1)), r ) + &
+             matmul( transpose(dxyz_duv(:,:,1)), dxyz_duv(:,ivar,1) &
              )
-        jac(1:2,2+ivar) = matmul( transpose(s2(:,ivar:ivar+1,2)), n )
-        jac(3:4,2+ivar) = -matmul( transpose(s1(:,:,1)), s1(:,ivar,2) )
+        jac(1:2,2+ivar) = matmul( transpose(d2xyz_duv2(:,ivar:ivar+1,2)), n )
+        jac(3:4,2+ivar) = -matmul( transpose(dxyz_duv(:,:,1)), dxyz_duv(:,ivar,2) )
      end do
+     
 
-     ! solve for Newton step
-     call linsolve_QR( &
+     !! solve for Newton step
+     !PRINT *,'FIND_COLLINEAL_POINTS, IT#',IT
+     !CALL PRINT_MAT(JAC)
+     call linsolve_svd( &
           duv, &
           jac, &
           -f, &
           4, &
           4, &
-          singular )
-     !PRINT *,'JAC='
-     !CALL PRINT_MAT( REAL(JAC) )
-     !PRINT *,'  F=', REAL(F)
-     !PRINT *,'DUV=', REAL(DUV)
+          1, &
+          cond )
+     erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
-     if ( singular ) then
-        IF (VERBOSE) PRINT *,' find_collineal_points : singular jacobian matrix'
-        stat = 2
-        return
-     end if
-
-     ! scale down Newton step to keep the solution inside feasible region
-     call nd_box_constraint( &
-          reshape( uv, [4] ), &
-          lowerb, &
-          upperb, &
-          duv, &
-          lambda )
-     !PRINT *,'LAMBDA=',LAMBDA
-     !PRINT *,''
-
-     if ( lambda < -MATHeps ) then
-        IF (VERBOSE) PRINT *,' find_collineal_points : negative Newton step rescaling, &
-             & lambda =', lambda
-        stat = 3
-        return
-     end if
-
+     IF (.true.) THEN
+        ! (seems to be faster)
+        ! scale down Newton step to keep the solution inside feasible region
+        call nd_box_constraint( &
+             reshape( uv_collineal, [4] ), &
+             lowerb, &
+             upperb, &
+             duv, &
+             lambda )
+        if ( lambda < EPSfp ) then ! <---+
+           ! non-positive scaling factor !
+           return                        !
+        end if ! <-----------------------+
+        duv = lambda * duv
+     ELSE
+        ! correct Newton step to keep the iterate inside feasible region
+        call nd_box_reflexions( &
+             reshape( uv_collineal, [4] ), &
+             lowerb, &
+             upperb, &
+             duv, &
+             4 )
+     END IF
      ! update solution
-     duv = lambda * duv
-     uv(:,1) = uv(:,1) + duv(1:2)
-     uv(:,2) = uv(:,2) + duv(3:4)
-     IF (VERBOSE) PRINT *,'    UV =', REAL(UV)
+     uv_collineal(:,1) = uv_collineal(:,1) + duv(1:2)
+     uv_collineal(:,2) = uv_collineal(:,2) + duv(3:4)
+     
+     !! termination criteria
+     if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <------------+
+        if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+    !
+           if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !    !
+              ! converged to a tangential intersection point  !    !    !
+              stat = -1                                       !    !    !
+              xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !    !
+           else ! --------------------------------------------+    !    !
+              ! converged to a pair of collineal points       !    !    !
+              stat = 0                                        !    !    !
+           end if ! <-----------------------------------------+    !    !
+           n_collineal = n / norm2( n )                            !    !
+        else ! ----------------------------------------------------+    !
+           IF ( DEBUG ) PRINT *,'STAGNATION'                       !    !
+        end if ! <-------------------------------------------------+    !
+        return                                                          !
+     end if ! <---------------------------------------------------------+
 
   end do
 

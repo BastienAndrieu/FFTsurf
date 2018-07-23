@@ -5,6 +5,7 @@ recursive subroutine intersect_surface_pair( &
      uvxyz, &
      nuvxyz, &
      stat_degeneracy )
+  use mod_util
   use mod_math
   use mod_bernstein
   use mod_diffgeom

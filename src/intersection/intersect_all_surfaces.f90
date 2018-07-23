@@ -110,13 +110,13 @@ subroutine intersect_all_surfaces( &
         
         IF ( DEBUG ) THEN
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
-           IF ( NUVXYZ > 0 ) THEN
-              CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
-                   'dev_intersection/uvxyz.dat' )
-           END IF
-           CALL WRITE_INTERSECTION_DATA( INTERDATA_LOCAL, &
-                'dev_intersection/interdata_points.dat', &
-                'dev_intersection/interdata_curves.dat' )
+           !IF ( NUVXYZ > 0 ) THEN
+           !   CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
+           !        'dev_intersection/uvxyz.dat' )
+           !END IF
+           !CALL WRITE_INTERSECTION_DATA( INTERDATA_LOCAL, &
+           !     'dev_intersection/interdata_points.dat', &
+           !     'dev_intersection/interdata_curves.dat' )
 
            PRINT *,NUVXYZ,            ' INTERSECTION POINT(S)'
            PRINT *,INTERDATA_LOCAL%NC,' INTERSECTION CURVE(S)'

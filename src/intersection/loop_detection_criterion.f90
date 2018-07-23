@@ -29,6 +29,7 @@ subroutine loop_detection_criterion( &
   logical                           :: separable
   real(kind=fp)                     :: vec1(3), vec2(3), vecsqr
   real(kind=fp)                     :: gaussmapsize(2), coneaxe(3)
+  integer                           :: isurf
 
  IF ( DEBUG ) PRINT *,'KNOWN TO INTERSECT?',known_to_intersect
 

@@ -19,7 +19,7 @@ subroutine merge_intersection_data( &
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
   integer                                     :: nc
-  integer                                     :: ip, ic, jc
+  integer                                     :: ip, ic, jc, isurf
 
   ! add new intersection points
   do ip = 1,nuvxyz

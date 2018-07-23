@@ -4,7 +4,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
-nsurf = 2;
+nsurf = 4;
 PLOT_TREE = 1;
 
 cl = colorcet( 'I2', 'N', nsurf );
