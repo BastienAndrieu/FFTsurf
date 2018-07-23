@@ -635,7 +635,7 @@ contains
     if ( present(tolerance) ) then
        tol = tolerance
     else
-       tol = epsilon(1._fp)
+       tol = EPSfp
     end if
 
     is_in_closed_interval = ( x >= min(a,b) - tol .and. x <= max(a,b) + tol )
@@ -656,7 +656,7 @@ contains
     if ( present(tolerance) ) then
        tol = tolerance
     else
-       tol = epsilon(1._fp)
+       tol = EPSfp
     end if
 
     is_in_open_interval = ( x > min(a,b) + tol .and. x < max(a,b) - tol )
@@ -698,7 +698,7 @@ contains
     real(kind=fp), intent(in) :: x
     logical                   :: is_zero
 
-    is_zero = abs(x) < epsilon(1._fp)
+    is_zero = (abs(x) < EPSfp)
   end function is_zero
 
 

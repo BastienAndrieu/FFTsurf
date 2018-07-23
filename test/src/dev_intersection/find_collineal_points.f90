@@ -103,6 +103,8 @@ subroutine find_collineal_points( &
      
 
      !! solve for Newton step
+     !PRINT *,'FIND_COLLINEAL_POINTS, IT#',IT
+     !CALL PRINT_MAT(JAC)
      call linsolve_svd( &
           duv, &
           jac, &

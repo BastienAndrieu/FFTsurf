@@ -22,7 +22,7 @@ contains
     real(kind=fp), intent(out), optional :: bl(degr+1,dim)
     real(kind=fp), intent(out), optional :: br(degr+1,dim)
     real(kind=fp), dimension(degr+1,dim) :: bj, bjm1
-    integer                                  :: i, j, n
+    integer                              :: i, j, n
 
     bjm1 = b
     bj(:,:) = 0._fp
@@ -34,7 +34,7 @@ contains
        do i = 1,n-j+1
           bj(i,:) = bjm1(i,:) * (1._fp - t) + bjm1(i+1,:) * t
        end do
-       if ( present(bl) ) bl(j,:) = bj(1,:)
+       if ( present(bl) ) bl(j,:)     = bj(1,:)
        if ( present(br) ) br(n-j+1,:) = bj(n-j+1,:)
        if ( j > degr ) then
           if ( present(f) ) f = bj(1,:)

@@ -499,7 +499,7 @@ subroutine characterize_tangential_intersection_point( &
   end if ! <---------------------------------------------------------+
 
   ! unitize dxyz_ds (the number of distinct tangential directions
-  ! is equal to stat
+  ! is equal to stat)
   do ivar = 1,stat
      dxyz_ds(:,ivar) = dxyz_ds(:,ivar) / norm2( dxyz_ds(:,ivar) )
   end do
@@ -787,7 +787,8 @@ subroutine diffgeom_intersection_curve( &
   use mod_math
   use mod_diffgeom
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
-  ! Patrikalakis et al. (2009), pp.166-175)
+  ! Patrikalakis et al. (2009), pp.166-175, 
+  ! and "Tracing surface intersections with validated ODE system solver", Mukundan et al (2004)
   implicit none
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)
@@ -1113,6 +1114,8 @@ subroutine find_collineal_points( &
      
 
      !! solve for Newton step
+     !PRINT *,'FIND_COLLINEAL_POINTS, IT#',IT
+     !CALL PRINT_MAT(JAC)
      call linsolve_svd( &
           duv, &
           jac, &
@@ -2951,7 +2954,7 @@ recursive subroutine intersect_surface_pair( &
   type(ptr_polynomial)                        :: poly(2)
   real(kind=fp)                               :: param_vector(3)
   integer                                     :: stat_singularpoint
-  real(kind=fp)                               :: dxyz_duv(3,2,2), n(3,2), dxyz_ds(3,2)
+  real(kind=fp)                               :: dxyz_duv(3,2,2), n(3,2), dxyz_ds(3,2), DUV_DS(2,2,2), CURVATURE(2)
   type(ptr_region)                            :: newregion(2)
   integer, dimension(2)                       :: stat_subdiv, nchild
   integer                                     :: isurf, ipt, ivar, ichild, jchild, ipoly
@@ -3192,12 +3195,38 @@ recursive subroutine intersect_surface_pair( &
         case (1) ! -----------------------------------------------------+       !
            ! point on tangential intersection curve                     !       !
            PRINT *,'>>> POINT ON TAGENTIAL INTSERSECTION CURVE'         !       !
+           call diffgeom_intersection_curve( &
+                surfroot, &
+                uv_collineal, &
+                duv_ds, &
+                dxyz_ds, &
+                stat_singularpoint, &
+                curvature )
+           PRINT *,'CURVATURE =',CURVATURE(1)
+           PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
+           PRINT *,'DUV_DS='
+           CALL PRINT_MAT(DUV_DS(:,1,:))
         case (2) ! -----------------------------------------------------+       !
            ! branch point (two curves meet at that point)               !       !
            stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
            PRINT *,'>>> BRANCH POINT'                                   !       !
+           call diffgeom_intersection_curve( &
+                surfroot, &
+                uv_collineal, &
+                duv_ds, &
+                dxyz_ds, &
+                stat_singularpoint, &
+                curvature )
+           PRINT *,'CURVATURE =',CURVATURE
+           PRINT *,'DXYZ_DS ='
+           CALL PRINT_MAT(dxyz_ds)
+           PRINT *,'DUV_DS,1='
+           CALL PRINT_MAT(DUV_DS(:,1,:))
+           PRINT *,'DUV_DS,2='
+           CALL PRINT_MAT(DUV_DS(:,2,:))
         case (3) ! -----------------------------------------------------+       !
            ! isolated tangential contact point                          !       !
+           stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
            PRINT *,'>>> ISOLATED TANGENTIAL CONTACT POINT'              !       !
         case (4) ! -----------------------------------------------------+       !
            ! high-order contact point                                   !       !
@@ -3790,6 +3819,7 @@ subroutine newton_intersection_polyline( &
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+     PRINT *,'HTARGETSQR =',htargetsqr
      PRINT *,'LOWERB =',LOWERB
      PRINT *,'UPPERB =',UPPERB
   END IF
@@ -3799,6 +3829,8 @@ subroutine newton_intersection_polyline( &
   cond = 1._fp
 
   do it = 1,itmax
+     IF ( DEBUG ) PRINT *,'NEWTON_INTERSECTION_POLYLINE, IT#',IT
+     IF ( DEBUG ) PRINT *,'UV =',UV
      !! compute residual
      do isurf = 1,2
         call eval( &
@@ -3827,6 +3859,9 @@ subroutine newton_intersection_polyline( &
      jac(4,3:4) = 0._fp
 
      !! solve for Newton step
+     !PRINT *,'RHS=',-R1,-RESH
+     !PRINT *,'JAC='
+     !CALL PRINT_MAT(JAC)
      call linsolve_svd( &
           duv, &
           jac, &
@@ -3837,6 +3872,8 @@ subroutine newton_intersection_polyline( &
           cond )
      erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
+     !PRINT *,'DUV =',DUV
+
      !! correct Newton step to keep the iterate inside feasible region
      call nd_box_reflexions( &
           reshape(uv, [4]), &
@@ -3844,7 +3881,8 @@ subroutine newton_intersection_polyline( &
           upperb, &
           duv, &
           4 )
-
+     !PRINT *,'DUV* =',DUV
+     
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
      uv(:,2) = uv(:,2) + duv(3:4)

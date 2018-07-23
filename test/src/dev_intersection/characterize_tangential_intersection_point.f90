@@ -104,7 +104,7 @@ subroutine characterize_tangential_intersection_point( &
   end if ! <---------------------------------------------------------+
 
   ! unitize dxyz_ds (the number of distinct tangential directions
-  ! is equal to stat
+  ! is equal to stat)
   do ivar = 1,stat
      dxyz_ds(:,ivar) = dxyz_ds(:,ivar) / norm2( dxyz_ds(:,ivar) )
   end do

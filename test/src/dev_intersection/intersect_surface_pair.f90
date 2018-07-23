@@ -19,7 +19,7 @@ recursive subroutine intersect_surface_pair( &
   real(kind=fp), allocatable,   intent(inout) :: uvxyz(:,:)
   integer,                      intent(inout) :: nuvxyz
   integer,                      intent(inout) :: stat_degeneracy
-  logical                                     :: overlap!, separable
+  logical                                     :: overlap
   integer                                     :: stat_collineal
   real(kind=fp)                               :: uv_collineal(2,2)
   real(kind=fp), dimension(3)                 :: xyz_collineal, n_collineal
@@ -29,7 +29,7 @@ recursive subroutine intersect_surface_pair( &
   type(ptr_polynomial)                        :: poly(2)
   real(kind=fp)                               :: param_vector(3)
   integer                                     :: stat_singularpoint
-  real(kind=fp)                               :: dxyz_duv(3,2,2), n(3,2), dxyz_ds(3,2)
+  real(kind=fp)                               :: dxyz_duv(3,2,2), n(3,2), dxyz_ds(3,2), DUV_DS(2,2,2), CURVATURE(2)
   type(ptr_region)                            :: newregion(2)
   integer, dimension(2)                       :: stat_subdiv, nchild
   integer                                     :: isurf, ipt, ivar, ichild, jchild, ipoly
@@ -270,12 +270,38 @@ recursive subroutine intersect_surface_pair( &
         case (1) ! -----------------------------------------------------+       !
            ! point on tangential intersection curve                     !       !
            PRINT *,'>>> POINT ON TAGENTIAL INTSERSECTION CURVE'         !       !
+           call diffgeom_intersection_curve( &
+                surfroot, &
+                uv_collineal, &
+                duv_ds, &
+                dxyz_ds, &
+                stat_singularpoint, &
+                curvature )
+           PRINT *,'CURVATURE =',CURVATURE(1)
+           PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
+           PRINT *,'DUV_DS='
+           CALL PRINT_MAT(DUV_DS(:,1,:))
         case (2) ! -----------------------------------------------------+       !
            ! branch point (two curves meet at that point)               !       !
            stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
            PRINT *,'>>> BRANCH POINT'                                   !       !
+           call diffgeom_intersection_curve( &
+                surfroot, &
+                uv_collineal, &
+                duv_ds, &
+                dxyz_ds, &
+                stat_singularpoint, &
+                curvature )
+           PRINT *,'CURVATURE =',CURVATURE
+           PRINT *,'DXYZ_DS ='
+           CALL PRINT_MAT(dxyz_ds)
+           PRINT *,'DUV_DS,1='
+           CALL PRINT_MAT(DUV_DS(:,1,:))
+           PRINT *,'DUV_DS,2='
+           CALL PRINT_MAT(DUV_DS(:,2,:))
         case (3) ! -----------------------------------------------------+       !
            ! isolated tangential contact point                          !       !
+           stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
            PRINT *,'>>> ISOLATED TANGENTIAL CONTACT POINT'              !       !
         case (4) ! -----------------------------------------------------+       !
            ! high-order contact point                                   !       !

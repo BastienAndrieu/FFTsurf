@@ -130,7 +130,7 @@ hold on
 
 for ic = 1:nc
         plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
-            '-', 'color', cli, 'markersize', 5 )
+            '.-', 'color', cli, 'markersize', 5 )
 end
 
 axis image vis3d

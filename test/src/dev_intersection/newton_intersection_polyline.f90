@@ -30,6 +30,7 @@ subroutine newton_intersection_polyline( &
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_INTERSECTION_POLYLINE'
+     PRINT *,'HTARGETSQR =',htargetsqr
      PRINT *,'LOWERB =',LOWERB
      PRINT *,'UPPERB =',UPPERB
   END IF
@@ -39,6 +40,8 @@ subroutine newton_intersection_polyline( &
   cond = 1._fp
 
   do it = 1,itmax
+     IF ( DEBUG ) PRINT *,'NEWTON_INTERSECTION_POLYLINE, IT#',IT
+     IF ( DEBUG ) PRINT *,'UV =',UV
      !! compute residual
      do isurf = 1,2
         call eval( &
@@ -67,6 +70,9 @@ subroutine newton_intersection_polyline( &
      jac(4,3:4) = 0._fp
 
      !! solve for Newton step
+     !PRINT *,'RHS=',-R1,-RESH
+     !PRINT *,'JAC='
+     !CALL PRINT_MAT(JAC)
      call linsolve_svd( &
           duv, &
           jac, &
@@ -77,6 +83,8 @@ subroutine newton_intersection_polyline( &
           cond )
      erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
+     !PRINT *,'DUV =',DUV
+
      !! correct Newton step to keep the iterate inside feasible region
      call nd_box_reflexions( &
           reshape(uv, [4]), &
@@ -84,7 +92,8 @@ subroutine newton_intersection_polyline( &
           upperb, &
           duv, &
           4 )
-
+     !PRINT *,'DUV* =',DUV
+     
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
      uv(:,2) = uv(:,2) + duv(3:4)

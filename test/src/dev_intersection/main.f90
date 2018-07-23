@@ -13,7 +13,6 @@
   integer                    :: narg
   character(100)             :: arg
   integer, allocatable       :: numtest(:), numsurf(:)
-  !integer                    :: numtest
   character                  :: strnum
   character(2)               :: strnum2
   integer*8                  :: tic, toc, count_rate
@@ -56,28 +55,12 @@
   PRINT *,'NUMSURF =',NUMSURF
 
   
-  !narg = command_argument_count()
-  !if ( narg < 1 ) then
-  !   numtest = 1
-  !else
-  !   call get_command_argument(1, arg)
-  !   read (arg,*) numtest
-  !end if
-  !PRINT *,'**********************************************'
-  !PRINT *,'NUMTEST =',NUMTEST
-  !PRINT *,'**********************************************
-  !write (strnum2,'(I2.2)') numtest
-  ! =================================================================================
-
-  
   ! =================================================================================
   ! Import surfaces
   allocate( surf(nsurf) )
-  !do isurf = 1,2
   do isurf = 1,nsurf
      write (strnum2,'(I2.2)') numtest(isurf)
      write (strnum,'(I1)') numsurf(isurf)
-     !write (strnum,'(I1)') isurf
      
      call read_polynomial( &
           surf(isurf)%x, &

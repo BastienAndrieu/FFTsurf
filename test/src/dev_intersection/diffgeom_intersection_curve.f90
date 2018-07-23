@@ -16,7 +16,8 @@ subroutine diffgeom_intersection_curve( &
   use mod_math
   use mod_diffgeom
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
-  ! Patrikalakis et al. (2009), pp.166-175)
+  ! Patrikalakis et al. (2009), pp.166-175, 
+  ! and "Tracing surface intersections with validated ODE system solver", Mukundan et al (2004)
   implicit none
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)

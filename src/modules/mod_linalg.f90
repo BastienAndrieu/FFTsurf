@@ -106,6 +106,9 @@ contains
     real(kind=fp)                :: anorm, c, f, g, h, s, scale, x, y, z
     integer                      :: i, its, j, k, l, nm
 
+    !print *,'A='
+    !CALL PRINT_MAT(A)
+    
     g = 0._fp
     scale = 0._fp
     do i = 1,n ! Householder reduction to bidiagonal form.
@@ -114,13 +117,14 @@ contains
        g = 0._fp
        scale = 0._fp
        if (i <= m) then
-          scale = sum( abs(a(i:m,i)) )
+          scale = sum(abs(a(i:m,i)))
           if ( .not.is_zero(scale) ) then !if (scale /= 0.0) then
              a(i:m,i) = a(i:m,i) / scale
-             s = dot_product( a(i:m,i), a(i:m,i) )
+             s = dot_product(a(i:m,i), a(i:m,i))
              f = a(i,i)
-             g = -sign( sqrt(s), f )
+             g = -sign(sqrt(s), f)
              h = f * g - s
+             !PRINT *,'f,g,s =',f,g,s
              a(i,i) = f - g
              tempn(l:n) = matmul( a(i:m,i), a(i:m,l:n) ) / h
              a(i:m,l:n) = a(i:m,l:n) + outer_product( a(i:m,i), tempn(l:n) )
@@ -146,8 +150,9 @@ contains
           end if
        end if
     end do
-
+    
     anorm = maxval( abs(w) + abs(rv1) )
+    !PRINT *,'ANORM =',anorm
 
     do i=n,1,-1 ! Accumulation of right-hand transformations.
        if (i < n) then
@@ -183,15 +188,16 @@ contains
        do its = 1,30
           do l = k,1,-1 ! Test for splitting.
              nm = l - 1
-             if ( abs(rv1(l)) + anorm <= anorm + epsilon(1._fp) ) exit !if ( abs(rv1(l)) + anorm == anorm) exit
+             if ( abs(rv1(l)) + anorm <= anorm + EPSfp ) exit !if ( abs(rv1(l)) + anorm == anorm) exit
              ! Note that rv1(1) is always zero, so can never fall through bottom of loop.
-             if ( abs(w(nm)) + anorm <= anorm + epsilon(1._fp) ) then !if ( abs(w(nm)) + anorm == anorm) then
+             if ( nm <= 0 ) PRINT *,'|RV1(1)| =',abs(rv1(l)),', ANORM =',ANORM             
+             if ( abs(w(nm)) + anorm <= anorm + EPSfp ) then !if ( abs(w(nm)) + anorm == anorm) then
                 c = 0._fp ! Cancellation of rv1(l), if l > 1.
                 s = 1._fp
                 do i = l,k
                    f = s * rv1(i)
                    rv1(i) = c * rv1(i)
-                   if ( abs(f) + anorm < anorm + epsilon(1._fp) ) exit !if ((abs(f)+anorm) == anorm) exit
+                   if ( abs(f) + anorm < anorm + EPSfp ) exit !if ((abs(f)+anorm) == anorm) exit
                    g = w(i)
                    h = hypot( f, g )
                    w(i) = h
@@ -213,7 +219,7 @@ contains
              end if
              exit
           end if
-          if (its == 30) STOP "svdcmp_dp: no convergence in svdcmp"
+          if (its == 30) STOP "svdcmp: no convergence in svdcmp"
           x = w(l) ! Shift from bottom 2-by-2 minor.
           nm = k - 1
           y = w(nm)
