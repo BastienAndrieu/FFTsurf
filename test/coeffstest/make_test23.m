@@ -14,7 +14,7 @@ angsv = 0.4*pi();
 
 %%
 cls = linspecerp(2);
-nisouv = 10;
+nisouv = 5;
 
 
 %%
@@ -22,14 +22,19 @@ figure('units','normalized','position',[.1 .1 .8 .8]);
 hold on
 
 for isurf = 1:2
+    r = 0.2*(2.0*rand(2,1) - 1.0);
     switch isurf
         case 1
             [u,v] = tpgrid( 0.5*angsu*cglpoints(-1,1,M), 0.5*angsv*cglpoints(-1,1,M) );
+%             u = u + r(1);
+            v = v + r(2);
             x = sin(u).*cos(v);
             y = sin(v);
             z = -1 + cos(u).*cos(v);
         case 2
             [u,v] = tpgrid( 0.5*angc*cglpoints(-1,1,M), cglpoints(-1,1,N) );
+            u = u + r(1);
+            v = v + r(2);
             x = rc*(-1 + cos(u));
             y = rc*sin(u);
             z = v;
@@ -66,4 +71,4 @@ camlight(30,30);
 xlabel('x'); ylabel('y'); zlabel('z');
 
 
-make_PN_coeff_matrices
+% make_PN_coeff_matrices

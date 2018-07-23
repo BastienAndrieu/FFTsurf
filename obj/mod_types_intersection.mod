@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_types_intersection.f90
-MD5:d4f2eb05e1ad5b3c98f34e2a78e99c33 -- If you edit this, you'll get what you deserve.
+MD5:56b51f9247860b629ae3d1fd937ac10b -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -475,8 +475,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 368 0 (369 370 371 372 373) () 0 () () () 0
 0)
 374 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 375 0 (376 377 378 379 380) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+375 0 (376 377 378 379 380) () 0 () () () 0 0)
 381 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 382 0
 (383) () 384 () () () 0 0)

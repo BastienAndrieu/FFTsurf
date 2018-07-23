@@ -4,7 +4,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
-nsurf = 4;
+nsurf = 2;
 PLOT_TREE = 1;
 
 cl = colorcet( 'I2', 'N', nsurf );
@@ -71,7 +71,7 @@ end
 
 for ic = 1:nc
     plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
-        '-', 'color', cli, 'linewidth', 1.0 )
+        '-', 'color', cli, 'linewidth', 1.0, 'markersize', 5 )
 end
 
 plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
@@ -129,8 +129,8 @@ figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
 hold on
 
 for ic = 1:nc
-        plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
-            '.-', 'color', cli, 'markersize', 5 )
+    plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
+        '.-', 'color', cli, 'markersize', 5 )
 end
 
 axis image vis3d

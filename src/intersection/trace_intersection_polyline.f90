@@ -35,29 +35,29 @@ subroutine trace_intersection_polyline( &
   real(kind=fp), optional,          intent(in)    :: hmin, hmax
   integer                                         :: stat_tangent, stat_insertion, stat_newton
   real(kind=fp), dimension(4)                     :: lowerb, upperb
-  real(kind=fp)                                   :: Dw, w, wprev
+  real(kind=fp)                                   :: Dw, w, wprev, dist_from_end
   real(kind=fp)                                   :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                                   :: h_endpoints(2), h, EPSh, hnext
-  real(kind=fp)                                   :: uv(2,2), xyz(3)
+  real(kind=fp)                                   :: uv(2,2), xyz(3), lambda
   integer                                         :: ipt
-
+  
   stat = 0
-  lowerb = reshape(uvbox(1,1:2,1:2), [4])
-  upperb = reshape(uvbox(2,1:2,1:2), [4])
+  lowerb = reshape(uvbox(1,1:2,1:2), [4]) - EPSuv
+  upperb = reshape(uvbox(2,1:2,1:2), [4]) + EPSuv
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'TRACE_INTERSECTION_POLYLINE'
      PRINT *,' PARAM_VECTOR =', PARAM_VECTOR
      PRINT *,' UV_ENDPOINTS ='; PRINT *,uv_endpoints(:,:,1); PRINT *,uv_endpoints(:,:,2)
-     PRINT *,'XYZ_ENDPOINTS ='; PRINT *,xyz_endpoints(:,1); PRINT *,xyz_endpoints(:,2)
+     PRINT *,'XYZ_ENDPOINTS ='; PRINT *,xyz_endpoints(:,1);  PRINT *,xyz_endpoints(:,2)
      PRINT *,'LOWERB =',LOWERB; PRINT *,'UPPERB =',UPPERB
   END IF
-
   w0 = dot_product(param_vector, xyz_endpoints(:,1))
   Dw = dot_product(param_vector, xyz_endpoints(:,2)) - w0
   param_vector = param_vector/Dw
   w0 = w0/Dw
 
+  !PRINT *,'CURVATURE RADIUS AT ENDPOINTS ='
   do ipt = 2,1,-1
      ! compute tangent direction and curvature of the intersection curve at endpoints
      ! (in reverse order, so data at first endpoint is kept in memory)
@@ -96,14 +96,33 @@ subroutine trace_intersection_polyline( &
   outer : do ! <-----------------------------------------------------------------+
      IF ( DEBUG ) PRINT *,'HTARGET =',H
      ! check if the current is close enough to the end of the polyline           !
-     if ( sum( (polyline%xyz(:,polyline%np) - xyz_endpoints(:,2))**2 ) < &       !
-          min(h, h_endpoints(2))**2 ) exit outer                                 !
+     dist_from_end = sum((polyline%xyz(:,polyline%np) - xyz_endpoints(:,2))**2)  !
+     if ( dist_from_end < h**2 ) then ! <-----------------------+                !
+        if ( dist_from_end < h_endpoints(2)**2 ) then ! <----+  !                !
+           exit outer                                        !  !                !
+        else ! ----------------------------------------------+  !                !
+           IF ( DEBUG ) PRINT *,'SHORTEN H : H =',h,', DIST =',sqrt(dist_from_end),', HEND =',h_endpoints(2)
+           h = sqrt(dist_from_end)                           !  !                !
+        end if ! <-------------------------------------------+  !                !
+     end if ! <-------------------------------------------------+                !
      !                                                                           !
      ! compute next point                                                        !
      EPSh = EPSbacktrack * h                                                     !
      inner : do ! <-----------------------------------------------------------+  !
         ! set initial iterate                                                 !  !
-        uv = polyline%uv(:,:,polyline%np) + h*duv_ds(:,1,:)                   !  !
+        call nd_box_constraint( &                                             !  !
+             reshape(polyline%uv(:,:,polyline%np), [4]), &                    !  !
+             lowerb, &                                                        !  !
+             upperb, &                                                        !  !
+             h*reshape(duv_ds(:,1,:), [4]), &                                 !  !
+             lambda )                                                         !  !
+        !                                                                     !  !
+        IF (DEBUG .AND. LAMBDA < 1._FP) THEN
+           PRINT *,' UV =',polyline%uv(:,:,polyline%np)
+           PRINT *,'DUV =',h*duv_ds(:,1,:)
+           PRINT *,'LAMBDA =',LAMBDA
+        END IF
+        uv = polyline%uv(:,:,polyline%np) + lambda*h*duv_ds(:,1,:)            !  !
         !                                                                     !  !
         ! refine using Newton-Raphson algorithm                               !  !
         call newton_intersection_polyline( &                                  !  !
@@ -111,7 +130,7 @@ subroutine trace_intersection_polyline( &
              lowerb, &                                                        !  !
              upperb, &                                                        !  !
              polyline%xyz(1:3,polyline%np), &                                 !  !
-             h**2, &                                                          !  !
+             (lambda*h)**2, &                                                 !  !
              stat_newton, &                                                   !  !
              uv, &                                                            !  !
              xyz )                                                            !  !
@@ -139,10 +158,10 @@ subroutine trace_intersection_polyline( &
               !                                                        !  !   !  !
               curvature(1) = max(EPSfp, curvature(1))                  !  !   !  !
               hnext = FRACcurvature_radius / curvature(1)              !  !   !  !
-              if ( h <= hnext ) then ! <----------------+              !  !   !  !
+              if ( present(hmin) ) hnext = max(hnext, hmin)            !  !   !  !
+              if ( present(hmax) ) hnext = min(hnext, hmax)            !  !   !  !
+              if ( lambda*h <= hnext ) then ! <---------+              !  !   !  !
                  h = hnext                              !              !  !   !  !
-                 if ( present(hmin) ) h = max(h, hmin)  !              !  !   !  !
-                 if ( present(hmax) ) h = min(h, hmax)  !              !  !   !  !
                  exit inner                             !              !  !   !  !
               end if ! <--------------------------------+              !  !   !  !
            end if ! <--------------------------------------------------+  !   !  !

@@ -355,6 +355,18 @@ contains
     xtmp = x
     dxtmp = dx
 
+    ! check if x is inside feasible region...
+    do idim = 1,dim
+       if ( .not.is_in_closed_interval( &
+            x(idim), &
+            lowerb(idim), &
+            upperb(idim), &
+            tolerance=EPSmath) ) then
+          PRINT *, x(idim), ' not in interval', lowerb(idim), upperb(idim)
+          STOP 'nd_box_reflexions : start point out of bounds'
+       end if
+    end do
+
     do 
        lambda = 1._fp
        ib = 0

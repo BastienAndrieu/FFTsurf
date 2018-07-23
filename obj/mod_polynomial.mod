@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_polynomial.f90
-MD5:3ae55f00bfdadea8486e77ada485e200 -- If you edit this, you'll get what you deserve.
+MD5:39ed791fa0c278da36a614d64fe756a8 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -224,8 +224,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 241 0 (242 243 244 245 246) () 0 () () () 0
 0)
 247 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 248 0 (249 250 251 252 253) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+248 0 (249 250 251 252 253) () 0 () () () 0 0)
 254 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 255 0
 (256) () 257 () () () 0 0)

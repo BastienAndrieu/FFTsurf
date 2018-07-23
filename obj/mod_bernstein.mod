@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_bernstein.f90
-MD5:12771a46ae6f0d140755ac5681b3dfae -- If you edit this, you'll get what you deserve.
+MD5:48387140d3b86454d281e432c2b8f7fb -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -129,8 +129,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 114 0 (115 116 117 118 119) () 0 () () () 0
 0)
 120 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 121 0 (122 123 124 125 126) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+121 0 (122 123 124 125 126) () 0 () () () 0 0)
 127 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 128 0
 (129) () 130 () () () 0 0)

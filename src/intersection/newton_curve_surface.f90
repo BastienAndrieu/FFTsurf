@@ -14,8 +14,9 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
-  real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  logical,       parameter          :: acceleration = .true.
+  real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
   integer,       parameter          :: itmax = 2 + ceiling(-log10(EPSuv))
   integer,       parameter          :: itconv = 5
   type(type_curve),   intent(in)    :: curv
@@ -27,8 +28,9 @@ subroutine newton_curve_surface( &
   real(kind=fp),      intent(out)   :: xyz(3)
   real(kind=fp), dimension(3)       :: xyz_c, xyz_s, r
   real(kind=fp)                     :: resxyz, resconv
-  real(kind=fp)                     :: jac(3,3), dtuv(3), cond, errtuv
+  real(kind=fp)                     :: jac(3,3), dtuv(3), cond, errtuv, errtuvprev
   integer                           :: it
+  real(kind=fp)                     :: fac
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -39,8 +41,10 @@ subroutine newton_curve_surface( &
 
   stat = 1
   errtuv = 0._fp
+  errtuvprev = 0._fp
   cond = 1._fp
-
+  fac = 1._fp
+  IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
   do it = 1,itmax
      !! compute residual
      call eval(xyz_c, curv, tuv(1)  ) ! curve's position vector
@@ -52,10 +56,19 @@ subroutine newton_curve_surface( &
      resxyz = sum(r**2)
      IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
      if ( it == 1 ) resconv = THRESHOLD * resxyz
-     if ( it > itconv .and. resxyz > resconv ) then
-        ! Newton sequence not likely to converge, presumably no solution
-        IF ( DEBUG ) PRINT *,'NO SIGN OF CONVERGENCE'
-        return
+     if ( it > itconv ) then
+        if ( resxyz > resconv ) then
+           ! Newton sequence not likely to converge, presumably no solution
+           IF ( DEBUG ) PRINT *,'NO SIGN OF CONVERGENCE'
+           return
+        elseif ( errtuv > THRESHOLD * errtuvprev ) then
+           ! linear convergence
+           PRINT *,'LINEAR CONVERGENCE, MU =',sqrt(errtuv/errtuvprev)
+           fac = 2._fp
+        else
+           ! superlinear convergence
+           fac = 1._fp
+        end if
      end if
 
      !! compute Jacobian matrix
@@ -73,6 +86,10 @@ subroutine newton_curve_surface( &
           3, &
           1, &
           cond )
+     if ( acceleration ) then
+        if ( mod(it,3) == 0 ) dtuv = fac * dtuv
+     end if
+     errtuvprev = errtuv
      errtuv = sum(dtuv**2)
 
      ! correct Newton step to keep the iterate inside feasible region
@@ -92,6 +109,7 @@ subroutine newton_curve_surface( &
            ! converged to a curve-surface intersection point
            stat = 0
            xyz = 0.5_fp * (xyz_c + xyz_s)
+           IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
            IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ
         else
            IF ( DEBUG ) PRINT *,'STAGNATION'

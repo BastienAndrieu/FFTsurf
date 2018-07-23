@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_linalg.f90
-MD5:c613c9837a2c4f0060ae4758bbe16c83 -- If you edit this, you'll get what you deserve.
+MD5:74334224609b13b8f577a67da3a93981 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -131,8 +131,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 124 0 (125 126 127 128 129) () 0 () () () 0
 0)
 130 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 131 0 (132 133 134 135 136) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+131 0 (132 133 134 135 136) () 0 () () () 0 0)
 137 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 138 0
 (139) () 140 () () () 0 0)

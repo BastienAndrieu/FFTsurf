@@ -15,7 +15,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(type_curve),           intent(in)    :: root_c
   type(type_surface),         intent(in)    :: root_s
   type(type_region), target,  intent(inout) :: region_c
@@ -87,29 +87,30 @@ recursive subroutine intersect_curve_surface( &
                    1 )                                                       !  !  !          !
               if ( sum( (xyz_s - xyz_c)**2 ) < EPSxyzsqr ) then ! <----+     !  !  !          !
                  xyz = 0.5_fp * ( xyz_c + xyz_s )                      !     !  !  !          !
-                 tuv = real([i,j,k]-1, kind=fp)
-                 !PRINT *,'TUV*=',TUV
-                 tuv(1) = (1._fp - tuv(1))*region_c%uvbox(1) + &
-                      tuv(1)*region_c%uvbox(2)
-                 tuv(2) = (1._fp - tuv(2))*region_s%uvbox(1) + &
-                      tuv(2)*region_s%uvbox(2)
-                 tuv(3) = (1._fp - tuv(3))*region_s%uvbox(3) + &
-                      tuv(3)*region_s%uvbox(4)
+                 tuv = real([i,j,k]-1, kind=fp)                        !     !  !  !          !
+                 tuv(1) = (1._fp - tuv(1))*region_c%uvbox(1) + &       !     !  !  !          !
+                      tuv(1)*region_c%uvbox(2)                         !     !  !  !          !
+                 tuv(2) = (1._fp - tuv(2))*region_s%uvbox(1) + &       !     !  !  !          !
+                      tuv(2)*region_s%uvbox(2)                         !     !  !  !          !
+                 tuv(3) = (1._fp - tuv(3))*region_s%uvbox(3) + &       !     !  !  !          !
+                      tuv(3)*region_s%uvbox(4)                         !     !  !  !          !
                  IF ( DEBUG ) PRINT *,'TUV =',TUV
                  IF ( DEBUG ) PRINT *,'XYZ =',XYZ
-                 !
-                 call check_curve_surface_intersection_point( &
-                      root_c, &
-                      root_s, &
-                      tuv(1), &
-                      tuv(2:3), &
-                      stat_newpoint )
-                 IF ( .true. ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
-                 if ( stat_newpoint == 2 ) then
-                    ! high-order tangential contact point
-                    ! => the curve is presumably a subset of the surface
-                    RETURN 
-                 end if
+                 !                                                     !     !  !  !          !
+                 call check_curve_surface_intersection_point( &        !     !  !  !          !
+                      root_c, &                                        !     !  !  !          !
+                      root_s, &                                        !     !  !  !          !
+                      tuv(1), &                                        !     !  !  !          !
+                      tuv(2:3), &                                      !     !  !  !          !
+                      stat_newpoint )                                  !     !  !  !          !
+                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
+                 if ( stat_newpoint == 2 ) then ! <---------+          !     !  !  !          !
+                    ! high-order tangential contact point   !          !     !  !  !          !
+                    ! => the curve is presumably a subset   !          !     !  !  !          !
+                    ! of the surface                        !          !     !  !  !          !
+                    stat_degeneracy = 50                    !          !     !  !  !          !
+                    return                                  !          !     !  !  !          !
+                 end if ! <---------------------------------+          !     !  !  !          !
                  !                                                     !     !  !  !          !
                  call append_vector( &                                 !     !  !  !          !
                       [tuv,xyz], &                                     !     !  !  !          !
@@ -218,10 +219,10 @@ recursive subroutine intersect_curve_surface( &
      call newton_curve_surface( &                                                             !
           root_c, &                                                                           !
           root_s, &                                                                           !
-          ![region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &!region_c%uvbox(1:2), &        !
-          ![region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &!region_s%uvbox(1:4), &        !
-          [region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
-          [region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
+          [region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &!region_c%uvbox(1:2), &        !
+          [region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &!region_s%uvbox(1:4), &        !
+          ![region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
+          ![region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
           stat_newpoint, &                                                                    !
           tuv, &                                                                              !
           xyz )                                                                               !
@@ -237,6 +238,20 @@ recursive subroutine intersect_curve_surface( &
      !                                                                                        !
      if ( stat_newpoint <= 0 ) then ! <---------------------------------------------------+   !
         IF ( DEBUG ) PRINT *,'NEWTON -> TUVXYZ=',TUV,XYZ
+        call check_curve_surface_intersection_point( &                                    !   !
+             root_c, &                                                                    !   !
+             root_s, &                                                                    !   !
+             tuv(1), &                                                                    !   !
+             tuv(2:3), &                                                                  !   !
+             stat_newpoint )                                                              !   !
+        IF ( DEBUG ) PRINT *,'NEWTON, CURVE-SURFACE STATPOINT =',stat_newpoint
+        if ( stat_newpoint == 2 ) then ! <----------------------+                         !   !
+           ! high-order tangential contact point                !                         !   !
+           ! => the curve is presumably a subset of the surface !                         !   !
+           stat_degeneracy = 50                                 !                         !   !
+           return                                               !                         !   !
+        end if ! <----------------------------------------------+                         !   !
+        !                                                                                 !   !
         ! if a point has been found, check whether it is a duplicate                      !   !
         if ( ntuvxyz > 0 ) then ! <----------+                                            !   !
            call check_unicity( &             !                                            !   !

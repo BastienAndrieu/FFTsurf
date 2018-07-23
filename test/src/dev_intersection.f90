@@ -1,5 +1,4 @@
 program dev_intersection
-!program dev_intersection
 
   use mod_util
   use mod_math
@@ -9,8 +8,6 @@ program dev_intersection
   use mod_intersection
 
   implicit none
-
-  !LOGICAL, PARAMETER :: GLOBALDEBUG = .true.
   
   integer                    :: narg
   character(100)             :: arg
@@ -109,7 +106,7 @@ program dev_intersection
   PRINT *,INTERDATA%NP,' INTERSECTION POINT(S)'
   PRINT *,INTERDATA%NC,' INTERSECTION CURVE(S)'
 
-  IF ( .FALSE. ) THEN
+  IF ( .false. ) THEN
      DO I = 1,INTERDATA%NC
         PRINT *,'- - - - - -'
         PRINT *,'CURV #',I
@@ -185,4 +182,6 @@ contains
     close( fileunit )
 
   end subroutine write_intersection_data
+
+  
 end program dev_intersection

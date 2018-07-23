@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_tolerances.f90
-MD5:a08ca25979f6aad38a66f135557cc093 -- If you edit this, you'll get what you deserve.
+MD5:38dc7bf2fd82c744f658c65ced7801ff -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -145,8 +145,8 @@ UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 92 0 (93 94
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 97 0 (98 99 100 101 102) () 0 () () () 0 0)
 103 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 104 0 (105 106 107 108 109) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+104 0 (105 106 107 108 109) () 0 () () () 0 0)
 110 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 111 0
 (112) () 113 () () () 0 0)
@@ -204,10 +204,10 @@ CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.4189374bc6a7f0@-2') () 0 () () () 0
 0)
 165 'tolh' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
-REAL 8 0 0 0 REAL ()) 0 '0.28f5c28f5c28f6@-1') () 0 () () () 0 0)
+REAL 8 0 0 0 REAL ()) 0 '0.1999999999999a@0') () 0 () () () 0 0)
 166 'tolhsqr' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.68db8bac710cb4@-3') () 0 () () () 0
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.28f5c28f5c28f8@-1') () 0 () () () 0
 0)
 167 'triple_product' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 168 0 (

@@ -35,4 +35,4 @@ camlight(30,30);
 xlabel('x'); ylabel('y'); zlabel('z');
 
 
-make_PN_coeff_matrices
+% make_PN_coeff_matrices

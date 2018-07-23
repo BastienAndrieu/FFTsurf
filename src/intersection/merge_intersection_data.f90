@@ -38,7 +38,6 @@ subroutine merge_intersection_data( &
      call add_intersection_curve( &
           interdata_global, &
           interdata_local%curves(ic)%param_vector, &
-          !id_global(interdata_local%curves(ic)%root%endpoints), &
           id_global(interdata_local%curves(ic)%isplit(1,1:2)), &
           interdata_local%curves(ic)%uvbox )
      do isurf = 1,2
@@ -57,7 +56,7 @@ subroutine merge_intersection_data( &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
-          HMIN=REAL(1.D-3,KIND=FP), &
+          HMIN=REAL(1.D-4,KIND=FP), &
           HMAX=REAL(1.D-1,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
@@ -68,12 +67,6 @@ subroutine merge_intersection_data( &
      ! add the polyline's endpoints in isplit
      interdata_global%curves(nc+ic)%isplit(2,1) = 1
      interdata_global%curves(nc+ic)%isplit(2,2) = interdata_global%curves(nc+ic)%polyline%np
-
-     !! add endpoints as split points
-     !interdata_global%curves(nc+ic)%nsplit = 2
-     !allocate(interdata_global%curves(nc+ic)%isplit(2,2))
-     !interdata_global%curves(nc+ic)%isplit(1,:) = interdata_global%curves(nc+ic)%root%endpoints
-     !interdata_global%curves(nc+ic)%isplit(2,:) = [1, interdata_global%curves(nc+ic)%polyline%np]
 
      ! intersection with other curves
      IF ( DEBUG ) PRINT *,'INTERSECT WITH OTHER CURVES...'

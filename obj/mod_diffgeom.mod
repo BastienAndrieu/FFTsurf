@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_diffgeom.f90
-MD5:38f6488953cb5b3273fcdc6b5e419178 -- If you edit this, you'll get what you deserve.
+MD5:21a4ee32ac119d612626f20e8e504eb1 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -334,8 +334,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 303 0 (304 305 306 307 308) () 0 () () () 0
 0)
 309 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 310 0 (311 312 313 314 315) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+310 0 (311 312 313 314 315) () 0 () () () 0 0)
 316 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 317 0
 (318) () 319 () () () 0 0)

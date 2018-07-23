@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_separation.f90
-MD5:d4812f3774f36f40ce95aec167d15e93 -- If you edit this, you'll get what you deserve.
+MD5:7e4f032c4f6e9efb5f988f42f3b968d9 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -222,8 +222,8 @@ MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (
 UNKNOWN 0 0 0 0 UNKNOWN ()) 197 0 (198 199 200 201 202) () 0 () () () 0
 0)
 203 'nd_box_reflexions' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
-MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 204 0 (205 206 207 208 209) () 0 () () () 0 0)
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+204 0 (205 206 207 208 209) () 0 () () () 0 0)
 210 'norm2_1' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION ALWAYS_EXPLICIT) (REAL 8 0 0 0 REAL ()) 211 0
 (212) () 213 () () () 0 0)
@@ -310,10 +310,10 @@ CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.4189374bc6a7f0@-2') () 0 () () () 0
 0)
 309 'tolh' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
-REAL 8 0 0 0 REAL ()) 0 '0.28f5c28f5c28f6@-1') () 0 () () () 0 0)
+REAL 8 0 0 0 REAL ()) 0 '0.1999999999999a@0') () 0 () () () 0 0)
 310 'tolhsqr' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.68db8bac710cb4@-3') () 0 () () () 0
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.28f5c28f5c28f8@-1') () 0 () () () 0
 0)
 311 'triple_product' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 312 0 (

@@ -20,7 +20,7 @@ subroutine intersect_border_surface( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
@@ -139,7 +139,7 @@ subroutine intersect_border_surface( &
        tuvxyz, &
        ntuvxyz, &
        stat_degeneracy )
-
+  if ( stat_degeneracy == 50 ) stat_degeneracy = 0
   IF ( DEBUG ) THEN
      PRINT *,'NTUVXYZ =',NTUVXYZ
      IF ( NTUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )

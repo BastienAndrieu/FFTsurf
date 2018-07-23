@@ -12,6 +12,7 @@ subroutine classify_border_surface_intersection_point( &
   !              0 : isolated
   !              1 : entering
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface), intent(in)  :: surf(2)
   type(ptr_region),  intent(in)  :: region(2)
   integer,           intent(in)  :: npts
@@ -29,8 +30,8 @@ subroutine classify_border_surface_intersection_point( &
           duv_ds, &                                               !
           dxyz_ds, &                                              !
           stat_contactpoint )                                     !
-     !PRINT *,'    UV =',UV(:,:,IPT)
-     !PRINT *,'DUV_DS =',DUV_DS(:,1,:)
+     IF (DEBUG ) PRINT *,'    UV =',uv(:,:,ipt)
+     IF (DEBUG ) PRINT *,'DUV_DS =',duv_ds(:,1,:)
      !                                                            !
      if ( stat_contactpoint > 1 ) then ! <---------------------+  !
         PRINT *,'classify_border_surface_intersection_point : &
@@ -52,10 +53,12 @@ subroutine classify_border_surface_intersection_point( &
              region(isurf)%ptr%uvbox, &                           !
              stat(isurf) )                                        !
      end do                                                       !
+     IF (DEBUG ) PRINT *,'STATSURF =',STAT
      !                                                            !
      sumstat = sum(stat)                                          !
      if ( any(stat == 2) ) then ! <-------+                       !
-        STOP 'AMBIGUOUS POINT'
+        stat_point(ipt) = 2
+        !STOP 'AMBIGUOUS POINT'
      elseif ( sumstat == 0 ) then ! <-----+                       !
         stat_point(ipt) = 0               !                       !
      elseif ( sumstat < 0 ) then ! -------+                       !
@@ -64,5 +67,7 @@ subroutine classify_border_surface_intersection_point( &
         stat_point(ipt) = 1               !                       !
      end if ! <---------------------------+                       !
   end do ! <------------------------------------------------------+
+
+  IF ( ANY(stat_point == 2) ) STOP 'AMBIGUOUS POINT'
 
 end subroutine classify_border_surface_intersection_point

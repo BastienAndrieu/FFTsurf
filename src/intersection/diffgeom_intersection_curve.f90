@@ -26,9 +26,10 @@ subroutine diffgeom_intersection_curve( &
   integer,                 intent(out) :: stat
   real(kind=fp), optional, intent(out) :: curvature(2)
   real(kind=fp)                        :: dxyz_duv(3,2,2), n(3,2), d2xyz_duv2(3)
-  real(kind=fp)                        :: cosn, nsqr(2), aux(3), kn(2), denom
+  real(kind=fp)                        :: cosn, nsqr(2), kn(2), denom
   real(kind=fp), dimension(3,2)        :: EFG, LMN
   integer                              :: ndir
+  logical                              :: singular
   integer                              :: isurf, ivar, jvar, i
 
   ! compute tangent and normal vectors to both surfaces at the intersection point
@@ -86,26 +87,30 @@ subroutine diffgeom_intersection_curve( &
 
   ! compute tangential direction(s) in the uv-space of each surface
   do isurf = 1,2 ! loop over surfaces ! <------------------------------------------------+
-     do i = 1,ndir ! loop over tangential directions ! <------------------------------+  !
-        aux = cross(dxyz_ds(:,i), n(:,isurf))                                         !  !
-        do ivar = 1,2 ! loop over parameters u,v <---------------------------------+  !  !
-           duv_ds(ivar,i,isurf) = real((-1)**ivar, kind=fp) * &                    !  !  !
-                dot_product(dxyz_duv(:,1+mod(ivar,2),isurf), aux) / nsqr(isurf)    !  !  !
-        end do ! <-----------------------------------------------------------------+  !  !
-     end do ! <-----------------------------------------------------------------------+  !
+     ! 1st fundamental form coefficients                                                 !
+     do ivar = 1,2 ! <-----------------------------------------------+                   !
+        do jvar = ivar,2 ! <--------------------------------------+  !                   !
+           EFG(ivar + jvar - 1,isurf) = dot_product( &            !  !                   !
+                dxyz_duv(:,ivar,isurf), dxyz_duv(:,jvar,isurf) )  !  !                   !
+        end do ! <------------------------------------------------+  !                   !
+     end do ! <------------------------------------------------------+                   !
+     !                                                                                   !
+     do i = 1,ndir ! loop over tangential directions ! <-------------+                   !
+        call solve_2x2( &                                            !                   !
+             duv_ds(:,i,isurf), &                                    !                   !
+             EFG(1,isurf), &                                         !                   !
+             EFG(2,isurf), &                                         !                   !
+             EFG(2,isurf), &                                         !                   !
+             EFG(3,isurf), &                                         !                   !
+             [dot_product(dxyz_ds(:,i), dxyz_duv(:,1,isurf)), &      !                   !
+             dot_product(dxyz_ds(:,i), dxyz_duv(:,2,isurf))], &      !                   !
+             singular )                                              !                   !
+     end do ! <------------------------------------------------------+                   !
   end do ! <-----------------------------------------------------------------------------+
 
   if ( present(curvature) ) then ! <-----------------------------------------------------+
      !! compute curvature of the intersection branch(es) at the current point            !
      do isurf = 1,2 ! <--------------------------------------------------------------+   !
-        ! 1st fundamental form coefficients                                          !   !
-        do ivar = 1,2 ! <-----------------------------------------------+            !   !
-           do jvar = ivar,2 ! <--------------------------------------+  !            !   !
-              EFG(ivar + jvar - 1,isurf) = dot_product( &            !  !            !   !
-                   dxyz_duv(:,ivar,isurf), dxyz_duv(:,jvar,isurf) )  !  !            !   !
-           end do ! <------------------------------------------------+  !            !   !
-        end do ! <------------------------------------------------------+            !   !
-        !                                                                            !   !
         ! 2nd fundamental form coefficients                                          !   !
         do ivar = 1,3 ! <-----------------------------------------------+            !   !
            call evald2( &                                               !            !   !

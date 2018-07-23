@@ -9,7 +9,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/LIBS/mylib/TopologicalEnti
 
 %%
 cls = linspecerp(2);
-nisouv = 10;
+nisouv = 5;
 
 
 %%
@@ -17,15 +17,17 @@ figure('units','normalized','position',[.1 .1 .8 .8]);
 hold on
 
 for isurf = 1:2
+    r = 0.1*(2.0*rand(2,1) - 1.0);
     switch isurf
         case 1
-            x = u;
-            y = v;
-            z = -0.6*(u.^2 + v.^2);
+            x = u + r(1);
+            y = v + 0;%r(2);
+            z = -0.6*(x.^2 + y.^2);
         case 2
-            x = 0.5*u;
-            y = 0.7*u.^2;
-            z = v;
+%             t = 
+            x = 0.5*u + r(1);
+            y = 0.7/0.25*x.^2;%0.7*u.^2;
+            z = v + r(2);
     end
     
     c = cat(3, fcht2d(x), fcht2d(y), fcht2d(z));
@@ -44,4 +46,4 @@ camlight(30,30);
 xlabel('x'); ylabel('y'); zlabel('z');
 
 
-make_PN_coeff_matrices
+% make_PN_coeff_matrices

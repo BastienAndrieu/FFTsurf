@@ -168,16 +168,14 @@ recursive subroutine intersect_simple_surfaces( &
         PRINT *,'IPTS_BS =',IPTS_BS
         CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:NPTS_BS))) )
      END IF
-
-     PRINT *,'REGION%IPTS ='
-     DO ISURF = 1,2
-        IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
-           PRINT *,'N/A'
-        ELSE
-           PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
-        END IF
-     END DO
-
+     !PRINT *,'REGION%IPTS ='
+     !DO ISURF = 1,2
+     !   IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
+     !      PRINT *,'N/A'
+     !   ELSE
+     !      PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
+     !   END IF
+     !END DO
   END IF
 
   if ( npts_bs > 2 ) then ! <-------------------------------------------------+
@@ -242,6 +240,10 @@ recursive subroutine intersect_simple_surfaces( &
      ! 0 < npts <= 2                                                          !
      ! classify the border-surface intersection points (entering, exiting,    !
      ! isolated)                                                              !
+     IF ( DEBUG ) THEN
+        PRINT *,'BSI POINTS: UV ='
+        CALL PRINT_MAT(TRANSPOSE(UVXYZ(1:4,IPTS_BS(1:NPTS_BS))))
+     END IF
      call classify_border_surface_intersection_point( &                       !
           surfroot, &                                                         !
           region, &                                                           !
@@ -281,6 +283,8 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
            CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:2))) )
+           CALL WRITE_POLYNOMIAL( SURFROOT(1)%PTR%X, 'dev_intersection/debugssi_surf1.cheb' )
+           CALL WRITE_POLYNOMIAL( SURFROOT(2)%PTR%X, 'dev_intersection/debugssi_surf2.cheb' )
            CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
            CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
@@ -301,6 +305,8 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'STAT_POINT =',STAT_POINT(1)
            PRINT *,'UVXYZ ='
            PRINT *,UVXYZ(:,IPTS_BS(1))
+           CALL WRITE_POLYNOMIAL( SURFROOT(1)%PTR%X, 'dev_intersection/debugssi_surf1.cheb' )
+           CALL WRITE_POLYNOMIAL( SURFROOT(2)%PTR%X, 'dev_intersection/debugssi_surf2.cheb' )
            CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
            CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
            PRINT *,'------------------------------------------'
