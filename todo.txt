@@ -1,3 +1,4 @@
 * module I/O?
 * gestion branch point
 * intersection de 2 intersection_curves tangential/transversal, tangential/tangential
+* si mode de propagation == advection, tous les points d'intersection sont maintenus (d'autres peuvent éventuellement se rajouter)

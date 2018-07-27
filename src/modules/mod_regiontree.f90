@@ -67,6 +67,7 @@ contains
        region, &
        uvs, &
        stat )
+    use mod_tolerances
     ! stat = -1  if region already has children
     !      = 0   if regular subdivision (2**dim children)
     !      = n>0 if n degenerate dimensions (2**(dim-n) children)
@@ -87,11 +88,24 @@ contains
     end if
 
     do idim = 1,region%dim
+       ! check that uvs is not outside the region
+       if ( .not.is_in_closed_interval( &
+            uvs(idim), &
+            region%uvbox(2*idim-1), &
+            region%uvbox(2*idim), &
+            tolerance=EPSuv ) ) then
+          STOP 'subdiv_region : subdivision point outside the region'
+       end if
+       
        ! check for possibly "degenerate" dimensions
        degenerate(idim) = ( &
-            abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSregion .or. &
-            abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSregion )
+            abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSuv .or. &
+            abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSuv )
+            !abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSregion .or. &
+            !abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSregion )
     end do
+
+    !PRINT *,'subdiv_region : degenerate =',degenerate
 
     stat = count(degenerate)
     if ( stat >= region%dim ) return ! the subdivision point is located at one of the region's corners
@@ -289,10 +303,6 @@ contains
     type(type_region), intent(inout) :: region
     integer,           intent(in)    :: ipt
 
-    !call append_list( &
-    !     region%ipts, &
-    !     region%npts, &
-    !     ipt )
     call append_n( &
          region%ipts, &
          region%npts, &

@@ -15,8 +15,9 @@ pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
 ##########################################################
 
 class intersection_curve:
-    def __init__( self, endpoints, uvbox, uv, xyz ):
+    def __init__( self, endpoints, segmclass, uvbox, uv, xyz ):
         self.endpoints = endpoints
+        self.segmclass = segmclass
         self.uvbox = uvbox
         self.uv = uv
         self.xyz = xyz
@@ -53,6 +54,9 @@ for ic in range(nc):
     endpoints = np.zeros((ns,2))
     for ip in range(ns):
         endpoints[ip] = [ int(a)-1 for a in f.readline().split() ]
+    segmentclass = np.zeros((ns-1))
+    for isg in range(ns-1):
+        segmentclass[isg] = int(f.readline())
     
     n = int(f.readline())
     uv = np.zeros( (n,2,2) )
@@ -69,7 +73,7 @@ for ic in range(nc):
     for idim in range(3):
         aabb[0,idim] = min(aabb[0,idim], np.amin(xyz[:,idim]))
         aabb[1,idim] = max(aabb[1,idim], np.amax(xyz[:,idim]))
-    c = intersection_curve( endpoints, uvbox, uv, xyz )
+    c = intersection_curve( endpoints, segmentclass, uvbox, uv, xyz )
     curves.append( c )
 
 f.close()

@@ -8,6 +8,7 @@ subroutine intersect_elsewhere( &
   use mod_geometry
   use mod_separation
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_polynomial), intent(in)  :: poly(2)
   real(kind=fp),        intent(in)  :: xyz(3)
   logical,              intent(out) :: separable
@@ -52,7 +53,10 @@ subroutine intersect_elsewhere( &
      case default ! ---------------------------------------------------+   !
         STOP 'intersect_elsewhere : poly%nvar /= 1,2'                  !   !
      end select ! <----------------------------------------------------+   !
-     !                                                                     !   
+     !                                                                     !
+     if ( nsep(i) >= nbcp ) then
+        PRINT *,'******* intersect_elsewhere : NSEP > NBCP *******'
+     end if
   end do ! <---------------------------------------------------------------+
 
 
@@ -81,6 +85,26 @@ subroutine intersect_elsewhere( &
           separable )                                                      !
      !                                                                     !
   end if ! <---------------------------------------------------------------+
+  
+  IF ( DEBUG ) THEN
+     !IF (.NOT.SEPARABLE) THEN
+     PRINT *,'XYZ =',xyz
+     IF (SEPARABLE) THEN
+        PRINT *,'VEC = ',matmul(rot, vec)
+     END IF
+     CALL WRITE_POLYNOMIAL(POLY(1)%PTR, 'dev_intersection/sep1_poly.bern')
+     CALL WRITE_POLYNOMIAL(POLY(2)%PTR, 'dev_intersection/sep2_poly.bern')
+     CALL WRITE_MATRIX(SEP(1)%MAT(1:NSEP(1),1:3), NSEP(1), 3, 'dev_intersection/sep1.dat')
+     CALL WRITE_MATRIX(SEP(2)%MAT(1:NSEP(2),1:3), NSEP(2), 3, 'dev_intersection/sep2.dat')
+     do i = 1,2
+        IF ( NSEP(I) >= SIZE(SEP(I)%MAT,1) ) THEN
+           PRINT *,'I =',I
+           PRINT *,'XYZ =',xyz
+           STOP 'DEBUG SEPARATION'
+        END IF
+     END do
+     !END IF
+  END IF
 
   deallocate( sep(1)%mat, sep(2)%mat )
 

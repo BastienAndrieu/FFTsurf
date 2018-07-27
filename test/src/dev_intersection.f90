@@ -21,7 +21,9 @@ program dev_intersection
   type(type_surface), target, allocatable :: surf(:)
   logical, allocatable                    :: mask(:)
   type(type_intersection_data)            :: interdata
-  integer                                 :: isurf, i, j
+  integer, allocatable                    :: surf2curv(:,:)
+  integer                                 :: nsurf2curv
+  integer                                 :: isurf, i, j, fid, ic, jsurf, ksurf
 
   ! =================================================================================
   ! Read command line arguments
@@ -118,6 +120,39 @@ program dev_intersection
      END DO
   END IF
 
+
+
+  ! surface -> incident intersection curves (brute force)
+  call get_free_unit( fid )
+  open(unit=fid, file='dev_intersection/interdataglobal_surf2curv.dat', action='write')
+  do isurf = 1,nsurf
+     nsurf2curv = 0
+     do ic = 1,interdata%nc
+        do jsurf = 1,2
+           if ( associated(interdata%curves(ic)%surf(jsurf)%ptr, surf(isurf)) ) then
+              do ksurf = 1,nsurf
+                 if ( associated(interdata%curves(ic)%surf(1+mod(jsurf,2))%ptr, surf(ksurf)) ) exit
+              end do
+              call insert_column_after( &
+                   surf2curv, &
+                   3, &
+                   nsurf2curv, &
+                   [ic, jsurf, ksurf], &
+                   nsurf2curv )
+           end if
+        end do
+     end do
+     write (fid,*) nsurf2curv
+     do ic = 1,nsurf2curv
+        write (fid,*) surf2curv(:,ic)
+     end do
+     if ( allocated(surf2curv) ) deallocate(surf2curv)
+  end do
+  close(fid)
+
+
+  
+
   call free_intersection_data(interdata)
   ! =================================================================================
 
@@ -136,52 +171,135 @@ contains
 
 
   subroutine write_intersection_data( &
-       interdat, &
+       interdata, &
        filepoints, &
        filecurves )
     use mod_util
     use mod_types_intersection
     implicit none
-    type(type_intersection_data), intent(in) :: interdat
+    type(type_intersection_data), intent(in) :: interdata
     character(*),                 intent(in) :: filepoints, filecurves
     integer                                  :: fileunit
-    integer                                  :: ip, ic
+    integer, allocatable                     :: class(:)
+    integer                                  :: ip, ic, is
 
     call get_free_unit( fileunit )
-
+    
+    ! intersection points
     open( &
          unit = fileunit, &
          file = filepoints, &
          action = 'write' )
-    do ip = 1,interdat%np
-       write ( fileunit, * ) interdat%points(ip)%xyz
+    do ip = 1,interdata%np
+       write ( fileunit, * ) interdata%points(ip)%xyz
     end do
     close( fileunit )
 
+    ! intersection curves
     open( &
          unit = fileunit, &
          file = filecurves, &
          action = 'write' )
-    write ( fileunit, * ) interdat%nc
-    do ic = 1,interdat%nc
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,1)
-       write ( fileunit, * ) interdat%curves(ic)%uvbox(:,:,2)
-       write ( fileunit, * ) interdat%curves(ic)%nsplit
-       do ip = 1,interdat%curves(ic)%nsplit
-          write ( fileunit, * ) interdat%curves(ic)%isplit(:,ip)
+    write ( fileunit, * ) interdata%nc
+    do ic = 1,interdata%nc
+       call classify_in_on_out( &
+            interdata, &
+            ic, &
+            class )
+       write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,1)
+       write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,2)
+       write ( fileunit, * ) interdata%curves(ic)%nsplit
+       do ip = 1,interdata%curves(ic)%nsplit
+          write ( fileunit, * ) interdata%curves(ic)%isplit(:,ip)
        end do
-       if ( associated(interdat%curves(ic)%polyline) ) then
-          write ( fileunit, * ) interdat%curves(ic)%polyline%np
-          do ip = 1,interdat%curves(ic)%polyline%np
-             write ( fileunit, * ) interdat%curves(ic)%polyline%uv(:,:,ip), interdat%curves(ic)%polyline%xyz(:,ip)
+       do is = 1,interdata%curves(ic)%nsplit-1
+          write ( fileunit, * ) 1!class(is)
+       end do
+       if ( associated(interdata%curves(ic)%polyline) ) then
+          write ( fileunit, * ) interdata%curves(ic)%polyline%np
+          do ip = 1,interdata%curves(ic)%polyline%np
+             write ( fileunit, * ) interdata%curves(ic)%polyline%uv(:,:,ip), interdata%curves(ic)%polyline%xyz(:,ip)
           end do
        else
           write ( fileunit, * ) 0
        end if
     end do
-    close( fileunit )
+    close( fileunit )    
 
   end subroutine write_intersection_data
 
+
+
+
+
+
+
+
+
+  subroutine classify_in_on_out( &
+       interdata, &
+       icurv, &
+       class )
+    ! class =  1 in
+    !          0 on
+    !         -1 out
+    use mod_math
+    use mod_diffgeom
+    use mod_types_intersection
+    use mod_intersection
+    implicit none
+    type(type_intersection_data), target, intent(in)    :: interdata
+    integer,                              intent(in)    :: icurv
+    integer, allocatable,                 intent(inout) :: class(:)
+    type(type_point_on_surface), pointer                :: pos => null()
+    real(kind=fp)                                       :: duv_ds(2,2,2), dxyz_ds(3,2)
+    real(kind=fp)                                       :: dxyz_duv(3,2), n(3)
+    integer                                             :: stat_point
+    integer                                             :: is, ivar
+
+    if ( allocated(class) ) deallocate(class)
+
+    if ( interdata%curves(icurv)%nsplit < 3 ) return
+    allocate(class(interdata%curves(icurv)%nsplit-1))
+    class(:) = 1
+    RETURN
+    split_loop : do is = 2,interdata%curves(icurv)%nsplit-1
+       ! get tangent to intersection curve at current split point
+       call diffgeom_intersection_curve( &
+            interdata%curves(icurv)%surf, &
+            interdata%curves(icurv)%polyline%uv(:,:,interdata%curves(icurv)%isplit(2,is)), &
+            duv_ds, &
+            dxyz_ds, &
+            stat_point )
+       pos => interdata%points(interdata%curves(icurv)%isplit(1,is))%pos
+       pos_loop : do while ( associated(pos) )
+          if ( associated(pos%surf, interdata%curves(icurv)%surf(1)%ptr) .or. &
+               associated(pos%surf, interdata%curves(icurv)%surf(2)%ptr) ) then
+             pos => pos%next
+             cycle pos_loop
+          end if
+
+          ! compute normal of current surface at curve-surface intersection point
+          do ivar = 1,2
+             call evald1(dxyz_duv(:,ivar), pos%surf, pos%uv, ivar)
+          end do
+          n = cross(dxyz_duv(:,1), dxyz_duv(:,2))
+
+          ! check sign of dot product between the curve tangent and the surface normal
+          if ( dot_product(dxyz_ds(:,1), n) > 0._fp ) then ! check small values...
+             class(is) = -1
+          else
+             class(is-1) = -1
+          end if
+
+          pos => pos%next
+       end do pos_loop
+
+    end do split_loop
+    
+  end subroutine classify_in_on_out
+
+
+  
   
 end program dev_intersection

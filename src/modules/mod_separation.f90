@@ -121,8 +121,6 @@ contains
     integer                    :: iaxe
 
     separable = .false.
-    !PRINT *,'SIZE(XYZ1)=',SIZE(XYZ1,1),SIZE(XYZ1,2)
-    !PRINT *,'SIZE(XYZ2)=',SIZE(XYZ2,1),SIZE(XYZ2,2)
 
     do iaxe = 1,3
        m(1) = max( minval( xyz1(:,iaxe) ), &
@@ -130,7 +128,6 @@ contains
        m(2) = min( maxval( xyz1(:,iaxe) ), &
             maxval( xyz2(:,iaxe) ) ) ! min(max)
 
-       !if ( ( m(2) < m(1) ) .and. ( m(2)*m(1) < 0._fp ) ) then
        if ( m(2) < -EPSfp .and. m(1) > EPSfp ) then
           ! separating cartesian plane found 
           vec(:) = 0._fp
@@ -191,7 +188,7 @@ contains
                wedge(:,2) )
           do iset = 1,2
              if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSfp ) then
-                !PRINT *,'WEDGE',ISET,' WIDER THAN PI'
+                IF (DEBUG) PRINT *,'WEDGE',ISET,' WIDER THAN PI'
                 cycle loop_axes
              end if
           end do
@@ -209,6 +206,13 @@ contains
                wedge(:,2), &
                bounded )
           if ( .not.bounded ) cycle loop_axes
+
+          do iset = 1,2
+             if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSmath ) then
+                IF (DEBUG) PRINT *,'WEDGE',ISET,' WIDER THAN PI'
+                cycle loop_axes
+             end if
+          end do
           
           IF (DEBUG) THEN
              PRINT *,'BOUNDING SECTORS ='
@@ -339,6 +343,7 @@ contains
 
     rng = maxval( xy, dim=1 ) - minval( xy, dim=1 )
     IF (DEBUG) PRINT *,'RANGES =',RNG
+
     where( rng < EPSfp ) rng = 1._fp
 
     !call convex_hull_2d( &
@@ -351,7 +356,7 @@ contains
          n, &
          hull, &
          nhull )
-
+    
     IF (DEBUG) PRINT *,'HULL =',HULL(1:NHULL)
 
     bounded = .false.
@@ -365,15 +370,12 @@ contains
     if ( nhull == 1 ) then
        bounded = ( sum( xy(hull(1),:)**2 ) > 2._fp*EPSfp )
     elseif ( nhull == 2 ) then
-       bounded = ( abs(distance_from_line( [0._fp, 0._fp], xy(hull(1),:), xy(hull(2),:) )) > EPSfp )
+       bounded = ( abs(distance_from_line( [0._fp, 0._fp], xy(hull(1),:), xy(hull(2),:) )) > EPSfp .and. &
+            dot_product(xy(hull(1),:), xy(hull(2),:)) > EPSfp )
     else
        check_boundedness : do i = 1,nhull
           xy1 = xy(hull(i),:)
           xy2 = xy(hull(1+mod(i,nhull)),:)
-
-          IF (DEBUG) PRINT *,&
-               xy1(1) * ( xy1(2) - xy2(2) ) + &
-               xy1(2) * ( xy2(1) - xy1(1) )
 
           if ( xy1(1) * ( xy1(2) - xy2(2) ) + &
                xy1(2) * ( xy2(1) - xy1(1) ) > EPSfp ) then
@@ -399,7 +401,6 @@ contains
     wedge(1) = mean_angle( mnmx )
     wedge(2) = diff_angle( mnmx(2), wedge(1) )
     IF (DEBUG) PRINT *,'WEDGE =',WEDGE
-
 
   end subroutine minimal_bounding_sector
 

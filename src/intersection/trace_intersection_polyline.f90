@@ -125,6 +125,7 @@ subroutine trace_intersection_polyline( &
         uv = polyline%uv(:,:,polyline%np) + lambda*h*duv_ds(:,1,:)            !  !
         !                                                                     !  !
         ! refine using Newton-Raphson algorithm                               !  !
+        IF ( DEBUG ) PRINT *,'UV0 =',UV
         call newton_intersection_polyline( &                                  !  !
              surf, &                                                          !  !
              lowerb, &                                                        !  !
@@ -135,6 +136,7 @@ subroutine trace_intersection_polyline( &
              uv, &                                                            !  !
              xyz )                                                            !  !
         !                                                                     !  !
+        IF ( DEBUG ) PRINT *,'STAT_NEWTON =',STAT_NEWTON
         if ( stat_newton == 0 ) then ! <----------------------------------+   !  !
            ! Newton has converged, check if w is monotonic                !   !  !
            w = dot_product(param_vector, xyz) - w0                        !   !  !

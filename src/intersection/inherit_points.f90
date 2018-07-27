@@ -1,21 +1,24 @@
 subroutine inherit_points( &
      region, &
      coords, &
+     tol, &
      npts )
   use mod_util
   use mod_math
   use mod_regiontree
+  use mod_tolerances
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_region), intent(inout) :: region
   integer,           intent(in)    :: npts
   real(kind=fp),     intent(in)    :: coords(region%dim,npts)
+  real(kind=fp),     intent(in)    :: tol(npts)
   logical, allocatable             :: mask(:)
   integer                          :: idim, ipt, jpt
 
   if ( .not.associated(region%parent) ) return
   if ( region%parent%npts < 1 ) return
-
+  
   allocate( mask(region%parent%npts) )
   mask(:) = .true.
   outer : do jpt = 1,region%parent%npts ! <-------------+
@@ -28,7 +31,8 @@ subroutine inherit_points( &
              coords(idim,ipt), &                   !    !
              region%uvbox(2*idim-1), &             !    !
              region%uvbox(2*idim), &               !    !
-             tolerance=EPSregion) ) then ! <--+    !    !
+             !tolerance=EPSregion) ) then ! <--+    !    !
+             tolerance=max(EPSuv, tol(ipt))) ) then
            mask(jpt) = .false.                !    !    !
            cycle outer                        !    !    !
         end if ! <----------------------------+    !    !
@@ -38,7 +42,7 @@ subroutine inherit_points( &
   IF ( DEBUG ) THEN
      PRINT *,'   REGION%UVBOX =',REGION%UVBOX
      DO IPT = 1,region%parent%npts
-        PRINT *,REGION%PARENT%IPTS(IPT), COORDS(:,REGION%PARENT%IPTS(IPT)), MASK(IPT)
+        PRINT *,REGION%PARENT%IPTS(IPT), COORDS(:,REGION%PARENT%IPTS(IPT)), TOL(REGION%PARENT%IPTS(IPT)), MASK(IPT)
      END DO
      PRINT *,'   INHERITS',pack(region%parent%ipts(1:region%parent%npts), mask)
      !DO IPT = 1,region%parent%npts

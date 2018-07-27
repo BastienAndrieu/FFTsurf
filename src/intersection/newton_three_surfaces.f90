@@ -86,6 +86,12 @@ subroutine newton_three_surfaces( &
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
            stat = 0
+           do isurf = 1,3
+              call eval( &
+                   xyzs(:,isurf), &
+                   surf(isurf)%ptr, &
+                   uv(:,isurf) )
+           end do
            xyz = sum(xyzs, 2)/3._fp
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
         else

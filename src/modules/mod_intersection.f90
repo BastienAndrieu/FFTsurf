@@ -8,21 +8,24 @@ contains
 subroutine inherit_points( &
      region, &
      coords, &
+     tol, &
      npts )
   use mod_util
   use mod_math
   use mod_regiontree
+  use mod_tolerances
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_region), intent(inout) :: region
   integer,           intent(in)    :: npts
   real(kind=fp),     intent(in)    :: coords(region%dim,npts)
+  real(kind=fp),     intent(in)    :: tol(npts)
   logical, allocatable             :: mask(:)
   integer                          :: idim, ipt, jpt
 
   if ( .not.associated(region%parent) ) return
   if ( region%parent%npts < 1 ) return
-
+  
   allocate( mask(region%parent%npts) )
   mask(:) = .true.
   outer : do jpt = 1,region%parent%npts ! <-------------+
@@ -35,7 +38,8 @@ subroutine inherit_points( &
              coords(idim,ipt), &                   !    !
              region%uvbox(2*idim-1), &             !    !
              region%uvbox(2*idim), &               !    !
-             tolerance=EPSregion) ) then ! <--+    !    !
+             !tolerance=EPSregion) ) then ! <--+    !    !
+             tolerance=max(EPSuv, tol(ipt))) ) then
            mask(jpt) = .false.                !    !    !
            cycle outer                        !    !    !
         end if ! <----------------------------+    !    !
@@ -45,7 +49,7 @@ subroutine inherit_points( &
   IF ( DEBUG ) THEN
      PRINT *,'   REGION%UVBOX =',REGION%UVBOX
      DO IPT = 1,region%parent%npts
-        PRINT *,REGION%PARENT%IPTS(IPT), COORDS(:,REGION%PARENT%IPTS(IPT)), MASK(IPT)
+        PRINT *,REGION%PARENT%IPTS(IPT), COORDS(:,REGION%PARENT%IPTS(IPT)), TOL(REGION%PARENT%IPTS(IPT)), MASK(IPT)
      END DO
      PRINT *,'   INHERITS',pack(region%parent%ipts(1:region%parent%npts), mask)
      !DO IPT = 1,region%parent%npts
@@ -350,6 +354,129 @@ end subroutine characterize_tangential_intersection_point
 
 
 
+subroutine newton_curve_surface_dynshift( &
+     curv, &
+     surf, &
+     lowerb, &
+     upperb, &
+     stat, &
+     tuv, &
+     toltuv, &
+     xyz )
+  use mod_math
+  use mod_linalg
+  use mod_diffgeom
+  use mod_tolerances
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  integer,       parameter          :: itmax = 20!2 + ceiling(-log10(EPSuv))
+  real(kind=fp), parameter          :: shiftd = real(1.d-1, kind=fp)
+  type(type_curve),   intent(in)    :: curv
+  type(type_surface), intent(in)    :: surf
+  real(kind=fp),      intent(in)    :: lowerb(3)
+  real(kind=fp),      intent(in)    :: upperb(3)
+  integer,            intent(out)   :: stat
+  real(kind=fp),      intent(inout) :: tuv(3)
+  real(kind=fp),      intent(out)   :: toltuv
+  real(kind=fp),      intent(out)   :: xyz(3)
+  real(kind=fp)                     :: shiftv(3), sgn
+  real(kind=fp), dimension(3)       :: xyz_c, xyz_s, r
+  real(kind=fp), dimension(3)       :: ct, ctt, su, sv, suu, suv, svv, n
+  real(kind=fp)                     :: resxyz
+  real(kind=fp)                     :: grad(3), hess(3,3), dtuv(3), cond, errtuv
+  integer                           :: it
+  
+  call evald2(ctt, curv, tuv(1))
+
+  stat = 1
+  errtuv = 0._fp
+  cond = 1._fp
+  do it = 1,itmax
+     call evald1(ct, curv, tuv(1))
+     call evald1(su, surf, tuv(2:3), 1)
+     call evald1(sv, surf, tuv(2:3), 2)
+     n = cross(su, sv)
+     
+     sgn = sign(1._fp, dot_product(n, ctt))
+     shiftv = sgn * shiftd * n
+     
+     !! compute residual
+     call eval(xyz_c, curv, tuv(1)  ) ! curve's position vector
+     call eval(xyz_s, surf, tuv(2:3)) ! surface's position vector
+     r = xyz_s - xyz_c
+     resxyz = sum(r**2)
+     r = r - shiftv
+     IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
+     
+     !! compute gradient of distance
+     grad(1) = -dot_product(ct, r)
+     grad(2) =  dot_product(su, r)
+     grad(3) =  dot_product(sv, r)
+
+     !! compute Hessian matrix
+     if ( it > 1 ) call evald2(ctt, curv, tuv(1))
+     call evald2(suu, surf, tuv(2:3), 1)
+     call evald2(suv, surf, tuv(2:3), 2)
+     call evald2(svv, surf, tuv(2:3), 3)
+
+     hess(1,1) = -dot_product(ctt,r) + dot_product(ct,ct)
+     hess(1,2) = -dot_product(ct,su)
+     hess(1,3) = -dot_product(ct,sv)
+     hess(2,2) =  dot_product(suu,r) + dot_product(su,su)
+     hess(2,3) =  dot_product(suv,r) + dot_product(su,sv)
+     hess(3,3) =  dot_product(svv,r) + dot_product(sv,sv)
+     hess(2,1) = hess(1,2) ! ...
+     hess(3,1) = hess(1,3) ! symmetry
+     hess(3,2) = hess(2,3) ! ...
+
+     !! solve for Newton step
+     call linsolve_svd( &
+          dtuv, &
+          hess, &
+          -grad, &
+          3, &
+          3, &
+          1, &
+          cond )
+
+     errtuv = sum(dtuv**2)
+
+     ! correct Newton step to keep the iterate inside feasible region
+     call nd_box_reflexions( &
+          tuv, &
+          lowerb, &
+          upperb, &
+          dtuv, &
+          3 )
+
+     ! update solution
+     tuv = tuv + dtuv
+
+     !! termination criterion
+     if ( errtuv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
+        if ( resxyz < EPSxyzsqr ) then
+           if ( errtuv > EPSuvsqr ) then
+              PRINT *,'newton_curve_surface_dynshift : /!\ toltuv > EPSuv'
+           end if
+           ! converged to a curve-surface intersection point
+           stat = 0
+           toltuv = max(EPSmath, sqrt(errtuv))
+           call eval(xyz_c, curv, tuv(1)  )
+           call eval(xyz_s, surf, tuv(2:3))
+           xyz = 0.5_fp * (xyz_c + xyz_s)
+           IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
+           IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ,', TOL =',TOLTUV
+           !PAUSE
+        else
+           IF ( DEBUG ) PRINT *,'STAGNATION'
+        end if
+        return
+     end if
+  end do
+end subroutine newton_curve_surface_dynshift
+
+
+
 subroutine diffgeom_intersection_curve( &
     surf, &
     uv, &
@@ -504,7 +631,7 @@ subroutine check_curve_surface_intersection_point( &
   use mod_diffgeom
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_curve),   intent(in)  :: curv
   type(type_surface), intent(in)  :: surf
   real(kind=fp),      intent(in)  :: t
@@ -647,7 +774,7 @@ subroutine intersect_border_surface( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
@@ -664,7 +791,7 @@ subroutine intersect_border_surface( &
   type(type_region)                         :: region_s
   real(kind=fp), allocatable                :: tuvxyz(:,:)
   integer                                   :: ntuvxyz, ntuvxyz_tmp
-  real(kind=fp)                             :: tmp(7), uv(2,2)
+  real(kind=fp)                             :: tmp(8), uv(2,2)
   integer                                   :: ipt, jpt
 
   IF ( DEBUG ) THEN
@@ -704,7 +831,7 @@ subroutine intersect_border_surface( &
   region_s%poly(1)%ptr => region(isurf)%ptr%poly(1)%ptr
   
   ntuvxyz = 0
-  allocate(tuvxyz(6,10))
+  allocate(tuvxyz(7,10))
   IF ( DEBUG ) THEN
      PRINT *,'NPTS_SS =',npts_ss
      IF ( NPTS_SS > 0 ) THEN
@@ -725,16 +852,18 @@ subroutine intersect_border_surface( &
              region(icurv)%ptr%uvbox(2*jvar  ) )                                        !   !
         tmp(2:3) = uvxyz(2*isurf-1:2*isurf,ipt)                                         !   !
         tmp(4:6) = uvxyz(5:7,ipt)                                                       !   !
+        tmp(7)   = uvxyz(8,ipt)                                                         !   !
         IF ( DEBUG ) THEN
            PRINT *,'+ 1PT ON BORDER :'
            PRINT *,'    UV =',UVXYZ(1:4,IPT)
            PRINT *,'   XYZ =',UVXYZ(5:7,IPT)
+           PRINT *,' TOLUV =',UVXYZ(8,IPT)
            PRINT *,'TUVXYZ =',TMP(1:6)
         END IF
         !                                                                               !   !
         call append_vector( &                                                           !   !
-             tmp(1:6), &                                                                !   !
-             6, &                                                                       !   !
+             tmp(1:7), &                                                                !   !
+             7, &                                                                       !   !
              tuvxyz, &                                                                  !   !
              ntuvxyz )                                                                  !   !
         !                                                                               !   !
@@ -744,6 +873,9 @@ subroutine intersect_border_surface( &
              [ipt], &                                                                   !   !
              1, &                                                                       !   !
              unique=.true. )                                                            !   !
+        !                                                                               !   !
+        call add_point_bottom_up( region_c, ntuvxyz )
+        call add_point_bottom_up( region_s, ntuvxyz )
      end if ! <-------------------------------------------------------------------------+   !
   end do ! <--------------------------------------------------------------------------------+
   ntuvxyz_tmp = ntuvxyz
@@ -752,6 +884,7 @@ subroutine intersect_border_surface( &
      PRINT *,'NTUVXYZ_TMP =',NTUVXYZ!_TMP
      PRINT *,'TUVXYZ ='
      CALL PRINT_MAT( TRANSPOSE(TUVXYZ(1:6,1:NTUVXYZ)) )
+     PRINT *,'TOLTUV =',TUVXYZ(7,1:NTUVXYZ)
   END IF
 
 
@@ -769,13 +902,17 @@ subroutine intersect_border_surface( &
   if ( stat_degeneracy == 50 ) stat_degeneracy = 0
   IF ( DEBUG ) THEN
      PRINT *,'NTUVXYZ =',NTUVXYZ
-     IF ( NTUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
+     IF ( NTUVXYZ > 0 ) THEN
+        CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
+        PRINT *,'TOLTUV =',TUVXYZ(7,1:NTUVXYZ)
+     END IF
      !CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )
      !CALL EXPORT_REGION_TREE( REGION_S, 'dev_intersection/treebsi_s.dat' )
   END IF
 
   IF ( stat_degeneracy > 0 ) THEN
      CALL WRITE_POLYNOMIAL( ROOT_C%X, 'dev_intersection/debugbsi_c.cheb' )
+     CALL WRITE_POLYNOMIAL( ROOT_S(icurv)%ptr%X, 'dev_intersection/debugbsi_scurv.cheb' )
      CALL WRITE_POLYNOMIAL( ROOT_S(isurf)%ptr%X, 'dev_intersection/debugbsi_s.cheb' )
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugbsi_c.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugbsi_s.bern' )
@@ -807,24 +944,28 @@ subroutine intersect_border_surface( &
      tmp(1:2) = uv(:,1)                                             !
      tmp(3:4) = uv(:,2)                                             !
      tmp(5:7) = tuvxyz(4:6,ipt)                                     !
+     tmp(8)   = tuvxyz(7,ipt)                                       !
      !                                                              !
      ! check unicity                                                !
-     if ( nuvxyz > 0 ) then ! <-------+                             !
-        call check_unicity( &         !                             !
-             tmp(5:7), &              !                             !
-             3, &                     !                             !
-             uvxyz(5:7,1:nuvxyz), &   !                             !
-             nuvxyz, &                !                             !
-             EPSxyz, &                !                             !
-             jpt )                    !                             !
-     else ! --------------------------+                             !
-        jpt = 1                       !                             !
-     end if ! <-----------------------+                             !
+     if ( nuvxyz > 0 ) then ! <---------------+                     !
+        call check_unicity_with_tolerance( &  !                     !
+             tmp(1:4), &                      !                     !
+             tmp(5:7), &                      !                     !
+             tmp(8), &                        !                     !
+             4, &                             !                     !
+             uvxyz(1:4,1:nuvxyz), &           !                     !
+             uvxyz(5:7,1:nuvxyz), &           !                     !
+             uvxyz(8,1:nuvxyz), &             !                     !
+             nuvxyz, &                        !                     !
+             jpt )                            !                     !
+     else ! ----------------------------------+                     !
+        jpt = 1                               !                     !
+     end if ! <-------------------------------+                     !
      !                                                              !
      if ( jpt > nuvxyz ) then ! <-----+                             !
         call append_vector( &         !                             !
-             tmp(1:7), &              !                             !
-             7, &                     !                             !
+             tmp(1:8), &              !                             !
+             8, &                     !                             !
              uvxyz, &                 !                             !
              nuvxyz )                 !                             !
         jpt = nuvxyz                  !                             !
@@ -843,7 +984,7 @@ subroutine intersect_border_surface( &
      END IF
   end do ! <--------------------------------------------------------+
   
-  if ( allocated(tuvxyz)    ) deallocate(tuvxyz   )
+  if ( allocated(tuvxyz) ) deallocate(tuvxyz)
 
 
 end subroutine intersect_border_surface
@@ -990,7 +1131,7 @@ subroutine intersect_all_surfaces( &
 
 
   nuvxyz = 0
-  allocate(uvxyz(7,10))
+  allocate(uvxyz(8,10))
 
   ! loop over all pairs of DISTINCT surfaces and compute their intersection
   outer : do isurf = 1,nsurf-1
@@ -1210,7 +1351,7 @@ subroutine merge_intersection_data( &
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surf(2)
   integer,                      intent(in)    :: nuvxyz
-  real(kind=fp),                intent(in)    :: uvxyz(7,nuvxyz)
+  real(kind=fp),                intent(in)    :: uvxyz(8,nuvxyz)
   type(type_intersection_data), intent(in)    :: interdata_local
   type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
@@ -1218,6 +1359,11 @@ subroutine merge_intersection_data( &
   integer                                     :: nc
   integer                                     :: ip, ic, jc, isurf
 
+  IF ( DEBUG ) THEN
+     PRINT *,'UVXYZ ='
+     CALL PRINT_MAT(TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)))
+     PRINT *,'TOLUV =',UVXYZ(8,1:NUVXYZ)
+  END IF
   ! add new intersection points
   do ip = 1,nuvxyz
      call add_intersection_point( &
@@ -1373,6 +1519,12 @@ subroutine newton_three_surfaces( &
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
            stat = 0
+           do isurf = 1,3
+              call eval( &
+                   xyzs(:,isurf), &
+                   surf(isurf)%ptr, &
+                   uv(:,isurf) )
+           end do
            xyz = sum(xyzs, 2)/3._fp
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
         else
@@ -1384,6 +1536,45 @@ subroutine newton_three_surfaces( &
   end do
 
 end subroutine newton_three_surfaces
+
+
+
+subroutine check_unicity_with_tolerance( &
+     unew, &
+     xnew, &
+     tolunew, &
+     dim, &
+     u, &
+     x, &
+     tolu, &
+     n, &
+     id )
+  use mod_math
+  use mod_tolerances
+  implicit none
+  integer,       intent(in)  :: dim
+  real(kind=fp), intent(in)  :: unew(dim)
+  real(kind=fp), intent(in)  :: xnew(3)
+  real(kind=fp), intent(in)  :: tolunew
+  integer,       intent(in)  :: n
+  real(kind=fp), intent(in)  :: u(dim,n)
+  real(kind=fp), intent(in)  :: x(3,n)
+  real(kind=fp), intent(in)  :: tolu(n)
+  integer,       intent(out) :: id
+
+  if ( n < 1 ) then
+     id = 1
+  else
+     do id = 1,n
+        if ( maxval(abs(unew - u(:,id))) < tolunew + tolu(id) .or. & 
+           !sum((unew - u(:,id))**2) < (tolunew + tolu(id))**2 .or. &
+             sum((xnew - x(:,id))**2) < EPSxyzsqr ) then
+           exit
+        end if
+     end do
+  end if
+ 
+end subroutine check_unicity_with_tolerance
 
 
 
@@ -1416,7 +1607,7 @@ subroutine rearrange_for_separability_test( &
      else
         tmp = bcp(i,:) - vec
         tmpsqr = sum( tmp**2 )
-        if ( tmpsqr <= EPSxyzsqr ) cycle
+        if ( tmpsqr <= 400.D0 * EPSxyzsqr ) cycle
         tmp = tmp / sqrt(tmpsqr)
      end if
 
@@ -1436,6 +1627,7 @@ subroutine newton_curve_surface( &
      upperb, &
      stat, &
      tuv, &
+     toltuv, &
      xyz )
   use mod_math
   use mod_linalg
@@ -1445,10 +1637,10 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
-  logical,       parameter          :: acceleration = .true.
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
-  integer,       parameter          :: itmax = 2 + ceiling(-log10(EPSuv))
+  integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
   integer,       parameter          :: itconv = 5
   type(type_curve),   intent(in)    :: curv
   type(type_surface), intent(in)    :: surf
@@ -1456,11 +1648,13 @@ subroutine newton_curve_surface( &
   real(kind=fp),      intent(in)    :: upperb(3)
   integer,            intent(out)   :: stat
   real(kind=fp),      intent(inout) :: tuv(3)
+  real(kind=fp),      intent(out)   :: toltuv
   real(kind=fp),      intent(out)   :: xyz(3)
   real(kind=fp), dimension(3)       :: xyz_c, xyz_s, r
   real(kind=fp)                     :: resxyz, resconv
   real(kind=fp)                     :: jac(3,3), dtuv(3), cond, errtuv, errtuvprev
-  integer                           :: it
+  integer                           :: it, rank
+  logical                           :: linear_conv
   real(kind=fp)                     :: fac
 
   IF ( DEBUG ) THEN
@@ -1475,6 +1669,7 @@ subroutine newton_curve_surface( &
   errtuvprev = 0._fp
   cond = 1._fp
   fac = 1._fp
+  linear_conv = .false.
   IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
   do it = 1,itmax
      !! compute residual
@@ -1494,11 +1689,13 @@ subroutine newton_curve_surface( &
            return
         elseif ( errtuv > THRESHOLD * errtuvprev ) then
            ! linear convergence
-           PRINT *,'LINEAR CONVERGENCE, MU =',sqrt(errtuv/errtuvprev)
+           IF ( DEBUG ) PRINT *,'LINEAR CONVERGENCE, MU =',sqrt(errtuv/errtuvprev)
+           linear_conv = .true.
            fac = 2._fp
         else
            ! superlinear convergence
            fac = 1._fp
+           linear_conv = .false.
         end if
      end if
 
@@ -1507,6 +1704,9 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
+     !PRINT *,'JAC ='
+     !CALL PRINT_MAT(JAC)
+     !PRINT *,'RHS =',-R
 
      !! solve for Newton step
      call linsolve_svd( &
@@ -1516,20 +1716,30 @@ subroutine newton_curve_surface( &
           3, &
           3, &
           1, &
-          cond )
+          cond, &
+          rank, &
+          tol=EPSmath )
+     !PRINT *,'RANK =',RANK
      if ( acceleration ) then
+        !PRINT *,'FAC =',FAC
         if ( mod(it,3) == 0 ) dtuv = fac * dtuv
      end if
      errtuvprev = errtuv
      errtuv = sum(dtuv**2)
 
      ! correct Newton step to keep the iterate inside feasible region
+     IF ( .false. ) THEN
+        PRINT *,' TUV =',TUV
+        PRINT *,'DTUV =',DTUV
+        PRINT *,'REFLEXIONS...'
+     END IF
      call nd_box_reflexions( &
           tuv, &
           lowerb, &
           upperb, &
           dtuv, &
           3 )
+     IF ( .false. ) PRINT *,'...OK'
 
      ! update solution
      tuv = tuv + dtuv
@@ -1537,11 +1747,34 @@ subroutine newton_curve_surface( &
      !! termination criterion
      if ( errtuv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( resxyz < EPSxyzsqr ) then
+           if ( errtuv > EPSuvsqr ) then
+              IF ( DEBUG ) PRINT *,'newton_curve_surface : /!\ toltuv > EPSuv'
+              if ( linear_conv ) then
+                 IF ( DEBUG ) THEN
+                    PRINT *,'--> NEWTON_CS_DYNSHIFT'
+                    PRINT *,'TUV =',TUV
+                 END IF
+                 call newton_curve_surface_dynshift( &
+                      curv, &
+                      surf, &
+                      lowerb, &
+                      upperb, &
+                      stat, &
+                      tuv, &
+                      toltuv, &
+                      xyz )
+                 return
+              end if
+           end if
            ! converged to a curve-surface intersection point
            stat = 0
+           toltuv = max(EPSmath, sqrt(errtuv))
+           call eval(xyz_c, curv, tuv(1)  )
+           call eval(xyz_s, surf, tuv(2:3))
            xyz = 0.5_fp * (xyz_c + xyz_s)
            IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
            IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ
+           !PAUSE
         else
            IF ( DEBUG ) PRINT *,'STAGNATION'
         end if
@@ -1561,6 +1794,7 @@ subroutine find_collineal_points( &
      stat, &
      uv_collineal, &
      n_collineal, &
+     toluv, &
      xyz_collineal )
   use mod_math
   use mod_linalg
@@ -1583,6 +1817,7 @@ subroutine find_collineal_points( &
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv_collineal(2,2)
   real(kind=fp),     intent(out)   :: n_collineal(3)
+  real(kind=fp),     intent(out)   :: toluv
   real(kind=fp),     intent(out)   :: xyz_collineal(3)
   real(kind=fp),     intent(in)    :: lowerb(4)
   real(kind=fp),     intent(in)    :: upperb(4)
@@ -1701,9 +1936,19 @@ subroutine find_collineal_points( &
      !! termination criteria
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <------------+
         if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+    !
+           if ( erruv > EPSuvsqr ) then
+              PRINT *,'find_collineal_points : /!\ toluv > EPSuv'
+           end if
+           toluv = sqrt(erruv)                                     !    !
            if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !    !
               ! converged to a tangential intersection point  !    !    !
               stat = -1                                       !    !    !
+              do isurf = 1,2 ! <----------------+             !    !    !
+                 call eval( &                   !             !    !    !
+                      xyz(:,isurf), &           !             !    !    !
+                      surf(isurf)%ptr, &        !             !    !    !
+                      uv_collineal(:,isurf) )   !             !    !    !
+              end do ! <------------------------+             !    !    !
               xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !    !
            else ! --------------------------------------------+    !    !
               ! converged to a pair of collineal points       !    !    !
@@ -1849,6 +2094,7 @@ subroutine trace_intersection_polyline( &
         uv = polyline%uv(:,:,polyline%np) + lambda*h*duv_ds(:,1,:)            !  !
         !                                                                     !  !
         ! refine using Newton-Raphson algorithm                               !  !
+        IF ( DEBUG ) PRINT *,'UV0 =',UV
         call newton_intersection_polyline( &                                  !  !
              surf, &                                                          !  !
              lowerb, &                                                        !  !
@@ -1859,6 +2105,7 @@ subroutine trace_intersection_polyline( &
              uv, &                                                            !  !
              xyz )                                                            !  !
         !                                                                     !  !
+        IF ( DEBUG ) PRINT *,'STAT_NEWTON =',STAT_NEWTON
         if ( stat_newton == 0 ) then ! <----------------------------------+   !  !
            ! Newton has converged, check if w is monotonic                !   !  !
            w = dot_product(param_vector, xyz) - w0                        !   !  !
@@ -2304,7 +2551,7 @@ subroutine intersect_intersection_curves( &
           uv3, &                                                                                       !
           xyz, &                                                                                       !
           surf, &                                                                                      !
-          3, &                                                                                     !
+          3, &                                                                                         !
           interdata, &                                                                                 !
           idpt )                                                                                       !
      !                                                                                                 !
@@ -2403,7 +2650,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_curve),           intent(in)    :: root_c
   type(type_surface),         intent(in)    :: root_s
   type(type_region), target,  intent(inout) :: region_c
@@ -2419,7 +2666,8 @@ recursive subroutine intersect_curve_surface( &
   logical                                   :: separable
   real(kind=fp), dimension(3)               :: xyz_c, xyz_s
   real(kind=fp), dimension(3)               :: tuv, xyz, tuv_subdiv
-  integer                                   :: stat_newpoint
+  real(kind=fp)                             :: toltuv
+  integer                                   :: stat_newpoint, stat_contact
   integer                                   :: stat_subdiv
   integer                                   :: nchild(2)
   type(type_region), pointer                :: newregion_c
@@ -2430,10 +2678,11 @@ recursive subroutine intersect_curve_surface( &
   if ( stat_degeneracy /= 0 ) return
 
   IF ( DEBUG ) THEN
-      PRINT *,''; PRINT *,'';
-      PRINT *,'INTERSECT_CURVE_SURFACE'
-      PRINT *,' TBOX =',REGION_C%UVBOX
-      PRINT *,'UVBOX =',REGION_S%UVBOX
+     !PAUSE
+     PRINT *,''; PRINT *,'';
+     PRINT *,'INTERSECT_CURVE_SURFACE'
+     PRINT *,' TBOX =',REGION_C%UVBOX
+     PRINT *,'UVBOX =',REGION_S%UVBOX
   END IF
 
   ! inherit from parents all the  points contained in the current regions
@@ -2441,12 +2690,28 @@ recursive subroutine intersect_curve_surface( &
      call inherit_points( &                                                   !
           region_c, &                                                         !
           tuvxyz(1,1:ntuvxyz), &                                              !
+          tuvxyz(7,1:ntuvxyz), &                                              !
           ntuvxyz )                                                           !
      call inherit_points( &                                                   !
           region_s, &                                                         !
           tuvxyz(2:3,1:ntuvxyz), &                                            !
+          tuvxyz(7,1:ntuvxyz), &                                              !
           ntuvxyz )                                                           !
   end if ! <------------------------------------------------------------------+
+
+  IF ( DEBUG ) THEN
+     PRINT *,'T, TOL ='
+     IF ( REGION_C%NPTS > 0) THEN
+        CALL PRINT_MAT(TRANSPOSE( &
+             TUVXYZ([1,7],REGION_C%IPTS(1:REGION_C%NPTS)) ))
+     END IF
+     PRINT *,'UV, TOL ='
+     IF ( REGION_S%NPTS > 0) THEN
+        CALL PRINT_MAT(TRANSPOSE( &
+             TUVXYZ([2,3,7],REGION_S%IPTS(1:REGION_S%NPTS)) ))
+     END IF
+  END IF
+ 
 
   ! get list of already discovered points contained in both the current regions  
   npts = 0
@@ -2490,9 +2755,9 @@ recursive subroutine intersect_curve_surface( &
                       root_s, &                                        !     !  !  !          !
                       tuv(1), &                                        !     !  !  !          !
                       tuv(2:3), &                                      !     !  !  !          !
-                      stat_newpoint )                                  !     !  !  !          !
-                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_newpoint
-                 if ( stat_newpoint == 2 ) then ! <---------+          !     !  !  !          !
+                      stat_contact )                                   !     !  !  !          !
+                 IF ( DEBUG ) PRINT *,'CURVE-SURFACE STATPOINT =',stat_contact
+                 if ( stat_contact == 2 ) then ! <----------+          !     !  !  !          !
                     ! high-order tangential contact point   !          !     !  !  !          !
                     ! => the curve is presumably a subset   !          !     !  !  !          !
                     ! of the surface                        !          !     !  !  !          !
@@ -2501,8 +2766,8 @@ recursive subroutine intersect_curve_surface( &
                  end if ! <---------------------------------+          !     !  !  !          !
                  !                                                     !     !  !  !          !
                  call append_vector( &                                 !     !  !  !          !
-                      [tuv,xyz], &                                     !     !  !  !          !
-                      6, &                                             !     !  !  !          !
+                      [tuv,xyz,EPSuv], &                               !     !  !  !          !
+                      7, &                                             !     !  !  !          !
                       tuvxyz, &                                        !     !  !  !          !
                       ntuvxyz )                                        !     !  !  !          !
                  !                                                     !     !  !  !          !
@@ -2554,7 +2819,7 @@ recursive subroutine intersect_curve_surface( &
      if ( .not.overlap ) return ! disjoint bounding boxes => empty intersection               !
      !                                                                                        !
   elseif ( npts > 0 ) then ! <----------------------------------------------------------------+
-     ! are some of the already discovered points interior the curve or surface region?...     !
+     ! are some of the already discovered points interior to the curve or surface region?...  !
      do jpt = 1,npts  ! <------------------------------------------+                          !
         ipt = ipts(jpt)                                            !                          !
         interior(1) = is_in_open_interval( &                       !                          !
@@ -2565,7 +2830,7 @@ recursive subroutine intersect_curve_surface( &
              is_in_open_interval( &                                !                          !
              tuvxyz(2,ipt), &                                      !                          !
              region_s%uvbox(1), region_s%uvbox(2), &               !                          !
-             tolerance=EPSregion ) .and. &                         !                          !
+             tolerance=EPSregion ) .or. &                          !                          !
              is_in_open_interval( &                                !                          !
              tuvxyz(3,ipt), &                                      !                          !
              region_s%uvbox(3), region_s%uvbox(4), &               !                          !
@@ -2581,6 +2846,10 @@ recursive subroutine intersect_curve_surface( &
      if ( all(.not.interior) ) then  ! <--------------------------------------------------+   !
         ! if only one intersection point, check if the pair can intersect at other points !   !
         if ( npts == 1 ) then ! <-----------------------------------------------+         !   !
+           IF ( DEBUG ) THEN
+              PRINT *,'TUV =',TUVXYZ(1:3,IPT)
+              PRINT *,'ALL NOT INTERIOR'
+           END IF
            poly(1)%ptr => region_c%poly(1)%ptr                                  !         !   !
            poly(2)%ptr => region_s%poly(1)%ptr                                  !         !   !
            call intersect_elsewhere( &                                          !         !   !
@@ -2592,6 +2861,25 @@ recursive subroutine intersect_curve_surface( &
            IF ( DEBUG ) PRINT *,'CURVE-SURFACE SEPARABLE?',SEPARABLE
            !                                                                    !         !   !
            if ( separable ) return ! the pair cannot intersect at other points  !         !   !
+           !                                                                    !         !   !
+           ! special case: tangential contact                                   !         !   !
+           call check_curve_surface_intersection_point( &                       !         !   !
+                root_c, &                                                       !         !   !
+                root_s, &                                                       !         !   !
+                tuvxyz(1,ipts(1)), &                                            !         !   !
+                tuvxyz(2:3,ipts(1)), &                                          !         !   !
+                stat_contact )                                                  !         !   !
+           if ( stat_contact == 1 ) then ! <----------------------------+       !         !   !
+              call curve_surface_separation_at_tangential_contact( &    !       !         !   !
+                   root_s, &                                            !       !         !   !
+                   tuvxyz(2:3,ipts(1)), &                               !       !         !   !
+                   tuvxyz(4:6,ipts(1)), &                               !       !         !   !
+                   region_c%poly(1)%ptr, &                              !       !         !   !
+                   region_s%poly(1)%ptr, &                              !       !         !   !
+                   separable )                                          !       !         !   !
+              IF ( DEBUG ) PRINT *,'CS SEPARABLE AT TANGENTIAL CONTACT POINT?',separable
+              if ( separable ) return                                   !       !         !   !
+           end if ! <---------------------------------------------------+       !         !   !
         end if ! <--------------------------------------------------------------+         !   !
      end if ! <---------------------------------------------------------------------------+   !
      !                                                                                        !
@@ -2607,12 +2895,13 @@ recursive subroutine intersect_curve_surface( &
      call newton_curve_surface( &                                                             !
           root_c, &                                                                           !
           root_s, &                                                                           !
-          [region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &!region_c%uvbox(1:2), &        !
-          [region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &!region_s%uvbox(1:4), &        !
-          ![region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
-          ![region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
+          ![region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &                               !
+          ![region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &                               !
+          [region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
+          [region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
           stat_newpoint, &                                                                    !
           tuv, &                                                                              !
+          toltuv, &                                                                           !
           xyz )                                                                               !
      !                                                                                        !
      ! if a degeneracy has been encountered, report it                                        !
@@ -2620,7 +2909,6 @@ recursive subroutine intersect_curve_surface( &
         stat_degeneracy = stat_newpoint              !                                        !
         CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugncs_regc.bern' )
         CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugncs_regs.bern' )
-        !STOP 'singular Jacobian in newton_curve_surface'
         return                                       !                                        !
      end if ! <--------------------------------------+                                        !
      !                                                                                        !
@@ -2631,9 +2919,9 @@ recursive subroutine intersect_curve_surface( &
              root_s, &                                                                    !   !
              tuv(1), &                                                                    !   !
              tuv(2:3), &                                                                  !   !
-             stat_newpoint )                                                              !   !
-        IF ( DEBUG ) PRINT *,'NEWTON, CURVE-SURFACE STATPOINT =',stat_newpoint
-        if ( stat_newpoint == 2 ) then ! <----------------------+                         !   !
+             stat_contact )                                                               !   !
+        IF ( DEBUG ) PRINT *,'NEWTON, CURVE-SURFACE STATPOINT =',stat_contact
+        if ( stat_contact == 2 ) then ! <-----------------------+                         !   !
            ! high-order tangential contact point                !                         !   !
            ! => the curve is presumably a subset of the surface !                         !   !
            stat_degeneracy = 50                                 !                         !   !
@@ -2641,34 +2929,62 @@ recursive subroutine intersect_curve_surface( &
         end if ! <----------------------------------------------+                         !   !
         !                                                                                 !   !
         ! if a point has been found, check whether it is a duplicate                      !   !
-        if ( ntuvxyz > 0 ) then ! <----------+                                            !   !
-           call check_unicity( &             !                                            !   !
-                xyz, &                       !                                            !   !
-                3, &                         !                                            !   !
-                tuvxyz(4:6,1:ntuvxyz), &     !                                            !   !
-                ntuvxyz, &                   !                                            !   !
-                EPSxyz, &                    !                                            !   !
-                ipt )                        !                                            !   !
-        else ! ------------------------------+                                            !   !
-           ipt = 1                           !                                            !   !
-        end if ! <---------------------------+                                            !   !
+        if ( ntuvxyz > 0 ) then ! <-----------------------+                               !   !
+           call check_unicity_with_tolerance( &           !                               !   !
+                tuv, &                                    !                               !   !
+                xyz, &                                    !                               !   !
+                toltuv, &                                 !                               !   !
+                3, &                                      !                               !   !
+                tuvxyz(1:3,1:ntuvxyz), &                  !                               !   !
+                tuvxyz(4:6,1:ntuvxyz), &                  !                               !   !
+                tuvxyz(7,1:ntuvxyz), &                    !                               !   !
+                ntuvxyz, &                                !                               !   !
+                ipt )                                     !                               !   !
+        else ! -------------------------------------------+                               !   !
+           ipt = 1                                        !                               !   !
+        end if ! <----------------------------------------+                               !   !
+        !                                                                                 !   !
         if ( ipt > ntuvxyz ) then ! <---------------------+                               !   !
            ! if this is actually a new intersection point !                               !   !
            call append_vector( &                          !                               !   !
-                [tuv,xyz], &                              !                               !   !
-                6, &                                      !                               !   !
+                [tuv,xyz,toltuv], &                       !                               !   !
+                7, &                                      !                               !   !
                 tuvxyz, &                                 !                               !   !
                 ntuvxyz )                                 !                               !   !
            IF ( DEBUG ) THEN
               PRINT *,'TUVXYZ ='
               CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
+              PRINT *,'TOLTUV =',TUVXYZ(7,1:NTUVXYZ)
            END IF
         else ! -------------------------------------------+                               !   !
            stat_newpoint = 1                              !                               !   !
         end if ! <----------------------------------------+                               !   !
         ! append that point to the current regions' lists and to that of their ascendants !   !
-        call add_point_bottom_up( region_c, ipt )                                         !   !
-        call add_point_bottom_up( region_s, ipt )                                         !   !
+        if ( is_in_closed_interval( &
+             tuv(1), &
+             region_c%uvbox(1), &
+             region_c%uvbox(2), &
+             tolerance=EPSuv) ) then
+           !PRINT *,'DIFF T:',tuv(1)-region_c%uvbox(1), region_c%uvbox(2)-tuv(1)
+           call add_point_bottom_up( region_c, ipt )                                      !   !
+        else
+           PRINT *,'*** WARNING : POINT NOT INSIDE TBOX'
+        end if
+        if ( is_in_closed_interval( &
+             tuv(2), &
+             region_s%uvbox(1), &
+             region_s%uvbox(2), &
+             tolerance=EPSuv) .or. &
+             is_in_closed_interval( &
+             tuv(3), &
+             region_s%uvbox(3), &
+             region_s%uvbox(4), &
+             tolerance=EPSuv) ) then
+           !PRINT *,'DIFF UV:',tuv(2)-region_s%uvbox(1), region_s%uvbox(2)-tuv(2), tuv(3)-region_s%uvbox(3), region_s%uvbox(4)-tuv(3)
+           call add_point_bottom_up( region_s, ipt )                                      !   !
+        else
+           PRINT *,'*** WARNING : POINT NOT INSIDE UVBOX'
+        end if
         !                                                                                 !   !
      end if  ! <--------------------------------------------------------------------------+   !
      !                                                                                        !
@@ -2916,6 +3232,12 @@ subroutine newton_intersection_polyline( &
         if ( sum(r1**2) < EPSxyzsqr .and. &                         !
              abs(resh)  < tolhsqr ) then ! <---------------------+  !
            stat = 0                                              !  !
+           do isurf = 1,2 ! <------------+                       !  !
+              call eval( &               !                       !  !
+                   xyz(:,isurf), &       !                       !  !
+                   surf(isurf)%ptr, &    !                       !  !
+                   uv(:,isurf) )         !                       !  !
+           end do ! <--------------------+                       !  !
            xyzp = 0.5_fp * sum(xyz, 2)                           !  !
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
         else ! --------------------------------------------------+  !
@@ -2960,31 +3282,24 @@ recursive subroutine intersect_simple_surfaces( &
   type(type_curve)                            :: root_c
   integer, allocatable                        :: ipts_bs(:)
   integer                                     :: npts_bs
-  real(kind=fp)                               :: uv_subdiv(2)
-  integer                                     :: stat_subdiv
+  real(kind=fp)                               :: uv_subdiv(2,2)
+  integer                                     :: stat_subdiv(2), nchild(2)
   type(ptr_region)                            :: newregion(2)
   integer                                     :: stat_point(2)
   integer                                     :: order(2)
-  integer                                     :: icurv, ivar, ival, ichild, jchild
+  integer                                     :: icurv, ivar, ival, ipt, ichild, jchild
   INTEGER :: ISURF
 
   if ( stat_degeneracy /= 0 ) return ! a degeneracy has been encountered
 
   IF ( DEBUG ) THEN
+     !PAUSE
      PRINT *,''; PRINT *,'';
      PRINT *,'INTERSECT_SIMPLE_SURFACES'
      PRINT *,'UVBOXES ='
      DO ISURF = 1,2 ! <-----------------+
         PRINT *,REGION(ISURF)%PTR%UVBOX !
      END DO ! <-------------------------+
-     !PRINT *,'IPTS ='
-     !DO ISURF = 1,2
-     !   IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
-     !      PRINT *,'N/A'
-     !   ELSE
-     !      PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
-     !   END IF
-     !END DO
   END IF
 
   ! inherit from parent regions all intersection points contained in current regions
@@ -2993,6 +3308,7 @@ recursive subroutine intersect_simple_surfaces( &
         call inherit_points( &                    !     !
              region(isurf)%ptr, &                 !     !
              uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
+             uvxyz(8,1:nuvxyz), &                 !     !
              nuvxyz )                             !     !
      end do ! <-----------------------------------+     !
   end if ! <--------------------------------------------+
@@ -3008,7 +3324,6 @@ recursive subroutine intersect_simple_surfaces( &
      END DO
   END IF
 
-
   ! get the list of already discovered intersection points contained in both surface regions
   npts_ss = 0
   if ( region(1)%ptr%npts > 0 .and. region(2)%ptr%npts > 0 ) then ! <-----------------------+
@@ -3018,7 +3333,6 @@ recursive subroutine intersect_simple_surfaces( &
           ipts_ss )                                                                         !
      if ( allocated(ipts_ss) ) npts_ss = size(ipts_ss)                                      !
   end if ! <--------------------------------------------------------------------------------+
-  
 
   ! intersect the 4*2 pairs of border-surface
   npts_bs = 0
@@ -3072,13 +3386,14 @@ recursive subroutine intersect_simple_surfaces( &
      end do ! <----------------------------------------------------------+  !
   end do outer ! <----------------------------------------------------------+
   if ( allocated(ipts_ss) ) deallocate(ipts_ss)
-  
+
   ! free allocated polynomials
   call free_polynomial(regc      )
   call free_polynomial(root_c%x  )
   call free_polynomial(root_c%xt )
   call free_polynomial(root_c%xtt)
-  
+
+  ! append the new border-surface intersection points to each region's collection
   if ( npts_bs > 0 ) then ! <-----------------------------+
      do isurf = 1,2 ! <------------------------+          !
         call add_points_bottom_up( &           !          !
@@ -3088,8 +3403,8 @@ recursive subroutine intersect_simple_surfaces( &
      end do ! <--------------------------------+          !
   end if ! <----------------------------------------------+
 
-
   if ( stat_degeneracy > 1 ) then ! <---------------------+
+     ! a degeneracy has been encountered                  !
      if ( allocated(ipts_bs) ) deallocate(ipts_bs)        !
      return                                               !
   end if ! <----------------------------------------------+
@@ -3098,90 +3413,30 @@ recursive subroutine intersect_simple_surfaces( &
      PRINT *,'NPTS_BS =',NPTS_BS
      IF ( NPTS_BS > 0 ) THEN
         PRINT *,'IPTS_BS =',IPTS_BS
-        CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:NPTS_BS))) )
+        CALL PRINT_MAT( TRANSPOSE(UVXYZ(1:7,IPTS_BS(1:NPTS_BS))) )
      END IF
-     !PRINT *,'REGION%IPTS ='
-     !DO ISURF = 1,2
-     !   IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
-     !      PRINT *,'N/A'
-     !   ELSE
-     !      PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
-     !   END IF
-     !END DO
   END IF
 
-  if ( npts_bs > 2 ) then ! <-------------------------------------------------+
-     ! More than 2 border-surface intersection points have been found,        !
-     ! the situation is ambiguous so we need to carry on the recursion.       !
-     ! Both regions are subdivided at their parametric center point           !
-     do isurf = 1,2 ! <----------------------------------------------------+  !
-        uv_subdiv = 0.5_fp * ( &                                           !  !
-             region(isurf)%ptr%uvbox([1,3]) + &                            !  !
-             region(isurf)%ptr%uvbox([2,4]) )                              !  !
-        !                                                                  !  !
-        call subdiv_region( &                                              !  !
-             region(isurf)%ptr, &                                          !  !
-             uv_subdiv, &                                                  !  !
-             stat_subdiv )                                                 !  !
-        !                                                                  !  !
-        if ( stat_subdiv > 0 ) then ! <---------------------------------+  !  !
-           ! the region is subdivided into less than 4 children,        !  !  !
-           ! this should not happen                                     !  !  !
-           stat_degeneracy = 33                                         !  !  !
-           return                                                       !  !  !
-        elseif ( stat_subdiv < 0 ) then ! ------------------------------+  !  !
-           ! the region already has children                            !  !  !
-           if ( size(region(isurf)%ptr%child) < 4 ) then ! <---+        !  !  !
-              ! the region has less than 4 children,           !        !  !  !
-              ! this should not happen                         !        !  !  !
-              stat_degeneracy = 34                             !        !  !  !
-           end if ! <------------------------------------------+        !  !  !
-        elseif ( stat_subdiv == 0 ) then ! -----------------------------+  !  !
-           ! the region does not have children yet                      !  !  !
-           do ichild = 1,4 ! <----------------------------------------+ !  !  !
-              allocate(region(isurf)%ptr%child(ichild)%poly(1)    )   ! !  !  !
-              allocate(region(isurf)%ptr%child(ichild)%poly(1)%ptr)   ! !  !  !
-           end do ! <-------------------------------------------------+ !  !  !
-           call subdiv_bezier2( &                                       !  !  !
-                region(isurf)%ptr%poly(1)%ptr, &                        !  !  !
-                [0.5_fp, 0.5_fp], &                                     !  !  !
-                bsw=region(isurf)%ptr%child(1)%poly(1)%ptr, &           !  !  !
-                bse=region(isurf)%ptr%child(2)%poly(1)%ptr, &           !  !  !
-                bnw=region(isurf)%ptr%child(3)%poly(1)%ptr, &           !  !  !
-                bne=region(isurf)%ptr%child(4)%poly(1)%ptr )            !  !  !
-        end if ! <------------------------------------------------------+  !  !
-     end do ! <------------------------------------------------------------+  !
-     !                                                                        !
-     ! carry on the recursion with the 4*4 new pairs of regions               !
-     do jchild = 1,4 ! <---------------------------------------------------+  !
-        newregion(2)%ptr => region(2)%ptr%child(jchild)                    !  !
-        do ichild = 1,4 ! <---------------------------------------------+  !  !
-           newregion(1)%ptr => region(1)%ptr%child(ichild)              !  !  !
-           call intersect_simple_surfaces( &                            !  !  !
-                surfroot, &                                             !  !  !
-                newregion, &                                            !  !  !
-                param_vector, &                                         !  !  !
-                interdata, &                                            !  !  !
-                uvxyz, &                                                !  !  !
-                nuvxyz, &                                               !  !  !
-                stat_degeneracy )                                       !  !  !
-        end do ! <------------------------------------------------------+  !  !
-     end do ! <------------------------------------------------------------+  !
-     !                                                                        !
-  elseif ( npts_bs > 0 ) then ! ----------------------------------------------+
-     ! 0 < npts <= 2                                                          !
+  if ( npts_bs == 0 ) then
+     ! no border-surface intersection points
+     if ( allocated(ipts_bs) ) deallocate(ipts_bs)
+     return
+  end if
+
+  if ( npts_bs <= 2 ) then ! <------------------------------------------------+
      ! classify the border-surface intersection points (entering, exiting,    !
      ! isolated)                                                              !
-     IF ( DEBUG ) THEN
-        PRINT *,'BSI POINTS: UV ='
-        CALL PRINT_MAT(TRANSPOSE(UVXYZ(1:4,IPTS_BS(1:NPTS_BS))))
-     END IF
+     IF ( DEBUG ) THEN ! <---------------------------------------+            !
+        PRINT *,'BSI POINTS: UV ='                               !            !
+        CALL PRINT_MAT(TRANSPOSE(UVXYZ(1:4,IPTS_BS(1:NPTS_BS)))) !            !
+     END IF ! <--------------------------------------------------+            !
      call classify_border_surface_intersection_point( &                       !
           surfroot, &                                                         !
           region, &                                                           !
           reshape( uvxyz(1:4,ipts_bs(1:npts_bs)), [2,2,npts_bs] ), &          !
           npts_bs, &                                                          !
           stat_point(1:npts_bs) )                                             !
+     !                                                                        !
      !                                                                        !
      if ( npts_bs == 2 ) then ! <-------------------------------------+       !
         if ( stat_point(1)*stat_point(2) < 0 ) then ! <---------+     !       !
@@ -3214,7 +3469,8 @@ recursive subroutine intersect_simple_surfaces( &
            END DO ! <-------------------------+
            PRINT *,'STAT_POINT =',STAT_POINT
            PRINT *,'UVXYZ ='
-           CALL PRINT_MAT( TRANSPOSE(UVXYZ(:,IPTS_BS(1:2))) )
+           CALL PRINT_MAT( TRANSPOSE(UVXYZ(1:7,IPTS_BS(1:2))) )
+           PRINT *,'TOLUV =',UVXYZ(8,IPTS_BS(1:2))
            CALL WRITE_POLYNOMIAL( SURFROOT(1)%PTR%X, 'dev_intersection/debugssi_surf1.cheb' )
            CALL WRITE_POLYNOMIAL( SURFROOT(2)%PTR%X, 'dev_intersection/debugssi_surf2.cheb' )
            CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
@@ -3222,37 +3478,136 @@ recursive subroutine intersect_simple_surfaces( &
            PRINT *,'------------------------------------------'
            stat_degeneracy = 35                                 !     !       !
         end if ! <----------------------------------------------+     !       !
-        !                                                             !       !
-     elseif ( npts_bs == 1 ) then ! ----------------------------------+       !
-        if ( .TRUE. ) THEN!stat_point(1) == 0 ) then ! <----------------------+     !       !
-           ! 1 isolated point                                   !     !       !
-        else ! -------------------------------------------------+     !       !
-           ! incorrect configuration                            !     !       !
-           PRINT *,'------------------------------------------'
-           PRINT *,'1 BSI POINT - INCORRECT CONFIGURATION'
-           PRINT *,'UVBOXES ='
-           DO ISURF = 1,2 ! <-----------------+
-              PRINT *,REGION(ISURF)%PTR%UVBOX !
-           END DO ! <-------------------------+
-           PRINT *,'STAT_POINT =',STAT_POINT(1)
-           PRINT *,'UVXYZ ='
-           PRINT *,UVXYZ(:,IPTS_BS(1))
-           CALL WRITE_POLYNOMIAL( SURFROOT(1)%PTR%X, 'dev_intersection/debugssi_surf1.cheb' )
-           CALL WRITE_POLYNOMIAL( SURFROOT(2)%PTR%X, 'dev_intersection/debugssi_surf2.cheb' )
-           CALL WRITE_POLYNOMIAL( REGION(1)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg1.bern' )
-           CALL WRITE_POLYNOMIAL( REGION(2)%PTR%POLY(1)%PTR, 'dev_intersection/debugbsi_reg2.bern' )
-           PRINT *,'------------------------------------------'
-           stat_degeneracy = 36                                 !     !       !
-        end if ! <----------------------------------------------+     !       !
-        !                                                             !       !
      end if ! <-------------------------------------------------------+       !
+     !                                                                        !
+     !                                                                        !
+  elseif ( npts_bs > 2 ) then ! ----------------------------------------------+
+     !                                                                        !
+     ! More than 2 border-surface intersection points have been found,        !
+     ! the situation is ambiguous so we need to carry on the recursion.       !
+     ! first, try to subdivide at an bsi point interior to at least one of    !
+     ! the intersected surface regions.                                       !
+     do ipt = 1,npts_bs ! <----------------------------------------------+    !
+        do isurf = 1,2 ! <--------------------------------------------+  !    !
+           uv_subdiv(:,isurf) = uvxyz(2*isurf-1:2*isurf,ipts_bs(ipt)) !  !    !
+           call subdiv_region( &                                      !  !    !
+                region(isurf)%ptr, &                                  !  !    !
+                uv_subdiv(:,isurf), &                                 !  !    !
+                stat_subdiv(isurf) )                                  !  !    !
+        end do ! <----------------------------------------------------+  !    !
+        if ( any(stat_subdiv /= 2) ) exit                                !    !
+     end do ! <----------------------------------------------------------+    !
+     !                                                                        !
+     if ( all(stat_subdiv == 2) ) then ! <-------------------------------+    !
+        ! all bsi points are at corners in both regions, subdivide at    !    !
+        ! parametric midpoint                                            !    !
+        do isurf = 1,2 ! <--------------------------------------------+  !    !
+           uv_subdiv(:,isurf) = 0.5_fp * ( &                          !  !    !
+                region(isurf)%ptr%uvbox([1,3]) + &                    !  !    !
+                region(isurf)%ptr%uvbox([2,4]) )                      !  !    !
+           call subdiv_region( &                                      !  !    !
+                region(isurf)%ptr, &                                  !  !    !
+                uv_subdiv(:,isurf), &                                 !  !    !
+                stat_subdiv(isurf) )                                  !  !    !
+        end do ! <----------------------------------------------------+  !    !
+     end if ! <----------------------------------------------------------+    !
+     !
+     if ( all(stat_subdiv == 2) ) then ! <-------------------------------+    !
+        ! error, at least one region should be subdivided                !    !
+        stat_degeneracy = 37                                             !    !
+        return                                                           !    !
+     end if ! <----------------------------------------------------------+    !
+     !                                                                        !
+     ! compute Bezier control points for children regions                     !
+     do isurf = 1,2 ! <--------------------------------------------------+    !
+        if ( stat_subdiv(isurf) == 2 ) then ! <-----------------------+  !    !
+           ! the subdivision point is at one of the surface's corners !  !    !
+           nchild(isurf) = 1                                          !  !    !
+           cycle                                                      !  !    !
+        end if ! <----------------------------------------------------+  !    !
+        ! the subdivision point is interior to the surface               !    !
+        nchild(isurf) = size(region(isurf)%ptr%child)                    !    !
+        if ( stat_subdiv(isurf) < 0 ) then ! <-----------+               !    !
+           ! the region's children are already allocated !               !    !
+           cycle                                         !               !    !
+        end if ! <---------------------------------------+               !    !
+        !                                                                !    !
+        ! map uv_subdiv to the region's local frame ([0,1]^2)            !    !
+        do ivar = 1,2 ! <--------------------------------+               !    !
+           uv_subdiv(ivar,isurf) = 0.5_fp * ( 1._fp + &  !               !    !
+                ab2n1p1( &                               !               !    !
+                uv_subdiv(ivar,isurf), &                 !               !    !
+                region(isurf)%ptr%uvbox(2*ivar-1), &     !               !    !
+                region(isurf)%ptr%uvbox(2*ivar) ) )      !               !    !
+        end do ! <---------------------------------------+               !    !
+        !                                                                !    !
+        ! allocate polynomials                                           !    !
+        do ichild = 1,nchild(isurf) ! <--------------------------+       !    !
+           allocate(region(isurf)%ptr%child(ichild)%poly(1)    ) !       !    !
+           allocate(region(isurf)%ptr%child(ichild)%poly(1)%ptr) !       !    !
+        end do ! <-----------------------------------------------+       !    !
+        !                                                                !    !
+        if ( stat_subdiv(isurf) == 0 ) then ! <----------------------+   !    !
+           ! 4 children                                              !   !    !
+           call subdiv_bezier2( &                                    !   !    !
+                region(isurf)%ptr%poly(1)%ptr, &                     !   !    !
+                uv_subdiv(:,isurf), &                                !   !    !
+                bsw=region(isurf)%ptr%child(1)%poly(1)%ptr, &        !   !    !
+                bse=region(isurf)%ptr%child(2)%poly(1)%ptr, &        !   !    !
+                bnw=region(isurf)%ptr%child(3)%poly(1)%ptr, &        !   !    !
+                bne=region(isurf)%ptr%child(4)%poly(1)%ptr )         !   !    !
+        elseif ( stat_subdiv(isurf) == 1 ) then ! -------------------+   !    !
+           ! 2 children                                              !   !    !
+           if ( region(isurf)%ptr%child(2)%uvbox(1) <= &             !   !    !
+                region(isurf)%ptr%uvbox(1) + EPSregion ) then ! <--+ !   !    !
+              ! the subdivision point is on a iso-u boundary       ! !   !    !
+              call subdiv_bezier2_only_v( &                        ! !   !    !
+                   region(isurf)%ptr%poly(1)%ptr, &                ! !   !    !
+                   v=uv_subdiv(2,isurf), &                         ! !   !    !
+                   bs=region(isurf)%ptr%child(1)%poly(1)%ptr, &    ! !   !    !
+                   bn=region(isurf)%ptr%child(2)%poly(1)%ptr )     ! !   !    !
+           else ! -------------------------------------------------+ !   !    !
+              ! the subdivision point is on a iso-v boundary       ! !   !    !
+              call subdiv_bezier2_only_u( &                        ! !   !    !
+                   region(isurf)%ptr%poly(1)%ptr, &                ! !   !    !
+                   u=uv_subdiv(1,isurf), &                         ! !   !    !
+                   bw=region(isurf)%ptr%child(1)%poly(1)%ptr, &    ! !   !    !
+                   be=region(isurf)%ptr%child(2)%poly(1)%ptr )     ! !   !    !
+           end if ! <----------------------------------------------+ !   !    !
+        end if ! <---------------------------------------------------+   !    !
+     end do ! -----------------------------------------------------------+    !
+     !                                                                        !
+     ! carry on the recursion with pairs of children regions                  !
+     do jchild = 1,nchild(2) ! <--------------------------------------+       !
+        if ( nchild(2) == 1 ) then ! <-------------------------+      !       !
+           newregion(2)%ptr => region(2)%ptr                   !      !       !
+        else ! ------------------------------------------------+      !       !
+           newregion(2)%ptr => region(2)%ptr%child(jchild)     !      !       !
+        end if ! <---------------------------------------------+      !       !
+        !                                                             !       !
+        do ichild = 1,nchild(1) ! <-------------------------------+   !       !
+           if ( nchild(1) == 1 ) then ! <----------------------+  !   !       !
+              newregion(1)%ptr => region(1)%ptr                !  !   !       !
+           else ! ---------------------------------------------+  !   !       !
+              newregion(1)%ptr => region(1)%ptr%child(ichild)  !  !   !       !
+           end if ! <------------------------------------------+  !   !       !
+           !                                                      !   !       !
+           call intersect_simple_surfaces( &                      !   !       !
+                surfroot, &                                       !   !       !
+                newregion, &                                      !   !       !
+                param_vector, &                                   !   !       !
+                interdata, &                                      !   !       !
+                uvxyz, &                                          !   !       !
+                nuvxyz, &                                         !   !       !
+                stat_degeneracy )                                 !   !       !
+           !                                                      !   !       !
+        end do ! <------------------------------------------------+   !       !
+     end do ! <-------------------------------------------------------+       !
      !                                                                        !
   end if ! <------------------------------------------------------------------+
 
-  !IF ( DEBUG ) PRINT *,'FREE IPTS_BS...'
   if ( allocated(ipts_bs) ) deallocate(ipts_bs)
-  !IF ( DEBUG ) PRINT *,'           ...OK'
-
+  
 end subroutine intersect_simple_surfaces
 
 
@@ -3267,6 +3622,7 @@ subroutine intersect_elsewhere( &
   use mod_geometry
   use mod_separation
   implicit none
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_polynomial), intent(in)  :: poly(2)
   real(kind=fp),        intent(in)  :: xyz(3)
   logical,              intent(out) :: separable
@@ -3311,7 +3667,10 @@ subroutine intersect_elsewhere( &
      case default ! ---------------------------------------------------+   !
         STOP 'intersect_elsewhere : poly%nvar /= 1,2'                  !   !
      end select ! <----------------------------------------------------+   !
-     !                                                                     !   
+     !                                                                     !
+     if ( nsep(i) >= nbcp ) then
+        PRINT *,'******* intersect_elsewhere : NSEP > NBCP *******'
+     end if
   end do ! <---------------------------------------------------------------+
 
 
@@ -3340,6 +3699,26 @@ subroutine intersect_elsewhere( &
           separable )                                                      !
      !                                                                     !
   end if ! <---------------------------------------------------------------+
+  
+  IF ( DEBUG ) THEN
+     !IF (.NOT.SEPARABLE) THEN
+     PRINT *,'XYZ =',xyz
+     IF (SEPARABLE) THEN
+        PRINT *,'VEC = ',matmul(rot, vec)
+     END IF
+     CALL WRITE_POLYNOMIAL(POLY(1)%PTR, 'dev_intersection/sep1_poly.bern')
+     CALL WRITE_POLYNOMIAL(POLY(2)%PTR, 'dev_intersection/sep2_poly.bern')
+     CALL WRITE_MATRIX(SEP(1)%MAT(1:NSEP(1),1:3), NSEP(1), 3, 'dev_intersection/sep1.dat')
+     CALL WRITE_MATRIX(SEP(2)%MAT(1:NSEP(2),1:3), NSEP(2), 3, 'dev_intersection/sep2.dat')
+     do i = 1,2
+        IF ( NSEP(I) >= SIZE(SEP(I)%MAT,1) ) THEN
+           PRINT *,'I =',I
+           PRINT *,'XYZ =',xyz
+           STOP 'DEBUG SEPARATION'
+        END IF
+     END do
+     !END IF
+  END IF
 
   deallocate( sep(1)%mat, sep(2)%mat )
 
@@ -3540,10 +3919,10 @@ recursive subroutine intersect_surface_pair( &
   integer,                      intent(inout) :: stat_degeneracy
   logical                                     :: overlap
   integer                                     :: stat_collineal
-  real(kind=fp)                               :: uv_collineal(2,2)
+  real(kind=fp)                               :: uv_collineal(2,2), toluv
   real(kind=fp), dimension(3)                 :: xyz_collineal, n_collineal
   integer                                     :: stat_loopdetection
-  real(kind=fp)                               :: tmp(7)
+  real(kind=fp)                               :: tmp(8)
   real(kind=fp)                               :: uv_subdiv(2,2)
   type(ptr_polynomial)                        :: poly(2)
   real(kind=fp)                               :: param_vector(3)
@@ -3556,20 +3935,13 @@ recursive subroutine intersect_surface_pair( &
   if ( stat_degeneracy /= 0 ) return ! a degeneracy has been encountered
 
   IF ( DEBUG ) THEN
-      PRINT *,''; PRINT *,'';
-      PRINT *,'INTERSECT_SURFACE_PAIR'
-      PRINT *,'UVBOXES ='
-      DO ISURF = 1,2 ! <-----------------+
-         PRINT *,REGION(ISURF)%PTR%UVBOX !
-      END DO ! <-------------------------+
-      PRINT *,'IPTS ='
-      DO ISURF = 1,2
-         IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
-            PRINT *,'N/A'
-         ELSE
-            PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
-         END IF
-      END DO
+     !PAUSE
+     PRINT *,''; PRINT *,'';
+     PRINT *,'INTERSECT_SURFACE_PAIR'
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2 ! <-----------------+
+        PRINT *,REGION(ISURF)%PTR%UVBOX !
+     END DO ! <-------------------------+
   END IF
 
   ! inherit from parent regions all intersection points contained in current regions
@@ -3578,9 +3950,21 @@ recursive subroutine intersect_surface_pair( &
         call inherit_points( &                    !     !
              region(isurf)%ptr, &                 !     !
              uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
+             uvxyz(8,1:nuvxyz), &
              nuvxyz )                             !     !
      end do ! <-----------------------------------+     !
   end if ! <--------------------------------------------+
+
+  IF ( DEBUG ) THEN
+     PRINT *,'UV, TOL ='
+     DO ISURF = 1,2
+        PRINT *,'REGION #',ISURF
+        IF ( REGION(ISURF)%PTR%NPTS > 0) THEN
+           CALL PRINT_MAT(TRANSPOSE( &
+                UVXYZ([2*ISURF-1,2*ISURF,8],REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)) ))
+        END IF
+     END DO
+  END IF
 
 
   ! compute bounding boxes for each region...
@@ -3612,6 +3996,7 @@ recursive subroutine intersect_surface_pair( &
   IF ( DEBUG ) PRINT *,'STAT_COLLINEAL(CORNERS) =',stat_collineal
 
   if ( stat_collineal <= 0 ) then ! <----------------------------+
+     toluv = EPSuv
      ! there is a pair of collineal corner points, we will       !
      ! subdivide both region at their parametric center point    !
      do isurf = 1,2 ! <----------------------------+             !
@@ -3663,8 +4048,6 @@ recursive subroutine intersect_surface_pair( &
              newregion(isurf)%ptr )       !                                     !
      end do ! <---------------------------+                                     !
      !                                                                          !
-     !IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
-     !     ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
           newregion, &                                                          !
@@ -3673,23 +4056,19 @@ recursive subroutine intersect_surface_pair( &
           uvxyz, &                                                              !
           nuvxyz, &                                                             !
           stat_degeneracy )                                                     !
-     !IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
      !                                                                          !
      do isurf = 1,2 ! <------------------------------------------------------+  !
         ! copy the data in temporay regions back to the current regions      !  !
         ! (essentially indices of newly discovered intersection points)...   !  !
         if ( newregion(isurf)%ptr%npts > 0 ) then ! <---------------------+  !  !
-           !IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
            call append_n( &                                               !  !  !
                 region(isurf)%ptr%ipts, &                                 !  !  !
                 region(isurf)%ptr%npts, &                                 !  !  !
                 newregion(isurf)%ptr%ipts(1:newregion(isurf)%ptr%npts), & !  !  !
                 newregion(isurf)%ptr%npts, &                              !  !  !
                 unique=.true. )                                           !  !  !
-           !IF ( DEBUG ) PRINT *,'OK'
         end if ! <--------------------------------------------------------+  !  !
         ! ...then free the temporay region trees...                          !  !
-        !IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
         nullify( &                                                           !  !
              newregion(isurf)%ptr%xyzbox,      &                             !  !
              newregion(isurf)%ptr%poly(1)%ptr, &                             !  !
@@ -3697,7 +4076,6 @@ recursive subroutine intersect_surface_pair( &
         deallocate( newregion(isurf)%ptr%poly )                              !  !
         call free_region_tree( newregion(isurf)%ptr )                        !  !
         deallocate( newregion(isurf)%ptr )                                   !  !
-        !IF ( DEBUG ) PRINT *,'OK'
      end do ! <--------------------------------------------------------------+  !
      !                                                                          !
      ! ... and finally return (there cannot be other intersection points/curves ! 
@@ -3724,6 +4102,7 @@ recursive subroutine intersect_surface_pair( &
           stat_collineal, &                                                     !
           uv_collineal, &                                                       !
           n_collineal, &                                                        !
+          toluv, &
           xyz_collineal )                                                       !
      IF ( DEBUG ) PRINT *,'STAT_COLLINEAL =',stat_collineal
      !                                                                          !
@@ -3736,47 +4115,54 @@ recursive subroutine intersect_surface_pair( &
   if ( stat_collineal < 0 ) then  ! <-------------------------------------------+
      ! The collineal points are coincident: this is a tangential contact point. !
      ! first, add the point to the collection...                                !
-     if ( nuvxyz > 0) then ! <------------+                                     !
-        call check_unicity( &             !                                     !
-             xyz_collineal, &             !                                     !
-             3, &                         !                                     !
-             uvxyz(5:7,1:nuvxyz), &       !                                     !
-             nuvxyz, &                    !                                     !
-             EPSxyz, &                    !                                     !
-             ipt )                        !                                     !
-     else ! ------------------------------!                                     !
-        ipt = 1                           !                                     !
-     end if ! <---------------------------+                                     !
-     if ( ipt > nuvxyz ) then ! <--------------------------+                    !
-        tmp(1:2) = uv_collineal(:,1)                       !                    !
-        tmp(3:4) = uv_collineal(:,2)                       !                    !
-        tmp(5:7) = xyz_collineal                           !                    !
-        call append_vector( &                              !                    !
-             tmp(1:7), &                                   !                    !
-             7, &                                          !                    !
-             uvxyz, &                                      !                    !
-             nuvxyz )                                      !                    !
-     end if ! <--------------------------------------------+                    !
-     do isurf = 1,2 ! <------------------------+                                !
-        call add_points_bottom_up( &           !                                !
-             region(isurf)%ptr, &              !                                !
-             [nuvxyz], &                       !                                !
-             1 )                               !                                !
-     end do ! <--------------------------------+                                !
+     if ( nuvxyz > 0) then ! <-------------------------+                        !
+        call check_unicity_with_tolerance( &           !                        !
+             reshape(uv_collineal, [4]), &             !                        !
+             xyz_collineal, &                          !                        !
+             toluv, &                                  !                        !
+             4, &                                      !                        !
+             uvxyz(1:4,1:nuvxyz), &                    !                        !
+             uvxyz(5:7,1:nuvxyz), &                    !                        !
+             uvxyz(8,1:nuvxyz), &                      !                        !
+             nuvxyz, &                                 !                        !
+             ipt )                                     !                        !
+     else ! -------------------------------------------+                        !
+        ipt = 1                                        !                        !
+     end if ! <----------------------------------------+                        !
+     !                                                                          !
+     if ( ipt > nuvxyz ) then ! <----------------------+                        !
+        tmp(1:2) = uv_collineal(:,1)                   !                        !
+        tmp(3:4) = uv_collineal(:,2)                   !                        !
+        tmp(5:7) = xyz_collineal                       !                        !
+        tmp(8) = toluv                                 !                        !
+        call append_vector( &                          !                        !
+             tmp(1:8), &                               !                        !
+             8, &                                      !                        !
+             uvxyz, &                                  !                        !
+             nuvxyz )                                  !                        !
+     end if ! <----------------------------------------+                        !
+     !                                                                          !
+     do isurf = 1,2 ! <--------------------------------+                        !
+        call add_points_bottom_up( &                   !                        !
+             region(isurf)%ptr, &                      !                        !
+             [nuvxyz], &                               !                        !
+             1 )                                       !                        !
+     end do ! <----------------------------------------+                        !
      !                                                                          !
      ! ... then determine the nature of that singular point                     !
      ! compute tangent and normal vectors                                       !
-     do isurf = 1,2 ! <----------------------------------+                      !
-        do ivar = 1,2 ! <------------------+             !                      !
-           call evald1( &                  !             !                      !
-                dxyz_duv(:,ivar,isurf), &  !             !                      !
-                surfroot(isurf)%ptr, &     !             !                      !
-                uv_collineal(:,isurf), &   !             !                      !
-                ivar )                     !             !                      !
-        end do ! <-------------------------+             !                      !
-        n(:,isurf) = cross( &                            !                      !
-             dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf) )  !                      !
-     end do ! <------------------------------------------+                      !
+     do isurf = 1,2 ! <--------------------------------+                        !
+        do ivar = 1,2 ! <------------------+           !                        !
+           call evald1( &                  !           !                        !
+                dxyz_duv(:,ivar,isurf), &  !           !                        !
+                surfroot(isurf)%ptr, &     !           !                        !
+                uv_collineal(:,isurf), &   !           !                        !
+                ivar )                     !           !                        !
+        end do ! <-------------------------+           !                        !
+        n(:,isurf) = cross(&                           !                        !
+             dxyz_duv(:,1,isurf), &                    !                        !
+             dxyz_duv(:,2,isurf))                      !                        !
+     end do ! <----------------------------------------+                        !
      call characterize_tangential_intersection_point( &                         !
           surfroot, &                                                           !
           uv_collineal, &                                                       !
@@ -3830,28 +4216,13 @@ recursive subroutine intersect_surface_pair( &
   elseif ( stat_collineal > 0 ) then ! -----------------------------------------+
      ! no pair of collineal points has been found, we subdivide the surface     !
      ! with largest Gauss map at its center point                               !
+     !                                                                          !
      do isurf = 1,2 ! <------------------------------------------+              !
         uv_subdiv(:,isurf) = 0.5_fp * ( &                        !              !
              region(isurf)%ptr%uvbox([1,3]) + &                  !              !
              region(isurf)%ptr%uvbox([2,4]) )                    !              !
      end do ! <--------------------------------------------------+              !
      !                                                                          !
-  elseif ( .FALSE. ) THEN !stat_collineal == 0 ) then ! ----------------------------------------+
-     if ( stat_loopdetection /= 3 ) then
-        isurf = stat_loopdetection
-        do ivar = 1,2
-           if ( is_in_open_interval( &
-                uv_collineal(ivar,isurf), &
-                region(isurf)%ptr%uvbox(2*ivar-1), &
-                region(isurf)%ptr%uvbox(2*ivar), &
-                tolerance=EPSregion ) ) exit
-        end do
-        if ( ivar > 2 ) then! <---------------------+
-           uv_subdiv(:,isurf) = 0.5_fp * ( &        !
-                region(isurf)%ptr%uvbox([1,3]) + &  !
-                region(isurf)%ptr%uvbox([2,4]) )    !
-        end if ! <----------------------------------+
-     end if
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
@@ -3897,8 +4268,7 @@ recursive subroutine intersect_surface_pair( &
              stat_subdiv(isurf) )                             !    !
         if ( stat_subdiv(isurf) == 2 ) then ! <-----------+   !    !
            ! recursion terminates prematurely because     !   !    !
-           ! both regions have ranges smaller than        !   !    !
-           ! 2*EPSregion                                  !   !    !
+           ! both regions are too small                   !   !    !
            stat_degeneracy = 22                           !   !    !
            return                                         !   !    !
         else ! -------------------------------------------+   !    !
@@ -3998,6 +4368,64 @@ recursive subroutine intersect_surface_pair( &
   end do ! <-------------------------------------------------------+
 
 end subroutine intersect_surface_pair
+
+
+
+subroutine curve_surface_separation_at_tangential_contact( &
+     surf, &
+     uv, &
+     xyz, &
+     bc, &
+     bs, &
+     separable )
+  use mod_math
+  use mod_polynomial
+  use mod_diffgeom
+  use mod_tolerances
+  implicit none
+  type(type_surface),    intent(in)  :: surf
+  real(kind=fp),         intent(in)  :: uv(2)
+  real(kind=fp),         intent(in)  :: xyz(3)
+  type(type_polynomial), intent(in)  :: bc, bs
+  logical,               intent(out) :: separable
+  real(kind=fp), dimension(3)        :: su, sv, n
+  real(kind=fp)                      :: dotn, mn(2), mx(2)
+  integer                            :: i, j
+
+  !CALL WRITE_POLYNOMIAL(BC, 'dev_intersection/debugcsstc_bc.bern')
+  !CALL WRITE_POLYNOMIAL(BS, 'dev_intersection/debugcsstc_bs.bern')
+
+  call evald1(su, surf, uv, 1)
+  call evald1(sv, surf, uv, 2)
+  n = cross(su, sv)
+  !PRINT *,' UV =',UV
+  !PRINT *,'XYZ =',XYZ
+  !PRINT *,'  N =',N
+
+  mn(:) =  huge(1._fp)
+  mx(:) = -huge(1._fp)
+  
+  do i = 1,bc%degr(1)+1
+     dotn = dot_product(bc%coef(i,1:3,1) - xyz, n)
+     !PRINT *,I,DOTN
+     mn(1) = min(mn(1), dotn)
+     mx(1) = max(mx(1), dotn)
+  end do
+
+  do j = 1,bs%degr(2)+1
+     do i = 1,bs%degr(1)+1
+        !PRINT *,I,J,DOTN
+        dotn = dot_product(bs%coef(i,j,1:3) - xyz, n)
+        mn(2) = min(mn(2), dotn)
+        mx(2) = max(mx(2), dotn)
+     end do
+  end do
+
+  !PRINT *,'MAX(MIN) - MIN(MAX) =', maxval(mn) - minval(mx)
+  
+  separable = ( maxval(mn) < minval(mx) + EPSxyz )
+  
+end subroutine curve_surface_separation_at_tangential_contact
 
 
 

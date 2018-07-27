@@ -22,10 +22,10 @@ recursive subroutine intersect_surface_pair( &
   integer,                      intent(inout) :: stat_degeneracy
   logical                                     :: overlap
   integer                                     :: stat_collineal
-  real(kind=fp)                               :: uv_collineal(2,2)
+  real(kind=fp)                               :: uv_collineal(2,2), toluv
   real(kind=fp), dimension(3)                 :: xyz_collineal, n_collineal
   integer                                     :: stat_loopdetection
-  real(kind=fp)                               :: tmp(7)
+  real(kind=fp)                               :: tmp(8)
   real(kind=fp)                               :: uv_subdiv(2,2)
   type(ptr_polynomial)                        :: poly(2)
   real(kind=fp)                               :: param_vector(3)
@@ -38,20 +38,13 @@ recursive subroutine intersect_surface_pair( &
   if ( stat_degeneracy /= 0 ) return ! a degeneracy has been encountered
 
   IF ( DEBUG ) THEN
-      PRINT *,''; PRINT *,'';
-      PRINT *,'INTERSECT_SURFACE_PAIR'
-      PRINT *,'UVBOXES ='
-      DO ISURF = 1,2 ! <-----------------+
-         PRINT *,REGION(ISURF)%PTR%UVBOX !
-      END DO ! <-------------------------+
-      PRINT *,'IPTS ='
-      DO ISURF = 1,2
-         IF ( REGION(ISURF)%PTR%NPTS < 1 ) THEN
-            PRINT *,'N/A'
-         ELSE
-            PRINT *,REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)
-         END IF
-      END DO
+     !PAUSE
+     PRINT *,''; PRINT *,'';
+     PRINT *,'INTERSECT_SURFACE_PAIR'
+     PRINT *,'UVBOXES ='
+     DO ISURF = 1,2 ! <-----------------+
+        PRINT *,REGION(ISURF)%PTR%UVBOX !
+     END DO ! <-------------------------+
   END IF
 
   ! inherit from parent regions all intersection points contained in current regions
@@ -60,9 +53,21 @@ recursive subroutine intersect_surface_pair( &
         call inherit_points( &                    !     !
              region(isurf)%ptr, &                 !     !
              uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
+             uvxyz(8,1:nuvxyz), &
              nuvxyz )                             !     !
      end do ! <-----------------------------------+     !
   end if ! <--------------------------------------------+
+
+  IF ( DEBUG ) THEN
+     PRINT *,'UV, TOL ='
+     DO ISURF = 1,2
+        PRINT *,'REGION #',ISURF
+        IF ( REGION(ISURF)%PTR%NPTS > 0) THEN
+           CALL PRINT_MAT(TRANSPOSE( &
+                UVXYZ([2*ISURF-1,2*ISURF,8],REGION(ISURF)%PTR%IPTS(1:REGION(ISURF)%PTR%NPTS)) ))
+        END IF
+     END DO
+  END IF
 
 
   ! compute bounding boxes for each region...
@@ -94,6 +99,7 @@ recursive subroutine intersect_surface_pair( &
   IF ( DEBUG ) PRINT *,'STAT_COLLINEAL(CORNERS) =',stat_collineal
 
   if ( stat_collineal <= 0 ) then ! <----------------------------+
+     toluv = EPSuv
      ! there is a pair of collineal corner points, we will       !
      ! subdivide both region at their parametric center point    !
      do isurf = 1,2 ! <----------------------------+             !
@@ -145,8 +151,6 @@ recursive subroutine intersect_surface_pair( &
              newregion(isurf)%ptr )       !                                     !
      end do ! <---------------------------+                                     !
      !                                                                          !
-     !IF ( DEBUG ) PRINT *,'BEFORE SIMPLE_SURFACES, NC =',INTERDATA%NC, &
-     !     ', ALLOCATED?',ALLOCATED(INTERDATA%CURVES)
      call intersect_simple_surfaces( &                                          !
           surfroot, &                                                           !
           newregion, &                                                          !
@@ -155,23 +159,19 @@ recursive subroutine intersect_surface_pair( &
           uvxyz, &                                                              !
           nuvxyz, &                                                             !
           stat_degeneracy )                                                     !
-     !IF ( DEBUG ) PRINT *,'BACK TO INTERSECT_SURFACE_PAIR'
      !                                                                          !
      do isurf = 1,2 ! <------------------------------------------------------+  !
         ! copy the data in temporay regions back to the current regions      !  !
         ! (essentially indices of newly discovered intersection points)...   !  !
         if ( newregion(isurf)%ptr%npts > 0 ) then ! <---------------------+  !  !
-           !IF ( DEBUG ) PRINT *,'COPY NEW POINTS, SURF',ISURF
            call append_n( &                                               !  !  !
                 region(isurf)%ptr%ipts, &                                 !  !  !
                 region(isurf)%ptr%npts, &                                 !  !  !
                 newregion(isurf)%ptr%ipts(1:newregion(isurf)%ptr%npts), & !  !  !
                 newregion(isurf)%ptr%npts, &                              !  !  !
                 unique=.true. )                                           !  !  !
-           !IF ( DEBUG ) PRINT *,'OK'
         end if ! <--------------------------------------------------------+  !  !
         ! ...then free the temporay region trees...                          !  !
-        !IF ( DEBUG ) PRINT *,'FREE MEMORY, SURF',ISURF
         nullify( &                                                           !  !
              newregion(isurf)%ptr%xyzbox,      &                             !  !
              newregion(isurf)%ptr%poly(1)%ptr, &                             !  !
@@ -179,7 +179,6 @@ recursive subroutine intersect_surface_pair( &
         deallocate( newregion(isurf)%ptr%poly )                              !  !
         call free_region_tree( newregion(isurf)%ptr )                        !  !
         deallocate( newregion(isurf)%ptr )                                   !  !
-        !IF ( DEBUG ) PRINT *,'OK'
      end do ! <--------------------------------------------------------------+  !
      !                                                                          !
      ! ... and finally return (there cannot be other intersection points/curves ! 
@@ -206,6 +205,7 @@ recursive subroutine intersect_surface_pair( &
           stat_collineal, &                                                     !
           uv_collineal, &                                                       !
           n_collineal, &                                                        !
+          toluv, &
           xyz_collineal )                                                       !
      IF ( DEBUG ) PRINT *,'STAT_COLLINEAL =',stat_collineal
      !                                                                          !
@@ -218,47 +218,54 @@ recursive subroutine intersect_surface_pair( &
   if ( stat_collineal < 0 ) then  ! <-------------------------------------------+
      ! The collineal points are coincident: this is a tangential contact point. !
      ! first, add the point to the collection...                                !
-     if ( nuvxyz > 0) then ! <------------+                                     !
-        call check_unicity( &             !                                     !
-             xyz_collineal, &             !                                     !
-             3, &                         !                                     !
-             uvxyz(5:7,1:nuvxyz), &       !                                     !
-             nuvxyz, &                    !                                     !
-             EPSxyz, &                    !                                     !
-             ipt )                        !                                     !
-     else ! ------------------------------!                                     !
-        ipt = 1                           !                                     !
-     end if ! <---------------------------+                                     !
-     if ( ipt > nuvxyz ) then ! <--------------------------+                    !
-        tmp(1:2) = uv_collineal(:,1)                       !                    !
-        tmp(3:4) = uv_collineal(:,2)                       !                    !
-        tmp(5:7) = xyz_collineal                           !                    !
-        call append_vector( &                              !                    !
-             tmp(1:7), &                                   !                    !
-             7, &                                          !                    !
-             uvxyz, &                                      !                    !
-             nuvxyz )                                      !                    !
-     end if ! <--------------------------------------------+                    !
-     do isurf = 1,2 ! <------------------------+                                !
-        call add_points_bottom_up( &           !                                !
-             region(isurf)%ptr, &              !                                !
-             [nuvxyz], &                       !                                !
-             1 )                               !                                !
-     end do ! <--------------------------------+                                !
+     if ( nuvxyz > 0) then ! <-------------------------+                        !
+        call check_unicity_with_tolerance( &           !                        !
+             reshape(uv_collineal, [4]), &             !                        !
+             xyz_collineal, &                          !                        !
+             toluv, &                                  !                        !
+             4, &                                      !                        !
+             uvxyz(1:4,1:nuvxyz), &                    !                        !
+             uvxyz(5:7,1:nuvxyz), &                    !                        !
+             uvxyz(8,1:nuvxyz), &                      !                        !
+             nuvxyz, &                                 !                        !
+             ipt )                                     !                        !
+     else ! -------------------------------------------+                        !
+        ipt = 1                                        !                        !
+     end if ! <----------------------------------------+                        !
+     !                                                                          !
+     if ( ipt > nuvxyz ) then ! <----------------------+                        !
+        tmp(1:2) = uv_collineal(:,1)                   !                        !
+        tmp(3:4) = uv_collineal(:,2)                   !                        !
+        tmp(5:7) = xyz_collineal                       !                        !
+        tmp(8) = toluv                                 !                        !
+        call append_vector( &                          !                        !
+             tmp(1:8), &                               !                        !
+             8, &                                      !                        !
+             uvxyz, &                                  !                        !
+             nuvxyz )                                  !                        !
+     end if ! <----------------------------------------+                        !
+     !                                                                          !
+     do isurf = 1,2 ! <--------------------------------+                        !
+        call add_points_bottom_up( &                   !                        !
+             region(isurf)%ptr, &                      !                        !
+             [nuvxyz], &                               !                        !
+             1 )                                       !                        !
+     end do ! <----------------------------------------+                        !
      !                                                                          !
      ! ... then determine the nature of that singular point                     !
      ! compute tangent and normal vectors                                       !
-     do isurf = 1,2 ! <----------------------------------+                      !
-        do ivar = 1,2 ! <------------------+             !                      !
-           call evald1( &                  !             !                      !
-                dxyz_duv(:,ivar,isurf), &  !             !                      !
-                surfroot(isurf)%ptr, &     !             !                      !
-                uv_collineal(:,isurf), &   !             !                      !
-                ivar )                     !             !                      !
-        end do ! <-------------------------+             !                      !
-        n(:,isurf) = cross( &                            !                      !
-             dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf) )  !                      !
-     end do ! <------------------------------------------+                      !
+     do isurf = 1,2 ! <--------------------------------+                        !
+        do ivar = 1,2 ! <------------------+           !                        !
+           call evald1( &                  !           !                        !
+                dxyz_duv(:,ivar,isurf), &  !           !                        !
+                surfroot(isurf)%ptr, &     !           !                        !
+                uv_collineal(:,isurf), &   !           !                        !
+                ivar )                     !           !                        !
+        end do ! <-------------------------+           !                        !
+        n(:,isurf) = cross(&                           !                        !
+             dxyz_duv(:,1,isurf), &                    !                        !
+             dxyz_duv(:,2,isurf))                      !                        !
+     end do ! <----------------------------------------+                        !
      call characterize_tangential_intersection_point( &                         !
           surfroot, &                                                           !
           uv_collineal, &                                                       !
@@ -312,28 +319,13 @@ recursive subroutine intersect_surface_pair( &
   elseif ( stat_collineal > 0 ) then ! -----------------------------------------+
      ! no pair of collineal points has been found, we subdivide the surface     !
      ! with largest Gauss map at its center point                               !
+     !                                                                          !
      do isurf = 1,2 ! <------------------------------------------+              !
         uv_subdiv(:,isurf) = 0.5_fp * ( &                        !              !
              region(isurf)%ptr%uvbox([1,3]) + &                  !              !
              region(isurf)%ptr%uvbox([2,4]) )                    !              !
      end do ! <--------------------------------------------------+              !
      !                                                                          !
-  elseif ( .FALSE. ) THEN !stat_collineal == 0 ) then ! ----------------------------------------+
-     if ( stat_loopdetection /= 3 ) then
-        isurf = stat_loopdetection
-        do ivar = 1,2
-           if ( is_in_open_interval( &
-                uv_collineal(ivar,isurf), &
-                region(isurf)%ptr%uvbox(2*ivar-1), &
-                region(isurf)%ptr%uvbox(2*ivar), &
-                tolerance=EPSregion ) ) exit
-        end do
-        if ( ivar > 2 ) then! <---------------------+
-           uv_subdiv(:,isurf) = 0.5_fp * ( &        !
-                region(isurf)%ptr%uvbox([1,3]) + &  !
-                region(isurf)%ptr%uvbox([2,4]) )    !
-        end if ! <----------------------------------+
-     end if
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
@@ -379,8 +371,7 @@ recursive subroutine intersect_surface_pair( &
              stat_subdiv(isurf) )                             !    !
         if ( stat_subdiv(isurf) == 2 ) then ! <-----------+   !    !
            ! recursion terminates prematurely because     !   !    !
-           ! both regions have ranges smaller than        !   !    !
-           ! 2*EPSregion                                  !   !    !
+           ! both regions are too small                   !   !    !
            stat_degeneracy = 22                           !   !    !
            return                                         !   !    !
         else ! -------------------------------------------+   !    !

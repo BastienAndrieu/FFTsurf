@@ -7,11 +7,13 @@ addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/Newton/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FourierContinuation/Experiments/parameters_qT/bivariate/');
 
 %% curve and surface
-C.x = readCoeffs1( 'curv.cheb' );
+C.x = readCoeffs1('../dev_intersection/debugbsi_c.cheb');
+% C.x = readCoeffs1( 'curv.cheb' );
 C.xt = cheb_diff1( C.x );
 C.xtt = cheb_diff1( C.x );
 
-S.x = readCoeffs2( 'surf.cheb' );
+% S.x = readCoeffs2( 'surf.cheb' );
+S.x = readCoeffs2('../dev_intersection/debugbsi_s.cheb');
 d = cheb_diff2( S.x );
 S.xu = d(:,:,:,1);
 S.xv = d(:,:,:,2);
@@ -23,7 +25,7 @@ S.xvv = d(:,:,:,2);
 
 %% initial iterate
 tuv0 = zeros(3,1);
-if 1
+if 0
     fid = fopen('tuv.dat','r');
     tuv0(1) = str2num(fgetl(fid));
     tuv0(2:3) = str2num(fgetl(fid))';

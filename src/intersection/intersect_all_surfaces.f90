@@ -51,7 +51,7 @@ subroutine intersect_all_surfaces( &
 
 
   nuvxyz = 0
-  allocate(uvxyz(7,10))
+  allocate(uvxyz(8,10))
 
   ! loop over all pairs of DISTINCT surfaces and compute their intersection
   outer : do isurf = 1,nsurf-1

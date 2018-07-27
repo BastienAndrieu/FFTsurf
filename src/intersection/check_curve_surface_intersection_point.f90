@@ -8,7 +8,7 @@ subroutine check_curve_surface_intersection_point( &
   use mod_diffgeom
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_curve),   intent(in)  :: curv
   type(type_surface), intent(in)  :: surf
   real(kind=fp),      intent(in)  :: t

@@ -20,7 +20,7 @@ subroutine intersect_border_surface( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
@@ -37,7 +37,7 @@ subroutine intersect_border_surface( &
   type(type_region)                         :: region_s
   real(kind=fp), allocatable                :: tuvxyz(:,:)
   integer                                   :: ntuvxyz, ntuvxyz_tmp
-  real(kind=fp)                             :: tmp(7), uv(2,2)
+  real(kind=fp)                             :: tmp(8), uv(2,2)
   integer                                   :: ipt, jpt
 
   IF ( DEBUG ) THEN
@@ -77,7 +77,7 @@ subroutine intersect_border_surface( &
   region_s%poly(1)%ptr => region(isurf)%ptr%poly(1)%ptr
   
   ntuvxyz = 0
-  allocate(tuvxyz(6,10))
+  allocate(tuvxyz(7,10))
   IF ( DEBUG ) THEN
      PRINT *,'NPTS_SS =',npts_ss
      IF ( NPTS_SS > 0 ) THEN
@@ -98,16 +98,18 @@ subroutine intersect_border_surface( &
              region(icurv)%ptr%uvbox(2*jvar  ) )                                        !   !
         tmp(2:3) = uvxyz(2*isurf-1:2*isurf,ipt)                                         !   !
         tmp(4:6) = uvxyz(5:7,ipt)                                                       !   !
+        tmp(7)   = uvxyz(8,ipt)                                                         !   !
         IF ( DEBUG ) THEN
            PRINT *,'+ 1PT ON BORDER :'
            PRINT *,'    UV =',UVXYZ(1:4,IPT)
            PRINT *,'   XYZ =',UVXYZ(5:7,IPT)
+           PRINT *,' TOLUV =',UVXYZ(8,IPT)
            PRINT *,'TUVXYZ =',TMP(1:6)
         END IF
         !                                                                               !   !
         call append_vector( &                                                           !   !
-             tmp(1:6), &                                                                !   !
-             6, &                                                                       !   !
+             tmp(1:7), &                                                                !   !
+             7, &                                                                       !   !
              tuvxyz, &                                                                  !   !
              ntuvxyz )                                                                  !   !
         !                                                                               !   !
@@ -117,6 +119,9 @@ subroutine intersect_border_surface( &
              [ipt], &                                                                   !   !
              1, &                                                                       !   !
              unique=.true. )                                                            !   !
+        !                                                                               !   !
+        call add_point_bottom_up( region_c, ntuvxyz )
+        call add_point_bottom_up( region_s, ntuvxyz )
      end if ! <-------------------------------------------------------------------------+   !
   end do ! <--------------------------------------------------------------------------------+
   ntuvxyz_tmp = ntuvxyz
@@ -125,6 +130,7 @@ subroutine intersect_border_surface( &
      PRINT *,'NTUVXYZ_TMP =',NTUVXYZ!_TMP
      PRINT *,'TUVXYZ ='
      CALL PRINT_MAT( TRANSPOSE(TUVXYZ(1:6,1:NTUVXYZ)) )
+     PRINT *,'TOLTUV =',TUVXYZ(7,1:NTUVXYZ)
   END IF
 
 
@@ -142,13 +148,17 @@ subroutine intersect_border_surface( &
   if ( stat_degeneracy == 50 ) stat_degeneracy = 0
   IF ( DEBUG ) THEN
      PRINT *,'NTUVXYZ =',NTUVXYZ
-     IF ( NTUVXYZ > 0 ) CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
+     IF ( NTUVXYZ > 0 ) THEN
+        CALL PRINT_MAT( TRANSPOSE(TUVXYZ(:,1:NTUVXYZ)) )
+        PRINT *,'TOLTUV =',TUVXYZ(7,1:NTUVXYZ)
+     END IF
      !CALL EXPORT_REGION_TREE( REGION_C, 'dev_intersection/treebsi_c.dat' )
      !CALL EXPORT_REGION_TREE( REGION_S, 'dev_intersection/treebsi_s.dat' )
   END IF
 
   IF ( stat_degeneracy > 0 ) THEN
      CALL WRITE_POLYNOMIAL( ROOT_C%X, 'dev_intersection/debugbsi_c.cheb' )
+     CALL WRITE_POLYNOMIAL( ROOT_S(icurv)%ptr%X, 'dev_intersection/debugbsi_scurv.cheb' )
      CALL WRITE_POLYNOMIAL( ROOT_S(isurf)%ptr%X, 'dev_intersection/debugbsi_s.cheb' )
      CALL WRITE_POLYNOMIAL( REGION_C%POLY(1)%PTR, 'dev_intersection/debugbsi_c.bern' )
      CALL WRITE_POLYNOMIAL( REGION_S%POLY(1)%PTR, 'dev_intersection/debugbsi_s.bern' )
@@ -180,24 +190,28 @@ subroutine intersect_border_surface( &
      tmp(1:2) = uv(:,1)                                             !
      tmp(3:4) = uv(:,2)                                             !
      tmp(5:7) = tuvxyz(4:6,ipt)                                     !
+     tmp(8)   = tuvxyz(7,ipt)                                       !
      !                                                              !
      ! check unicity                                                !
-     if ( nuvxyz > 0 ) then ! <-------+                             !
-        call check_unicity( &         !                             !
-             tmp(5:7), &              !                             !
-             3, &                     !                             !
-             uvxyz(5:7,1:nuvxyz), &   !                             !
-             nuvxyz, &                !                             !
-             EPSxyz, &                !                             !
-             jpt )                    !                             !
-     else ! --------------------------+                             !
-        jpt = 1                       !                             !
-     end if ! <-----------------------+                             !
+     if ( nuvxyz > 0 ) then ! <---------------+                     !
+        call check_unicity_with_tolerance( &  !                     !
+             tmp(1:4), &                      !                     !
+             tmp(5:7), &                      !                     !
+             tmp(8), &                        !                     !
+             4, &                             !                     !
+             uvxyz(1:4,1:nuvxyz), &           !                     !
+             uvxyz(5:7,1:nuvxyz), &           !                     !
+             uvxyz(8,1:nuvxyz), &             !                     !
+             nuvxyz, &                        !                     !
+             jpt )                            !                     !
+     else ! ----------------------------------+                     !
+        jpt = 1                               !                     !
+     end if ! <-------------------------------+                     !
      !                                                              !
      if ( jpt > nuvxyz ) then ! <-----+                             !
         call append_vector( &         !                             !
-             tmp(1:7), &              !                             !
-             7, &                     !                             !
+             tmp(1:8), &              !                             !
+             8, &                     !                             !
              uvxyz, &                 !                             !
              nuvxyz )                 !                             !
         jpt = nuvxyz                  !                             !
@@ -216,7 +230,7 @@ subroutine intersect_border_surface( &
      END IF
   end do ! <--------------------------------------------------------+
   
-  if ( allocated(tuvxyz)    ) deallocate(tuvxyz   )
+  if ( allocated(tuvxyz) ) deallocate(tuvxyz)
 
 
 end subroutine intersect_border_surface

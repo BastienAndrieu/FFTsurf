@@ -5,6 +5,7 @@ subroutine find_collineal_points( &
      stat, &
      uv_collineal, &
      n_collineal, &
+     toluv, &
      xyz_collineal )
   use mod_math
   use mod_linalg
@@ -27,6 +28,7 @@ subroutine find_collineal_points( &
   integer,           intent(out)   :: stat
   real(kind=fp),     intent(inout) :: uv_collineal(2,2)
   real(kind=fp),     intent(out)   :: n_collineal(3)
+  real(kind=fp),     intent(out)   :: toluv
   real(kind=fp),     intent(out)   :: xyz_collineal(3)
   real(kind=fp),     intent(in)    :: lowerb(4)
   real(kind=fp),     intent(in)    :: upperb(4)
@@ -145,9 +147,19 @@ subroutine find_collineal_points( &
      !! termination criteria
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <------------+
         if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+    !
+           if ( erruv > EPSuvsqr ) then
+              PRINT *,'find_collineal_points : /!\ toluv > EPSuv'
+           end if
+           toluv = sqrt(erruv)                                     !    !
            if ( sum(r**2) < EPSxyzsqr ) then ! <--------------+    !    !
               ! converged to a tangential intersection point  !    !    !
               stat = -1                                       !    !    !
+              do isurf = 1,2 ! <----------------+             !    !    !
+                 call eval( &                   !             !    !    !
+                      xyz(:,isurf), &           !             !    !    !
+                      surf(isurf)%ptr, &        !             !    !    !
+                      uv_collineal(:,isurf) )   !             !    !    !
+              end do ! <------------------------+             !    !    !
               xyz_collineal = 0.5_fp * sum(xyz, 2)            !    !    !
            else ! --------------------------------------------+    !    !
               ! converged to a pair of collineal points       !    !    !

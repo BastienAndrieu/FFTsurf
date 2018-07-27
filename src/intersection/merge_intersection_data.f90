@@ -13,7 +13,7 @@ subroutine merge_intersection_data( &
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surf(2)
   integer,                      intent(in)    :: nuvxyz
-  real(kind=fp),                intent(in)    :: uvxyz(7,nuvxyz)
+  real(kind=fp),                intent(in)    :: uvxyz(8,nuvxyz)
   type(type_intersection_data), intent(in)    :: interdata_local
   type(type_intersection_data), intent(inout) :: interdata_global
   integer                                     :: id_global(nuvxyz)
@@ -21,6 +21,11 @@ subroutine merge_intersection_data( &
   integer                                     :: nc
   integer                                     :: ip, ic, jc, isurf
 
+  IF ( DEBUG ) THEN
+     PRINT *,'UVXYZ ='
+     CALL PRINT_MAT(TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)))
+     PRINT *,'TOLUV =',UVXYZ(8,1:NUVXYZ)
+  END IF
   ! add new intersection points
   do ip = 1,nuvxyz
      call add_intersection_point( &

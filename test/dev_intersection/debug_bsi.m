@@ -11,28 +11,37 @@ addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/separation/');
 cl = colorcet( 'I2', 'N', 2 );
 
 uvbox = [
-    -1.0000000000000000        0.0000000000000000        0.0000000000000000        1.0000000000000000     
-   0.0000000000000000        1.0000000000000000       -1.0000000000000000        0.0000000000000000
-%     -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000     
-%   -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000
+    -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000     
+  -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000
+% 0.0000000000000000        1.5258789062500000E-005 -0.30496215820312500      -0.30494689941406250     
+%  -0.10777282714843750      -0.10775756835937500       -4.9316406250000000E-002  -4.9301147460937500E-002
+%     -3.0575494019804609E-005  0.49997244140091862       0.49994384986693124        1.0000000000000000     
+%   -1.0000000000000000       -2.7497621712598644E-005  -1.0000000000000000       -2.7457768678921469E-006
     ];
 
-tbox = [-0.54321385484400342      -0.54315257863300248];
-ubox = [7.3600588919501608E-002   7.3755129189626206E-002  -7.2866778509508498E-002  -7.2716490132131384E-002];
+tbox = [
+    -1.0000000000000000        1.0000000000000000
+    ];
+ubox = [
+    -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000
+%     -0.10777282714843750      -0.10775756835937500       -4.9316406250000000E-002  -4.9301147460937500E-002
+% -3.0575494044112767E-005  -2.7497621712598644E-005  -1.0000000000000000       -2.7457768678921469E-006
+];
 
 [icurv, ivar, ival] = deal(1,1,2);
 jvar = 1 + mod(ivar,2);
 
 tuvxyz = [
-    -0.54321385484400342        7.3600588919501608E-002  -7.2866778509508498E-002  -5.9221897776780524E-016  -4.4475589088335821E-009  -5.7245874707234634E-017
-%     -1.0000000000000000      -0.50000000000006484      -0.99999999999997802       0.67744779360814600       0.54810365890887280       0.56146225142760975
+    0.39010773412313421      -0.10776183717734601       -4.9314229082246912E-002  -4.7846698502724474E-017   1.4877639051280589E-014   1.6028844918025698E-015
+%     -1.0000000000000000      -0.50002376865584797       -1.0000000000000224       0.67744753604335384       0.54810455295093197       0.56146345939272302
+%     -1.0000000000000000       -3.0575494044112767E-005 -0.99999999999999856       0.68401705066906149       0.52844689545221724       0.53512981220642375 
 ];
 
 uv = zeros(2,2,size(tuvxyz,1));
 for i = 1:size(tuvxyz,1)
-    uv(ivar,icurv) = uvbox(icurv,2*(ivar-1)+ival);
-    uv(jvar,icurv) = uvbox(icurv,2*jvar-1) + 0.5 * ( uvbox(icurv,2*jvar) - uvbox(icurv,2*jvar-1) ) * (tuvxyz(i,1)+1);
-    uv(:,1+mod(icurv,2)) = tuvxyz(i,2:3)';
+    uv(ivar,icurv,i) = uvbox(icurv,2*(ivar-1)+ival);
+    uv(jvar,icurv,i) = uvbox(icurv,2*jvar-1) + 0.5 * ( uvbox(icurv,2*jvar) - uvbox(icurv,2*jvar-1) ) * (tuvxyz(i,1)+1);
+    uv(:,1+mod(icurv,2),i) = tuvxyz(i,2:3)';
 end
 uv
 
@@ -40,9 +49,8 @@ uv
 
 
 uvxyz = [
-    -0.50000000000000000       0.99999999999997324      -0.50000000000006295       -1.0000000000000226       0.67744779360814655       0.54810365890887502       0.56146225142760886
-    0.0000000000000000       0.99999999999999190       -3.3304048376789949E-014 -0.99999999999999334       0.68401750144883278       0.52844560298233167       0.53512819629683683
-%     -0.42889781334119698        1.0000000000000000      -0.42889781334125970       -1.0000000000000098       0.67825669312703951       0.54545773265588493       0.55775884854162017
+    -0.50002376865578813       0.99999999999996714      -0.50002376865584797       -1.0000000000000224 0.67744753604335384       0.54810455295093197       0.56146345939272302
+%     -3.0575494019804609E-005  0.99999999999998512       -3.0575494044112767E-005 -0.99999999999999856 0.68401705066906149       0.52844689545221724       0.53512981220642375
     ];
 
 % for i = 1:size(tuvxyz,1)
@@ -72,8 +80,12 @@ for isurf = 1:2
     end
     
     if 1%isurf ~= icurv
+%         c = chgvar2( cr, reshape(ubox,2,2) );
         si = surf_chebyshev( c, 1 );
         set( si, 'facecolor', cl(isurf,:), 'specularstrength', 0 );
+        
+%         x = cat(3, ifcht2d(c(:,:,1)), ifcht2d(c(:,:,2)),  ifcht2d(c(:,:,3)));
+%         plot3(x(:,:,1), x(:,:,2), x(:,:,3), '.', 'color', 0.6*cl(isurf,:));
     end
     
     %     b = readCoeffs2( sprintf('debugbsi_reg%d.bern', isurf) );
@@ -82,18 +94,18 @@ for isurf = 1:2
     %     xi = ICT2unstr(cr, uvxyz(:,2*isurf-1:2*isurf));
     %     plot3( xi(:,1), xi(:,2), xi(:,3), 'x', 'color', 0.4*cl(isurf,:) );
     
-    %     uvi = reshape( uv(:,isurf,:), 2,[] )';
-    %     yi = ICT2unstr(cr, uvi);
-    %     plot3( yi(:,1), yi(:,2), yi(:,3), '+', 'color', 0.4*cl(isurf,:) );
+%         uvi = reshape( uv(:,isurf,:), 2,[] )';
+%         yi = ICT2unstr(cr, uvi);
+%         plot3( yi(:,1), yi(:,2), yi(:,3), '+', 'color', 0.4*cl(isurf,:) );
     
     if isurf == icurv
         c = border_parameterization( c, ivar, ival );
         G.c = c;
-        %         c = chgvar1(c, tbox);
+                c = chgvar1(c, tbox);
         %         writeCoeffs1(c,'../newton_curve_surface_singular/curv.cheb');
         
         g = chebval1( c, linspace(-1,1,100)' );
-        plot3( g(:,1), g(:,2), g(:,3), '-', 'color', 0.4*cl(isurf,:) );
+        plot3( g(:,1), g(:,2), g(:,3), '-', 'color', 0.2*cl(isurf,:), 'linewidth', 1.5 );
         
         z = chebval1(c, tuvxyz(:,1));
     else
@@ -121,8 +133,20 @@ light( 'style', 'infinite', 'position', [xl,yl,zl] );
 light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
 
 
+
 %%
-% return
+figure;
+for isurf = 1:2
+    subplot(1,2,isurf);
+    hold on
+    rectangle('position',[uvbox(isurf,[1,3]), uvbox(isurf,[2,4]) - uvbox(isurf,[1,3])]);
+    plot(uv(1,isurf,:), uv(2,isurf,:), '*');
+    axis image
+end
+
+
+%%
+return
 S.d = cheb_diff2( S.c );
 d2u = cheb_diff2( S.d(:,:,:,1) );
 d2v = cheb_diff2( S.d(:,:,:,2) );
@@ -168,23 +192,29 @@ end
 
 
 %%
-return
+% return
 EPS = 1e-9;
-cr = chgvar2( S.c, reshape(uvbox(1+mod(icurv,2),:),2,2) );
+% cr = chgvar2( S.c, reshape(uvbox(1+mod(icurv,2),:),2,2) );
+cr = chgvar2( S.c, reshape(ubox,2,2) );
 S.b = chebyshev2bezier_2(cr);
 G.b = chebyshev2bezier_1(G.c);
+% G.b = chebyshev2bezier_1( chgvar1(G.c, tbox) );
 
 seps = reshape(S.b, [], 3);
 seps = seps - repmat(tuvxyz(1,4:6),size(seps,1),1);
+sqrt(sum(seps.^2,2))
 seps(sqrt(sum(seps.^2,2)) < EPS,:) = [];
-seps = seps + repmat(tuvxyz(1,4:6),size(seps,1),1);
+% seps = seps + repmat(tuvxyz(1,4:6),size(seps,1),1);
 
 
 sepc = G.b;
 sepc = sepc - repmat(tuvxyz(1,4:6),size(sepc,1),1);
 sepc(sqrt(sum(sepc.^2,2)) < EPS,:) = [];
-sepc = sepc + repmat(tuvxyz(1,4:6),size(sepc,1),1);
+% sepc = sepc + repmat(tuvxyz(1,4:6),size(sepc,1),1);
 
+
+seps = seps ./ repmat(sqrt(sum(seps.^2,2)), 1, 3);
+sepc = sepc ./ repmat(sqrt(sum(sepc.^2,2)), 1, 3);
 
 [ vec, stat ] = separating_plane( sepc, seps )
 
@@ -197,6 +227,13 @@ qc = myconvhulln(sepc);
 figure;
 hold on
 
+plot3(0,0,0,'kx');
+
+% surf(S.b(:,:,1)-tuvxyz(1,4), S.b(:,:,2)-tuvxyz(1,5), S.b(:,:,3)-tuvxyz(1,6), ...
+%     'facecolor', 'none', 'edgecolor', 0.5*cl(1+mod(icurv,2),:));
+% plot3(G.b(:,1)-tuvxyz(1,4), G.b(:,2)-tuvxyz(1,5), G.b(:,3)-tuvxyz(1,6), ...
+%     '.-', 'color', 0.5*cl(icurv,:));
+
 for isurf = 1:2
     if isurf == icurv
         q = qc;
@@ -205,15 +242,22 @@ for isurf = 1:2
         q = qs;
         sep = seps;
     end
-    trisurf(q, sep(:,1), sep(:,2), sep(:,3), ...
-        'facecolor', cl(isurf,:), 'edgecolor', 'none' );
+%     plot3( sep(:,1), sep(:,2), sep(:,3), ...
+%         '.', 'color', 0.7*cl(isurf,:));
+%     trisurf(q, sep(:,1), sep(:,2), sep(:,3), ...
+%         'facecolor', cl(isurf,:), 'edgecolor', 'none', 'facealpha', 1 );
+[ fa, ed ] = patch_ridges( q, sep );
+set(fa, 'facecolor', cl(isurf,:), 'specularstrength', 0.1);
 end
 
 if stat == 0
     plot_separating_plane(vec);
 end
 
-axis image vis3d
+% axis image vis3d
+axis( repmat([-1,1],1,3) );
+daspect([1,1,1])
+axis vis3d
 view(120,30)
 camproj('persp');
 camlight(30,30);

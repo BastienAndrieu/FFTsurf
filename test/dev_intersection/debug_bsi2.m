@@ -15,7 +15,8 @@ cc = readCoeffs1('debugbsi_c.cheb');
 cs = readCoeffs2('debugbsi_s.cheb');
 
 tuv = [
-    -0.83333333333333326      -0.93333333333333335      -0.91666666666666663
+    0.748620759138596 -0.178813934326172e-6  -0.178813934326172e-6
+%     -0.83333333333333326      -0.93333333333333335      -0.91666666666666663
     ];
 
 n = 200;
@@ -48,3 +49,34 @@ axis image vis3d
 view(3)
 camproj('persp');
 camlight(30,30);
+
+%%
+ds = cheb_diff2(cs);
+d2u = cheb_diff2(ds(:,:,:,1));
+d2v = cheb_diff2(ds(:,:,:,2));
+d2s = cat(4, d2u, d2v(:,:,:,2));
+
+dc = cheb_diff1(cc);
+d2c = cheb_diff1(dc);
+
+g1 = chebval1( dc, tuv(1) )';
+g2 = chebval1( d2c, tuv(1) )';
+
+s1 = zeros(3,2);
+s2 = zeros(3,3);
+for ivar = 1:2
+    s1(:,ivar) = ICT2unstr( ds(:,:,:,ivar), tuv(2:3) )';
+end
+for ivar = 1:3
+    s2(:,ivar) = ICT2unstr( d2s(:,:,:,ivar), tuv(2:3) )';
+end
+
+n = cross( s1(:,1), s1(:,2) );
+    n = n / norm(n);
+    
+    wt = s1 \ g1;
+    
+    y = g2 - ( wt(1)^2 * s2(:,1) + 2 * wt(1)*wt(2) * s2(:,2) + wt(2)^2 * s2(:,3) );
+    
+    fprintf( '|gt.n|/|gt| = %e\n |y.n|/|y| = %e\n', abs(dot(g1,n))/norm(g1), abs(dot(y,n))/norm(y) );
+    fprintf( '     |gt.n| = %e\n     |y.n| = %e\n', abs(dot(g1,n))         , abs(dot(y,n))         );

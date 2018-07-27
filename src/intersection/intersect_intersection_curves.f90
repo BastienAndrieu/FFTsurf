@@ -148,7 +148,7 @@ subroutine intersect_intersection_curves( &
           uv3, &                                                                                       !
           xyz, &                                                                                       !
           surf, &                                                                                      !
-          3, &                                                                                     !
+          3, &                                                                                         !
           interdata, &                                                                                 !
           idpt )                                                                                       !
      !                                                                                                 !

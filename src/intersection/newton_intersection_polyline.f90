@@ -104,6 +104,12 @@ subroutine newton_intersection_polyline( &
         if ( sum(r1**2) < EPSxyzsqr .and. &                         !
              abs(resh)  < tolhsqr ) then ! <---------------------+  !
            stat = 0                                              !  !
+           do isurf = 1,2 ! <------------+                       !  !
+              call eval( &               !                       !  !
+                   xyz(:,isurf), &       !                       !  !
+                   surf(isurf)%ptr, &    !                       !  !
+                   uv(:,isurf) )         !                       !  !
+           end do ! <--------------------+                       !  !
            xyzp = 0.5_fp * sum(xyz, 2)                           !  !
            IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZP
         else ! --------------------------------------------------+  !

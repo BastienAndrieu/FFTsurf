@@ -16,7 +16,8 @@ contains
        n, &
        p, &
        cond, &
-       rank )
+       rank, &
+       tol )
     implicit none
     integer,                 intent(in)    :: m, n, p
     real(kind=fp),           intent(inout) :: A(m,n)
@@ -24,6 +25,7 @@ contains
     real(kind=fp),           intent(out)   :: x(n,p)
     real(kind=fp), optional, intent(out)   :: cond
     integer,       optional, intent(out)   :: rank
+    real(kind=fp), optional, intent(in)    :: tol
     real(kind=fp)                          :: V(n,n), W(n), wmax, wmin
     integer                                :: j
 
@@ -33,7 +35,12 @@ contains
     ! get maximal singular value
     wmax = maxval( w )
     if ( present(cond) ) cond = wmax / minval(W) ! condition number
-    wmin = real( max(m,n), kind=fp ) * wmax * epsilon( 1._fp )
+    if ( present(tol) ) then
+       wmin = tol
+    else
+       wmin = real(max(m,n), kind=fp) * EPSfp
+    end if
+    wmin = wmin*wmax
     if ( present(rank) ) rank = count( w >= wmin )
     where( w < wmin ) w = 0._fp
 

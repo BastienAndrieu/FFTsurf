@@ -27,7 +27,7 @@ subroutine rearrange_for_separability_test( &
      else
         tmp = bcp(i,:) - vec
         tmpsqr = sum( tmp**2 )
-        if ( tmpsqr <= EPSxyzsqr ) cycle
+        if ( tmpsqr <= 400.D0 * EPSxyzsqr ) cycle
         tmp = tmp / sqrt(tmpsqr)
      end if
 

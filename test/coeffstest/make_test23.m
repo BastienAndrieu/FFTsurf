@@ -5,6 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/LIBS/mylib/TopologicalEntitites/tests/');
 
 [M,N] = deal( 16 );
+EPS = 10*eps('double');
 
 rc = 0.4;
 angc = 1*pi();
@@ -41,6 +42,7 @@ for isurf = 1:2
     end
     
     c = cat(3, fcht2d(x), fcht2d(y), fcht2d(z));
+    c(abs(c) < EPS) = 0;
     
     [si,isou,isov] = surf_chebyshev( c, 1, 300, nisouv );
     set( si, 'facecolor', cls(isurf,:) );

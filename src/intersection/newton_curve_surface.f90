@@ -5,6 +5,7 @@ subroutine newton_curve_surface( &
      upperb, &
      stat, &
      tuv, &
+     toltuv, &
      xyz )
   use mod_math
   use mod_linalg
@@ -14,10 +15,10 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
-  logical,       parameter          :: acceleration = .true.
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
-  integer,       parameter          :: itmax = 2 + ceiling(-log10(EPSuv))
+  integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
   integer,       parameter          :: itconv = 5
   type(type_curve),   intent(in)    :: curv
   type(type_surface), intent(in)    :: surf
@@ -25,11 +26,13 @@ subroutine newton_curve_surface( &
   real(kind=fp),      intent(in)    :: upperb(3)
   integer,            intent(out)   :: stat
   real(kind=fp),      intent(inout) :: tuv(3)
+  real(kind=fp),      intent(out)   :: toltuv
   real(kind=fp),      intent(out)   :: xyz(3)
   real(kind=fp), dimension(3)       :: xyz_c, xyz_s, r
   real(kind=fp)                     :: resxyz, resconv
   real(kind=fp)                     :: jac(3,3), dtuv(3), cond, errtuv, errtuvprev
-  integer                           :: it
+  integer                           :: it, rank
+  logical                           :: linear_conv
   real(kind=fp)                     :: fac
 
   IF ( DEBUG ) THEN
@@ -44,6 +47,7 @@ subroutine newton_curve_surface( &
   errtuvprev = 0._fp
   cond = 1._fp
   fac = 1._fp
+  linear_conv = .false.
   IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
   do it = 1,itmax
      !! compute residual
@@ -63,11 +67,13 @@ subroutine newton_curve_surface( &
            return
         elseif ( errtuv > THRESHOLD * errtuvprev ) then
            ! linear convergence
-           PRINT *,'LINEAR CONVERGENCE, MU =',sqrt(errtuv/errtuvprev)
+           IF ( DEBUG ) PRINT *,'LINEAR CONVERGENCE, MU =',sqrt(errtuv/errtuvprev)
+           linear_conv = .true.
            fac = 2._fp
         else
            ! superlinear convergence
            fac = 1._fp
+           linear_conv = .false.
         end if
      end if
 
@@ -76,6 +82,9 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
+     !PRINT *,'JAC ='
+     !CALL PRINT_MAT(JAC)
+     !PRINT *,'RHS =',-R
 
      !! solve for Newton step
      call linsolve_svd( &
@@ -85,20 +94,30 @@ subroutine newton_curve_surface( &
           3, &
           3, &
           1, &
-          cond )
+          cond, &
+          rank, &
+          tol=EPSmath )
+     !PRINT *,'RANK =',RANK
      if ( acceleration ) then
+        !PRINT *,'FAC =',FAC
         if ( mod(it,3) == 0 ) dtuv = fac * dtuv
      end if
      errtuvprev = errtuv
      errtuv = sum(dtuv**2)
 
      ! correct Newton step to keep the iterate inside feasible region
+     IF ( .false. ) THEN
+        PRINT *,' TUV =',TUV
+        PRINT *,'DTUV =',DTUV
+        PRINT *,'REFLEXIONS...'
+     END IF
      call nd_box_reflexions( &
           tuv, &
           lowerb, &
           upperb, &
           dtuv, &
           3 )
+     IF ( .false. ) PRINT *,'...OK'
 
      ! update solution
      tuv = tuv + dtuv
@@ -106,11 +125,34 @@ subroutine newton_curve_surface( &
      !! termination criterion
      if ( errtuv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( resxyz < EPSxyzsqr ) then
+           if ( errtuv > EPSuvsqr ) then
+              IF ( DEBUG ) PRINT *,'newton_curve_surface : /!\ toltuv > EPSuv'
+              if ( linear_conv ) then
+                 IF ( DEBUG ) THEN
+                    PRINT *,'--> NEWTON_CS_DYNSHIFT'
+                    PRINT *,'TUV =',TUV
+                 END IF
+                 call newton_curve_surface_dynshift( &
+                      curv, &
+                      surf, &
+                      lowerb, &
+                      upperb, &
+                      stat, &
+                      tuv, &
+                      toltuv, &
+                      xyz )
+                 return
+              end if
+           end if
            ! converged to a curve-surface intersection point
            stat = 0
+           toltuv = max(EPSmath, sqrt(errtuv))
+           call eval(xyz_c, curv, tuv(1)  )
+           call eval(xyz_s, surf, tuv(2:3))
            xyz = 0.5_fp * (xyz_c + xyz_s)
            IF ( DEBUG ) PRINT *,SQRT(RESXYZ), SQRT(ERRTUV), EPSFP*COND
            IF ( DEBUG ) PRINT *,'CONVERGED, TUV =',TUV,', XYZ =',XYZ
+           !PAUSE
         else
            IF ( DEBUG ) PRINT *,'STAGNATION'
         end if

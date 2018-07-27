@@ -558,12 +558,11 @@ contains
     implicit none
     real(kind=fp), dimension(2), intent(in) :: p, a, b
     real(kind=fp)                           :: distance_from_line
-    real(kind=fp)                           :: m(2,2)
-
-    m(:,1) = p - a
-    m(:,2) = [ a(2) - b(2) , b(1) - a(1) ]
-
-    distance_from_line = ( m(1,1)*m(2,2) - m(1,2)*m(2,1) ) / norm2( b - a )
+    real(kind=fp)                           :: lab
+    
+    distance_from_line = (a(2) - b(2))*(p(1) - a(1)) + (b(1) - a(1))*(p(2) - a(2))
+    lab = sum((b - a)**2)
+    if ( lab > EPSfp ) distance_from_line = distance_from_line / sqrt(lab)
 
   end function distance_from_line
 
