@@ -1,7 +1,7 @@
 import os
 
-src = '/d/bandrieu/GitHub/FFTsurf/src/'
-#src = '/home/bastien/GitHub/FFTsurf/src/'
+#src = '/d/bandrieu/GitHub/FFTsurf/src/'
+src = '/home/bastien/GitHub/FFTsurf/src/'
 
 f = open( src + 'modules/mod_intersection.f90', 'w' )
 f.write('module mod_intersection\n')

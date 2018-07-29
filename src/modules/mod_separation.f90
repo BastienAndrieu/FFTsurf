@@ -166,6 +166,10 @@ contains
 
     separable = .false.
 
+    IF (DEBUG) THEN
+       if ( present(mask_axes) ) print *,'MASK AXES =',mask_axes
+    END IF
+
     loop_axes : do iaxe = 1,3
        
        if ( present( mask_axes ) ) then
@@ -177,50 +181,31 @@ contains
           PRINT *,'IAXE =',IAXE
        END IF
 
-       IF (.false.) THEN
-          call minimal_2d_wedge( &
-               xyz1(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-               n1, &
-               wedge(:,1) )
-          call minimal_2d_wedge( &
-               xyz2(:,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-               n2, &
-               wedge(:,2) )
-          do iset = 1,2
-             if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSfp ) then
-                IF (DEBUG) PRINT *,'WEDGE',ISET,' WIDER THAN PI'
-                cycle loop_axes
-             end if
-          end do
-       ELSE
-          call minimal_bounding_sector( &
-               xyz1(1:n1,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-               n1, &
-               wedge(:,1), &
-               bounded )
-          if ( .not.bounded ) cycle loop_axes
+       call minimal_bounding_sector( &
+            xyz1(1:n1,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+            n1, &
+            wedge(:,1), &
+            bounded )
+       if ( .not.bounded ) cycle loop_axes
 
-          call minimal_bounding_sector( &
-               xyz2(1:n2,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
-               n2, &
-               wedge(:,2), &
-               bounded )
-          if ( .not.bounded ) cycle loop_axes
+       call minimal_bounding_sector( &
+            xyz2(1:n2,[1+mod(iaxe,3), 1+mod(iaxe+1,3)]), &
+            n2, &
+            wedge(:,2), &
+            bounded )
+       if ( .not.bounded ) cycle loop_axes
 
-          do iset = 1,2
-             if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSmath ) then
-                IF (DEBUG) PRINT *,'WEDGE',ISET,' WIDER THAN PI'
-                cycle loop_axes
-             end if
-          end do
-          
-          IF (DEBUG) THEN
-             PRINT *,'BOUNDING SECTORS ='
-             CALL PRINT_MAT( WEDGE )
-          END IF
+       do iset = 1,2
+          if ( wedge(2,iset) >= 0.5_fp * CSTpi - EPSmath ) then
+             IF (DEBUG) PRINT *,'WEDGE',ISET,' WIDER THAN PI'
+             cycle loop_axes
+          end if
+       end do
 
+       IF (DEBUG) THEN
+          PRINT *,'BOUNDING SECTORS ='
+          CALL PRINT_MAT( WEDGE )
        END IF
-
 
        d = diff_angle( wedge(1,1), wedge(1,2) )
        alpha = 0.5_fp * ( abs(d) - sum(wedge(2,:)) )
@@ -265,9 +250,6 @@ contains
                   2, &
                   '/stck/bandrieu/Bureau/CYPRES/Intersections/separation/wedges.dat' )
           END IF
-
-          
-
           return
 
        end if
@@ -276,48 +258,6 @@ contains
 
   end subroutine separate_spherical_bounding_boxes
 
-
-
-
-
-
-  subroutine minimal_2d_wedge( &
-       xy, &
-       n, &
-       wedge )
-    ! Computes a minimal wedge bounding a two-dimensional set of points 'xy'.
-    ! The wedge is the set of points between two rays originating from (0,0)
-    ! wedge(1) = angle between the x-axis and the bissector of the two rays;
-    ! wedge(2) = half angle spanned by the wedge.
-    ! (all angles are measured in radians)
-    implicit none
-    integer,       intent(in)  :: n
-    real(kind=fp), intent(in)  :: xy(n,2)
-    real(kind=fp), intent(out) :: wedge(2)
-    real(kind=fp)              :: ang(size(xy,1)), meanang, e(2), d
-    integer                    :: i
-
-    ang = atan2( xy(:,2), xy(:,1) )
-    meanang = mean_angle( ang )
-
-    e(:) = 0._fp
-    do i = 1,n
-       d = diff_angle( ang(i), meanang )
-       e(1) = min( e(1), d )
-       e(2) = max( e(2), d )
-    end do
-
-    wedge(2) = 0.5_fp * ( e(2) - e(1) )
-    wedge(1) = mean_angle( meanang + e )
-    if ( e(2) - e(1) > CSTpi + EPSfp ) then
-       if ( wedge(1) > EPSfp ) then
-          wedge(1) = wedge(1) + MATHpi
-       else
-          wedge(1) = wedge(1) - MATHpi
-       end if
-    end if
-
-  end subroutine minimal_2d_wedge
 
 
 
@@ -346,11 +286,6 @@ contains
 
     where( rng < EPSfp ) rng = 1._fp
 
-    !call convex_hull_2d( &
-    !     transpose(xy), &
-    !     n, &
-    !     hull, &
-    !     nhull )
     call quickhull( &
          matmul( diag(1._fp/rng), transpose(xy) ), &
          n, &
@@ -370,7 +305,7 @@ contains
     if ( nhull == 1 ) then
        bounded = ( sum( xy(hull(1),:)**2 ) > 2._fp*EPSfp )
     elseif ( nhull == 2 ) then
-       bounded = ( abs(distance_from_line( [0._fp, 0._fp], xy(hull(1),:), xy(hull(2),:) )) > EPSfp .and. &
+       bounded = ( abs(distance_from_line( [0._fp, 0._fp], xy(hull(1),:), xy(hull(2),:) )) > EPSfp .or. &
             dot_product(xy(hull(1),:), xy(hull(2),:)) > EPSfp )
     else
        check_boundedness : do i = 1,nhull
@@ -473,11 +408,6 @@ contains
          [0._fp, 0._fp, 0._fp], &
          3, &
          l+n1+n2 )
-    !call lpsolve( &
-    !     vec, &
-    !     stat, &
-    !     LPmat, &
-    !     real( [0, 0, 0], kind=fp ) )
 
     separable = ( stat == 0 )
     !IF ( SEPARABLE ) THEN
@@ -485,10 +415,7 @@ contains
     !   PRINT *,'LPRES =',MINVAL( MATMUL( LPMAT(:,1:3), VEC ) - LPMAT(:,4) )
     !END IF
 
-    if ( stat < 0 ) then
-       PRINT *,'separation_linearprogramming : problème réalisable non borné'
-       !STOP !?!
-    end if
+    if ( stat < 0 ) PRINT *,'separation_linearprogramming : problème réalisable non borné'
 
   end subroutine separation_linearprogramming
 

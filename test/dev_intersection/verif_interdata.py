@@ -1,16 +1,16 @@
 import bpy
 import numpy as np
 import sys
-sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
-#sys.path.append('/home/bastien/Bureau/Python/')
+#sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
+sys.path.append('/home/bastien/Bureau/Python/')
 import my_lib1 as myl
 import my_lib as mylb
 import my_colors as myc
 
 ##########################################################
 
-pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
-#pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
+#pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
+pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
 
 ##########################################################
 

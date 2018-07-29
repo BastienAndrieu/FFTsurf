@@ -13,7 +13,7 @@ recursive subroutine intersect_surface_pair( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdata

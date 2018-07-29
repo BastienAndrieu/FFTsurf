@@ -14,7 +14,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_regiontree
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   real(kind=fp),                intent(in)    :: param_vector(3)
@@ -228,7 +228,6 @@ recursive subroutine intersect_simple_surfaces( &
      !                                                                        !
      !                                                                        !
   elseif ( npts_bs > 2 ) then ! ----------------------------------------------+
-     !                                                                        !
      ! More than 2 border-surface intersection points have been found,        !
      ! the situation is ambiguous so we need to carry on the recursion.       !
      ! first, try to subdivide at an bsi point interior to at least one of    !
