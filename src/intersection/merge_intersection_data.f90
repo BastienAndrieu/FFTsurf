@@ -77,6 +77,7 @@ subroutine merge_intersection_data( &
      IF ( DEBUG ) PRINT *,'INTERSECT WITH OTHER CURVES...'
      do jc = 1,nc
         IF ( DEBUG ) PRINT *,'CURVE #',JC
+        if ( interdata_global%curves(jc)%dummy ) cycle
         call intersect_intersection_curves( &
              interdata_global, &
              [nc+ic,jc], &

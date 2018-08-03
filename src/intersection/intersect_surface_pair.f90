@@ -20,7 +20,7 @@ recursive subroutine intersect_surface_pair( &
   real(kind=fp), allocatable,   intent(inout) :: uvxyz(:,:)
   integer,                      intent(inout) :: nuvxyz
   integer,                      intent(inout) :: stat_degeneracy
-  logical                                     :: overlap
+  logical                                     :: overlap, separable
   integer                                     :: stat_collineal
   real(kind=fp)                               :: uv_collineal(2,2), toluv
   real(kind=fp), dimension(3)                 :: xyz_collineal, n_collineal
@@ -53,7 +53,7 @@ recursive subroutine intersect_surface_pair( &
         call inherit_points( &                    !     !
              region(isurf)%ptr, &                 !     !
              uvxyz(2*isurf-1:2*isurf,1:nuvxyz), & !     !
-             uvxyz(8,1:nuvxyz), &
+             uvxyz(8,1:nuvxyz), &                 !     !
              nuvxyz )                             !     !
      end do ! <-----------------------------------+     !
   end if ! <--------------------------------------------+
@@ -99,7 +99,54 @@ recursive subroutine intersect_surface_pair( &
   IF ( DEBUG ) PRINT *,'STAT_COLLINEAL(CORNERS) =',stat_collineal
 
   if ( stat_collineal <= 0 ) then ! <----------------------------+
-     toluv = EPSuv
+     if ( stat_collineal < 0 ) then !<-----------------+         !
+        if ( nuvxyz > 0) then ! <----------------+     !         !
+           call check_unicity_with_tolerance( &  !     !         !
+                reshape(uv_collineal, [4]), &    !     !         !
+                xyz_collineal, &                 !     !         !
+                toluv, &                         !     !         !
+                4, &                             !     !         !
+                uvxyz(1:4,1:nuvxyz), &           !     !         !
+                uvxyz(5:7,1:nuvxyz), &           !     !         !
+                uvxyz(8,1:nuvxyz), &             !     !         !
+                nuvxyz, &                        !     !         !
+                ipt )                            !     !         !
+        else ! ----------------------------------+     !         !
+           ipt = 1                               !     !         !
+        end if ! <-------------------------------+     !         !
+        !                                              !         !
+        if ( ipt > nuvxyz ) then ! <-------------+     !         !
+           tmp(1:2) = uv_collineal(:,1)          !     !         !
+           tmp(3:4) = uv_collineal(:,2)          !     !         !
+           tmp(5:7) = xyz_collineal              !     !         !
+           tmp(8) = toluv                        !     !         !
+           call append_vector( &                 !     !         !
+                tmp(1:8), &                      !     !         !
+                8, &                             !     !         !
+                uvxyz, &                         !     !         !
+                nuvxyz )                         !     !         !
+        end if ! <-------------------------------+     !         !
+        !                                              !         !
+        do isurf = 1,2 ! <-----------------------+     !         !
+           call add_points_bottom_up( &          !     !         !
+                region(isurf)%ptr, &             !     !         !
+                [nuvxyz], &                      !     !         !
+                1 )                              !     !         !
+        end do ! <-------------------------------+     !         !
+        !                                              !         !
+        do isurf = 1,2 ! <-----------------------+     !         !
+           poly(isurf)%ptr => &                  !     !         !
+                region(isurf)%ptr%poly(1)%ptr    !     !         !
+        end do ! <-------------------------------+     !         !
+        call intersect_elsewhere( &                    !         !
+             poly, &                                   !         !
+             xyz_collineal, &                          !         !
+             separable )                               !         !
+        IF ( DEBUG ) PRINT *,'SEPARABLE?',separable    !         !
+        if ( separable ) return                        !         !
+        !                                              !         !
+     end if ! <----------------------------------------+         !
+     toluv = EPSuv                                               !
      ! there is a pair of collineal corner points, we will       !
      ! subdivide both region at their parametric center point    !
      do isurf = 1,2 ! <----------------------------+             !
@@ -278,13 +325,20 @@ recursive subroutine intersect_surface_pair( &
         case (1) ! -----------------------------------------------------+       !
            ! point on tangential intersection curve                     !       !
            PRINT *,'>>> POINT ON TAGENTIAL INTSERSECTION CURVE'         !       !
-           call diffgeom_intersection_curve( &
+           call diffgeom_intersection( &
                 surfroot, &
                 uv_collineal, &
                 duv_ds, &
                 dxyz_ds, &
                 stat_singularpoint, &
                 curvature )
+           !call diffgeom_intersection_curve( &
+           !     surfroot, &
+           !     uv_collineal, &
+           !     duv_ds, &
+           !     dxyz_ds, &
+           !     stat_singularpoint, &
+           !     curvature )
            PRINT *,'CURVATURE =',CURVATURE(1)
            PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
            PRINT *,'DUV_DS='
@@ -293,13 +347,20 @@ recursive subroutine intersect_surface_pair( &
            ! branch point (two curves meet at that point)               !       !
            stat_loopdetection = 3 ! force subdivision of both surfaces  !       !
            PRINT *,'>>> BRANCH POINT'                                   !       !
-           call diffgeom_intersection_curve( &
+           call diffgeom_intersection( &
                 surfroot, &
                 uv_collineal, &
                 duv_ds, &
                 dxyz_ds, &
                 stat_singularpoint, &
                 curvature )
+           !call diffgeom_intersection_curve( &
+           !     surfroot, &
+           !     uv_collineal, &
+           !     duv_ds, &
+           !     dxyz_ds, &
+           !     stat_singularpoint, &
+           !     curvature )
            PRINT *,'CURVATURE =',CURVATURE
            PRINT *,'DXYZ_DS ='
            CALL PRINT_MAT(dxyz_ds)

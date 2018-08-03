@@ -61,14 +61,23 @@ subroutine trace_intersection_polyline( &
   do ipt = 2,1,-1
      ! compute tangent direction and curvature of the intersection curve at endpoints
      ! (in reverse order, so data at first endpoint is kept in memory)
-     call diffgeom_intersection_curve( &
+     call diffgeom_intersection( &
           surf, &
           uv_endpoints(:,:,ipt), &
           duv_ds, &
           dxyz_ds, &
           stat_tangent, &
           curvature )
+     !call diffgeom_intersection_curve( &
+     !     surf, &
+     !     uv_endpoints(:,:,ipt), &
+     !     duv_ds, &
+     !     dxyz_ds, &
+     !     stat_tangent, &
+     !     curvature )
+     IF ( DEBUG ) PRINT *,'CURVATURE RADIUS = ',1._FP/CURVATURE(1)
      if ( stat_tangent < 0 .or. stat_tangent > 2 ) then ! <----+
+        IF ( DEBUG ) PRINT *,'stat_tangent = ',stat_tangent    !
         stat = stat_tangent                                    !
         return                                                 !
      end if ! <------------------------------------------------+
@@ -143,13 +152,21 @@ subroutine trace_intersection_polyline( &
            if ( is_in_open_interval(w, wprev, 1._fp) ) then ! <--------+  !   !  !
               ! compute tangent direction and curvature                !  !   !  !
               ! of the intersection curve at the current point         !  !   !  !
-              call diffgeom_intersection_curve( &                      !  !   !  !
+              call diffgeom_intersection( &                            !  !   !  !
                    surf, &                                             !  !   !  !
                    uv, &                                               !  !   !  !
                    duv_ds, &                                           !  !   !  !
                    dxyz_ds, &                                          !  !   !  !
                    stat_tangent, &                                     !  !   !  !
                    curvature )                                         !  !   !  !
+              !call diffgeom_intersection_curve( &                      !  !   !  !
+              !     surf, &                                             !  !   !  !
+              !     uv, &                                               !  !   !  !
+              !     duv_ds, &                                           !  !   !  !
+              !     dxyz_ds, &                                          !  !   !  !
+              !     stat_tangent, &                                     !  !   !  !
+              !     curvature )                                         !  !   !  !
+              IF ( DEBUG ) PRINT *,'CURVATURE RADIUS = ',1._FP/CURVATURE(1)
               if ( stat_tangent < 0 ) then ! <--------------------+    !  !   !  !
                  stat = stat_tangent                              !    !  !   !  !
                  return ! singular surface (undefined normal)     !    !  !   !  !
@@ -207,5 +224,7 @@ subroutine trace_intersection_polyline( &
      stat = stat_insertion                  !
      return                                 !
   end if ! <--------------------------------+
+
+  IF ( DEBUG ) PRINT *,'TRACING OK, NP =',polyline%np
 
 end subroutine trace_intersection_polyline

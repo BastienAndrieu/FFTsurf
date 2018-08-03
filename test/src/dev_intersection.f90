@@ -76,9 +76,9 @@ program dev_intersection
      call compute_pseudonormal( surf(isurf) )
      if ( ECONOMIZE ) call economize2( surf(isurf)%pn, EPSmath )
 
-     write (strnum,'(I1)') isurf
-     CALL WRITE_POLYNOMIAL( surf(isurf)%x,  'dev_intersection/surfroot' // strnum // '_x.cheb'  )
-     CALL WRITE_POLYNOMIAL( surf(isurf)%pn, 'dev_intersection/surfroot' // strnum // '_pn.cheb' )
+     write (strnum2,'(I2.2)') isurf
+     CALL WRITE_POLYNOMIAL( surf(isurf)%x,  'dev_intersection/surfroot' // strnum2 // '_x.cheb'  )
+     CALL WRITE_POLYNOMIAL( surf(isurf)%pn, 'dev_intersection/surfroot' // strnum2 // '_pn.cheb' )
   end do
   ! =================================================================================
 
@@ -180,7 +180,7 @@ contains
     type(type_intersection_data), intent(in) :: interdata
     character(*),                 intent(in) :: filepoints, filecurves
     integer                                  :: fileunit
-    integer, allocatable                     :: class(:)
+    !integer, allocatable                     :: class(:)
     integer                                  :: ip, ic, is
 
     call get_free_unit( fileunit )
@@ -202,10 +202,11 @@ contains
          action = 'write' )
     write ( fileunit, * ) interdata%nc
     do ic = 1,interdata%nc
-       call classify_in_on_out( &
-            interdata, &
-            ic, &
-            class )
+       !call classify_in_on_out( &
+       !     interdata, &
+       !     ic, &
+       !     class )
+       write ( fileunit, * ) logic2int(interdata%curves(ic)%dummy)
        write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,1)
        write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,2)
        write ( fileunit, * ) interdata%curves(ic)%nsplit

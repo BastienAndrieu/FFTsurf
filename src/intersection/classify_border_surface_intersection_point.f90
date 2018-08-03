@@ -24,12 +24,18 @@ subroutine classify_border_surface_intersection_point( &
   integer                        :: isurf, ipt
 
   do ipt = 1,npts ! <---------------------------------------------+
-     call diffgeom_intersection_curve( &                          !
+     call diffgeom_intersection( &                                !
           surf, &                                                 !
           uv(:,:,ipt), &                                          !
           duv_ds, &                                               !
           dxyz_ds, &                                              !
           stat_contactpoint )                                     !
+     !call diffgeom_intersection_curve( &                          !
+     !     surf, &                                                 !
+     !     uv(:,:,ipt), &                                          !
+     !     duv_ds, &                                               !
+     !     dxyz_ds, &                                              !
+     !     stat_contactpoint )                                     !
      IF (DEBUG ) PRINT *,'    UV =',uv(:,:,ipt)
      IF (DEBUG ) PRINT *,'DUV_DS =',duv_ds(:,1,:)
      !                                                            !

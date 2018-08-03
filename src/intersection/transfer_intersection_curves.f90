@@ -10,6 +10,7 @@ subroutine transfer_intersection_curves( &
   to%nc = from%nc
 
   do ic = 1,from%nc
+     to%curves(ic)%dummy        =  from%curves(ic)%dummy
      to%curves(ic)%smooth       =  from%curves(ic)%smooth
      to%curves(ic)%surf(1)%ptr  => from%curves(ic)%surf(1)%ptr
      to%curves(ic)%surf(2)%ptr  => from%curves(ic)%surf(2)%ptr

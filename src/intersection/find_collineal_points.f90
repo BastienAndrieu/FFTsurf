@@ -49,7 +49,7 @@ subroutine find_collineal_points( &
   cond = 1._fp 
   
   do it = 1,itmax 
-     IF ( DEBUG ) PRINT *,'IT #',IT
+     !IF ( DEBUG ) PRINT *,'IT #',IT
      !! compute residual
      do isurf = 1,2 ! <--------------------------+
         ! position vector                        !
@@ -76,7 +76,8 @@ subroutine find_collineal_points( &
         f(2+ivar) = dot_product( dxyz_duv(:,ivar,1), r )   !
      end do ! <--------------------------------------------+
 
-     IF ( DEBUG ) PRINT *,'F =',F 
+     !IF ( DEBUG ) PRINT *,'F =',F
+     IF ( DEBUG ) PRINT *, NORM2(R), NORM2(F), SQRT(ERRUV), EPSFP*COND
 
      !! compute Jacobian matrix
      do isurf = 1,2 ! <-----------------------------+
@@ -116,7 +117,6 @@ subroutine find_collineal_points( &
           1, &
           cond )
      erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
-
      IF (.true.) THEN
         ! (seems to be faster)
         ! scale down Newton step to keep the solution inside feasible region
@@ -147,6 +147,7 @@ subroutine find_collineal_points( &
      !! termination criteria
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <------------+
         if ( sum(f**2) < EPScollinealsqr ) then ! <----------------+    !
+           IF ( DEBUG ) PRINT *, NORM2(R), NORM2(F), SQRT(ERRUV), EPSFP*COND
            if ( erruv > EPSuvsqr ) then
               PRINT *,'find_collineal_points : /!\ toluv > EPSuv'
            end if

@@ -64,3 +64,12 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.ou
 #echo "...polylines.out"
 #gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/polylines.f90 -o test/obj/polylines.o
 #gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/polylines.out test/obj/polylines.o obj/mod_util.o obj/mod_math.o
+
+echo "...jouke.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/jouke.f90 -o test/obj/jouke.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/jouke.out test/obj/jouke.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...diffgeom.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/diffgeom.f90 -o test/obj/diffgeom.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/diffgeom.out test/obj/diffgeom.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack

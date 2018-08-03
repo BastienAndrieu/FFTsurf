@@ -15,7 +15,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_curve),           intent(in)    :: root_c
   type(type_surface),         intent(in)    :: root_s
   type(type_region), target,  intent(inout) :: region_c
@@ -260,10 +260,10 @@ recursive subroutine intersect_curve_surface( &
      call newton_curve_surface( &                                                             !
           root_c, &                                                                           !
           root_s, &                                                                           !
-          ![region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &                               !
-          ![region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &                               !
-          [region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
-          [region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
+          [region_c%uvbox(1), region_s%uvbox([1,3])] - EPSuv, &                               !
+          [region_c%uvbox(2), region_s%uvbox([2,4])] + EPSuv, &                               !
+          ![region_c%uvbox(1), region_s%uvbox([1,3])], &                                       !
+          ![region_c%uvbox(2), region_s%uvbox([2,4])], &                                       !
           stat_newpoint, &                                                                    !
           tuv, &                                                                              !
           toltuv, &                                                                           !

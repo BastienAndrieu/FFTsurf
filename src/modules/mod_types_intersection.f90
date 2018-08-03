@@ -33,6 +33,7 @@ module mod_types_intersection
 
 
   type type_intersection_curve
+     logical                                    :: dummy = .false.
      logical                                    :: smooth = .false.
      type(ptr_surface)                          :: surf(2)
      real(kind=fp)                              :: uvbox(2,2,2) ! umin/max, vmin/max, #surf

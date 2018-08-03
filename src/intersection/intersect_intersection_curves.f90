@@ -92,6 +92,8 @@ subroutine intersect_intersection_curves( &
      lowerb(2*(icurv+1)-1:2*(icurv+1)) = curv(icurv)%ptr%uvbox(1,1:2,isurf)
      upperb(2*(icurv+1)-1:2*(icurv+1)) = curv(icurv)%ptr%uvbox(2,1:2,isurf)
   end do
+  lowerb = lowerb - EPSuv
+  upperb = upperb + EPSuv
 
   do ipt = 1,npts ! <----------------------------------------------------------------------------------+
      ! set initial iterate (result of polyline intersection)                                           !
@@ -106,13 +108,25 @@ subroutine intersect_intersection_curves( &
      end do ! <-------------------------------------------------------------------------------------+  !
      !                                                                                                 !
      ! run Newton-Raphson algorithm                                                                    !
-     call newton_three_surfaces( &                                                                     !
-          surf, &                                                                                      !
-          lowerb, &                                                                                    !
-          upperb, &                                                                                    !
-          stat, &                                                                                      !
-          uv3, &                                                                                       !
-          xyz )                                                                                        !
+     PRINT *,'SMOOTH? ', curv(1)%ptr%smooth, curv(2)%ptr%smooth
+     PRINT *,'UV0 = ',UV3
+     if ( curv(2)%ptr%smooth ) then
+        call newton_three_surfaces_1tangential( &
+             surf, &
+             lowerb, &
+             upperb, &
+             stat, &
+             uv3, &
+             xyz )
+     else
+        call newton_three_surfaces( &                                                                     !
+             surf, &                                                                                      !
+             lowerb, &                                                                                    !
+             upperb, &                                                                                    !
+             stat, &                                                                                      !
+             uv3, &                                                                                       !
+             xyz )                                                                                        !
+     end if
      !                                                                                                 !
      IF ( DEBUG ) THEN
         IF ( STAT == 0 ) THEN
@@ -140,6 +154,7 @@ subroutine intersect_intersection_curves( &
      END IF
      if ( stat > 0 ) then ! <---------------+                                                          !
         ! Newton failed to converge         !                                                          !
+        STOP 'NEWTON_3_SURFACES FAILED TO CONVERGE'
         return                              !                                                          !
      end if ! <-----------------------------+                                                          !
      !                                                                                                 !
@@ -160,33 +175,48 @@ subroutine intersect_intersection_curves( &
         end do ! <------------------------------------------------------------+       !                !
         !                                                                             !                !
         ! locate the segement in which the new split point must be inserted           !                !
-        w    = dot_product(curv(icurv)%ptr%param_vector, xyz)                         !                !
-        wi   = dot_product(curv(icurv)%ptr%param_vector, &                            !                !
-                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))                   !                !
-        wip1 = dot_product(curv(icurv)%ptr%param_vector, &                            !                !
-                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1))                 !                !
-        while_loop : do ! <---------------------------------------------------+       !                !
-           if ( ipls(icurv,ipt) < 1 .or. &                                    !       !                !
-                ipls(icurv,ipt) >= curv(icurv)%ptr%polyline%np ) then ! <--+  !       !                !
-              STOP 'COULD NOT FIND CORRECT SEGMENT'                        !  !       !                !
-           end if ! <------------------------------------------------------+  !       !                !
-           if ( w > wip1 ) then ! <-----------------------------------+       !       !                !
-              ! the split point is located downstream                 !       !       !                !
-              ipls(icurv,ipt) = ipls(icurv,ipt) + 1                   !       !       !                !
-              wi = wip1                                               !       !       !                !
-              wip1 = dot_product(curv(icurv)%ptr%param_vector, &      !       !       !                !
-                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1)) !       !       !                !
-           elseif ( w < wi ) then ! ----------------------------------+       !       !                !
-              ! the split point is located upstream                   !       !       !                !
-              ipls(icurv,ipt) = ipls(icurv,ipt) - 1                   !       !       !                !
-              wi = dot_product(curv(icurv)%ptr%param_vector, &        !       !       !                !
-                   curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))   !       !       !                !
-              wip1 = wi                                               !       !       !                !
-           else ! ----------------------------------------------------+       !       !                !
-              ! we found the correct segment                          !       !       !                !
-              exit while_loop                                         !       !       !                !
-           end if ! <-------------------------------------------------+       !       !                !
-        end do while_loop ! <-------------------------------------------------+       !                !
+        if ( curv(icurv)%ptr%smooth ) then
+           ! ...
+        else
+           w    = dot_product(curv(icurv)%ptr%param_vector, xyz)                         !                !
+           wi   = dot_product(curv(icurv)%ptr%param_vector, &                            !                !
+                curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))                   !                !
+           wip1 = dot_product(curv(icurv)%ptr%param_vector, &                            !                !
+                curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1))                 !                !
+           while_loop : do ! <---------------------------------------------------+       !                !
+              if ( ipls(icurv,ipt) < 1 .or. &                                    !       !                !
+                   ipls(icurv,ipt) >= curv(icurv)%ptr%polyline%np ) then ! <--+  !       !                !
+                 PRINT *,'W =',W
+                 PRINT *,&
+                      dot_product(curv(icurv)%ptr%param_vector, curv(icurv)%ptr%polyline%xyz(:,1)), &
+                      dot_product(curv(icurv)%ptr%param_vector, curv(icurv)%ptr%polyline%xyz(:,curv(icurv)%ptr%polyline%np))
+                 STOP 'COULD NOT FIND CORRECT SEGMENT'                        !  !       !                !
+              end if ! <------------------------------------------------------+  !       !                !
+              if ( w > wip1 ) then ! <-----------------------------------+       !       !                !
+                 ! the split point is located downstream                 !       !       !                !
+                 ipls(icurv,ipt) = ipls(icurv,ipt) + 1                   !       !       !                !
+                 wi = wip1                                               !       !       !                !
+                 wip1 = dot_product(curv(icurv)%ptr%param_vector, &      !       !       !                !
+                      curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)+1)) !       !       !                !
+              elseif ( w < wi ) then ! ----------------------------------+       !       !                !
+                 ! the split point is located upstream                   !       !       !                !
+                 ipls(icurv,ipt) = ipls(icurv,ipt) - 1                   !       !       !                !
+                 IF ( ipls(icurv,ipt) < 1 ) THEN
+                    PRINT *,idpt,curv(icurv)%ptr%isplit(1,1:curv(icurv)%ptr%nsplit)
+                    PRINT *,XYZ
+                    DO JPT = 1,curv(icurv)%ptr%nsplit
+                       PRINT *,INTERDATA%POINTS(curv(icurv)%ptr%isplit(1,JPT))%XYZ
+                    END DO
+                 END IF
+                 wi = dot_product(curv(icurv)%ptr%param_vector, &        !       !       !                !
+                      curv(icurv)%ptr%polyline%xyz(:,ipls(icurv,ipt)))   !       !       !                !
+                 wip1 = wi                                               !       !       !                !
+              else ! ----------------------------------------------------+       !       !                !
+                 ! we found the correct segment                          !       !       !                !
+                 exit while_loop                                         !       !       !                !
+              end if ! <-------------------------------------------------+       !       !                !
+           end do while_loop ! <-------------------------------------------------+       !                !
+        end if
         !                                                                             !                !
         ! insert a new polyline point                                                 !                !
         uv2(:,numsurf(icurv)) = uv3(:,1)                                              !                !

@@ -4,13 +4,13 @@ subroutine newton_three_surfaces( &
      upperb, &
      stat, &
      uv, &
-     xyz )
+     xyz)
   use mod_math
   use mod_linalg
   use mod_diffgeom
   use mod_tolerances  
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(3)
   real(kind=fp),     intent(in)    :: lowerb(6)
@@ -56,6 +56,12 @@ subroutine newton_three_surfaces( &
      jac(1:3,5:6) = 0._fp
      jac(4:6,3:4) = 0._fp
 
+     PRINT *,'JAC ='
+     CALL PRINT_MAT(JAC)
+
+     PRINT *,'RHS =',-r
+     
+
      !! solve for Newton step
      call linsolve_svd( &
           duv, &
@@ -64,7 +70,18 @@ subroutine newton_three_surfaces( &
           6, &
           6, &
           1, &
-          cond )
+          cond, &
+          tol=0.1_fp*EPSuv )
+
+     IF ( COND > EPSUV/EPSFP ) THEN
+        if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
+           stat = 0
+           erruv = 10._fp*EPSuv !*******
+           IF ( DEBUG ) PRINT *,'newton_three_surfaces : /!\ singular Jacobian at solution'
+           xyz = sum(xyzs, 2)/3._fp
+           return
+        end if
+     END IF
 
      erruv = maxval([sum(duv(1:2)**2), sum(duv(3:4)**2), sum(duv(5:6))**2])
 
@@ -81,10 +98,14 @@ subroutine newton_three_surfaces( &
      uv(:,2) = uv(:,2) + duv(3:4)
      uv(:,3) = uv(:,3) + duv(5:6)
 
-     IF ( DEBUG ) PRINT *,norm2(r(1:3)), norm2(r(4:6)),  sqrt(erruv), EPSfp*cond
+     IF ( DEBUG ) PRINT *,norm2(r(1:3)), norm2(r(4:6)), sqrt(erruv), EPSfp*cond
      !! termination criteria
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
+           if ( erruv > EPSuvsqr ) then
+              IF ( DEBUG ) PRINT *,'newton_three_surfaces : /!\ toluv > EPSuv'
+              !pause
+           end if
            stat = 0
            do isurf = 1,3
               call eval( &

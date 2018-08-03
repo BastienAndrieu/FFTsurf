@@ -1,12 +1,12 @@
 import os
 
-#src = '/d/bandrieu/GitHub/FFTsurf/src/'
-src = '/home/bastien/GitHub/FFTsurf/src/'
+src = '/d/bandrieu/GitHub/FFTsurf/src/'
+#src = '/home/bastien/GitHub/FFTsurf/src/'
 
 f = open( src + 'modules/mod_intersection.f90', 'w' )
 f.write('module mod_intersection\n')
 f.write('implicit none\n')
-f.write('LOGICAL, PARAMETER :: GLOBALDEBUG = .true.\n')
+f.write('LOGICAL, PARAMETER :: GLOBALDEBUG = .false.\n')
 f.write('contains\n')
 
 for filename in os.listdir( src + 'intersection/' ):

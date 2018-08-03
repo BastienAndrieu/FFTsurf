@@ -14,7 +14,7 @@ recursive subroutine intersect_simple_surfaces( &
   use mod_regiontree
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   real(kind=fp),                intent(in)    :: param_vector(3)

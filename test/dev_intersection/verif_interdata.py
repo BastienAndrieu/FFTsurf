@@ -1,21 +1,22 @@
 import bpy
 import numpy as np
 import sys
-#sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
-sys.path.append('/home/bastien/Bureau/Python/')
+sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
+#sys.path.append('/home/bastien/Bureau/Python/')
 import my_lib1 as myl
 import my_lib as mylb
 import my_colors as myc
 
 ##########################################################
 
-#pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
-pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
+pth = '/d/bandrieu/GitHub/FFTsurf/test/dev_intersection/'
+#pth = '/home/bastien/GitHub/FFTsurf/test/dev_intersection/'
 
 ##########################################################
 
 class intersection_curve:
-    def __init__( self, endpoints, segmclass, uvbox, uv, xyz ):
+    def __init__( self, dummy, endpoints, segmclass, uvbox, uv, xyz ):
+        self.dummy = dummy
         self.endpoints = endpoints
         self.segmclass = segmclass
         self.uvbox = uvbox
@@ -42,6 +43,7 @@ aabb = np.vstack((1.e6*np.ones(3), -1.e6*np.ones(3)))
 
 for ic in range(nc):
     #endpoints = [ int(a) for a in f.readline().split() ]
+    dummy = int(f.readline())
     uvbox = np.zeros( (2,2,2) )
     for isurf in range(2):
         umin, umax, vmin, vmax = [ float(a) for a in f.readline().split() ]
@@ -70,10 +72,11 @@ for ic in range(nc):
         xyz[ip,0] = x
         xyz[ip,1] = y
         xyz[ip,2] = z
-    for idim in range(3):
-        aabb[0,idim] = min(aabb[0,idim], np.amin(xyz[:,idim]))
-        aabb[1,idim] = max(aabb[1,idim], np.amax(xyz[:,idim]))
-    c = intersection_curve( endpoints, segmentclass, uvbox, uv, xyz )
+    if n > 0:
+        for idim in range(3):
+            aabb[0,idim] = min(aabb[0,idim], np.amin(xyz[:,idim]))
+            aabb[1,idim] = max(aabb[1,idim], np.amax(xyz[:,idim]))
+    c = intersection_curve( dummy, endpoints, segmentclass, uvbox, uv, xyz )
     curves.append( c )
 
 f.close()
@@ -94,7 +97,7 @@ mylb.delCube()
 
 ## add surfaces
 for isurf in range(nsurf):
-    c = myl.readCoeffs2(pth + 'surfroot' + str(isurf+1) + '_x.cheb')
+    c = myl.readCoeffs2(pth + 'surfroot' + format(isurf+1,'02') + '_x.cheb')
     mylb.addPatch(c, ns, cls[isurf])
 
 

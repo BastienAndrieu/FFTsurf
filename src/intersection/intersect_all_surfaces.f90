@@ -11,7 +11,7 @@ subroutine intersect_all_surfaces( &
   use mod_types_intersection
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
-  CHARACTER :: STRNUM
+  CHARACTER(2) :: STRNUM
   integer,                      intent(in)    :: nsurf            ! number of surfaces
   type(type_surface), target,   intent(in)    :: surf(nsurf)      ! surfaces
   type(type_intersection_data), intent(inout) :: interdata_global ! global intersection data collection
@@ -81,7 +81,7 @@ subroutine intersect_all_surfaces( &
            PRINT *,''; PRINT *,''; PRINT *,''
            PRINT *,'PAIR :',ISURF,JSURF
         END IF
-
+        PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -107,8 +107,7 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              stat_degeneracy ) 
-        
-        IF ( DEBUG ) THEN
+        IF ( .true. ) THEN
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
            !IF ( NUVXYZ > 0 ) THEN
            !   CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
@@ -152,7 +151,7 @@ subroutine intersect_all_surfaces( &
   ! free all region trees
   do isurf = 1,nsurf
      IF ( DEBUG ) THEN
-        WRITE (STRNUM,'(I1)') isurf
+        WRITE (STRNUM,'(I2.2)') isurf
         CALL EXPORT_REGION_TREE( root(isurf), 'dev_intersection/treessi_' // strnum // '.dat' )
      END IF
 
