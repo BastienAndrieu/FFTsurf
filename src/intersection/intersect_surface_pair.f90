@@ -13,7 +13,7 @@ recursive subroutine intersect_surface_pair( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdata
@@ -254,7 +254,10 @@ recursive subroutine intersect_surface_pair( &
           n_collineal, &                                                        !
           toluv, &
           xyz_collineal )                                                       !
-     IF ( DEBUG ) PRINT *,'STAT_COLLINEAL =',stat_collineal
+     IF ( DEBUG ) THEN
+        PRINT *,'STAT_COLLINEAL =',stat_collineal
+        IF ( stat_collineal <= 0 ) PRINT *,'UV_COLLINEAL =',UV_COLLINEAL
+     END IF
      !                                                                          !
      ! if a pair of collineal points have been discovered, we will subdivide    !
      ! the surface regions at that point                                        !
@@ -390,6 +393,7 @@ recursive subroutine intersect_surface_pair( &
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
+  IF ( DEBUG ) PRINT *,'UV_SUBDIV =',UV_SUBDIV
   nchild(:) = 1
   stat_subdiv(:) = 2
   do isurf = 1,2 ! <------------------------------------------------------------+

@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_separation.f90
-MD5:b348b0ca8ef4a70c56fa31564f8d2ba0 -- If you edit this, you'll get what you deserve.
+MD5:a5ff4b1b92346a55a785a3e2fb34f729 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -125,7 +125,7 @@ IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (CONSTANT (
 INTEGER 4 0 0 0 INTEGER ()) 0 '8') () 0 () () () 0 0)
 96 'fraccurvature_radius' 'mod_tolerances' '' 1 ((PARAMETER
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0
-REAL ()) 0 0 () (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.16e4409f00edc1@0')
+REAL ()) 0 0 () (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.73d9776f5e87a0@-1')
 () 0 () () () 0 0)
 97 'gammaln' 'mod_math' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL
 UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 98 0 (99) () 97 () () () 0
@@ -303,7 +303,7 @@ DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE ALWAYS_EXPLICIT) (UNKNOWN 0 0
 0 0 UNKNOWN ()) 299 0 (300 301 302) () 0 () () () 0 0)
 303 'tolchord' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.4189374bc6a7f0@-2') () 0 () () () 0
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.68db8bac710cb4@-3') () 0 () () () 0
 0)
 304 'tolh' 'mod_tolerances' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (

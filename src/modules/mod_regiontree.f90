@@ -66,7 +66,8 @@ contains
   subroutine subdiv_region( &
        region, &
        uvs, &
-       stat )
+       stat, &
+       EPSopt )
     use mod_tolerances
     ! stat = -1  if region already has children
     !      = 0   if regular subdivision (2**dim children)
@@ -76,11 +77,19 @@ contains
     type(type_region), intent(inout), target :: region
     real(kind=fp),     intent(in)            :: uvs(region%dim)
     integer,           intent(out)           :: stat
+    real(kind=fp),     intent(in), optional  :: EPSopt
+    real(kind=fp)                            :: EPS
     real(kind=fp)                            :: uvbox(2*region%dim)
     logical                                  :: degenerate(region%dim)
     integer                                  :: stat_alloc
     integer                                  :: idim, nchild, jdim, ichild
 
+    if ( present(tolopt) ) then
+       EPS = EPSopt
+    else
+       EPS = EPSregion
+    end if
+    
     if ( associated(region%child) ) then
        ! the region already has children
        stat = -1
@@ -93,14 +102,16 @@ contains
             uvs(idim), &
             region%uvbox(2*idim-1), &
             region%uvbox(2*idim), &
-            tolerance=EPSuv ) ) then
+            tolerance=EPS ) ) then
           STOP 'subdiv_region : subdivision point outside the region'
        end if
        
        ! check for possibly "degenerate" dimensions
        degenerate(idim) = ( &
-            abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSuv .or. &
-            abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSuv )
+            abs(uvs(idim) - region%uvbox(2*idim-1)) < EPS .or. &
+            abs(uvs(idim) - region%uvbox(2*idim)  ) < EPS )
+            !abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSuv .or. &
+            !abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSuv )
             !abs(uvs(idim) - region%uvbox(2*idim-1)) < EPSregion .or. &
             !abs(uvs(idim) - region%uvbox(2*idim)  ) < EPSregion )
     end do

@@ -627,6 +627,113 @@ end subroutine diffgeom_intersection_curve
 
 
 
+subroutine simultaneous_point_inversions( &
+     surf, &
+     lowerb, &
+     upperb, &
+     stat, &
+     uv, &
+     xyz )
+  use mod_math
+  use mod_linalg
+  use mod_diffgeom
+  use mod_tolerances
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
+  integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
+  type(ptr_surface), intent(in)    :: surf(2)
+  real(kind=fp),     intent(in)    :: lowerb(4)
+  real(kind=fp),     intent(in)    :: upperb(4)
+  integer,           intent(out)   :: stat
+  real(kind=fp),     intent(inout) :: uv(2,2)
+  real(kind=fp),     intent(out)   :: xyz(3)
+  real(kind=fp)                    :: xyzs(3,2), r(3)
+  real(kind=fp)                    :: dxyz_duv(3,2), mat(2,2), rhs(2), duv(2)
+  real(kind=fp), dimension(2)      :: cond, erruv
+  integer                          :: it, isurf, ivar
+
+  IF ( DEBUG ) THEN
+     PRINT *,''
+     PRINT *,'SIMULTANEOUS_POINT_INVERSION'
+  END IF
+  
+  stat = 1
+  erruv(1:2) = 0._fp
+  cond(1:2) = 1._fp
+
+  IF ( DEBUG ) PRINT *,'|X1 - X2| , |DUV1| , |DUV2| , eps*cond1 , eps*cond2'
+  do it = 1,itmax ! <-------------------------------------------------------+
+     IF ( DEBUG ) PRINT *,'IT. #',IT
+     IF ( DEBUG ) THEN
+        PRINT *,'UV='
+        CALL PRINT_MAT(transpose(UV))
+     END IF
+     do isurf = 1,2 ! <--------------+                                      !
+        call eval( &                 !                                      !
+             xyzs(:,isurf), &        !                                      !
+             surf(isurf)%ptr, &      !                                      !
+             uv(:,isurf) )           !                                      !
+     end do ! <----------------------+                                      !
+     r = 0.5_fp * (xyzs(:,1) - xyzs(:,2))                                   !
+     !                                                                      !
+     do isurf = 1,2 ! <--------------------------------------------------+  !
+        do ivar = 1,2 ! <---------------+                                !  !
+           call evald1( &               !                                !  !
+                dxyz_duv(:,ivar), &     !                                !  !
+                surf(isurf)%ptr, &      !                                !  !
+                uv(:,isurf), &          !                                !  !
+                ivar )                  !                                !  !
+        end do ! <----------------------+                                !  !
+        mat = matmul(transpose(dxyz_duv), dxyz_duv)                      !  !
+        rhs = matmul(transpose(dxyz_duv), real((-1)**isurf, kind=fp)*r)  !  !
+        call linsolve_svd( &                                             !  !
+             duv, &                                                      !  !
+             mat, &                                                      !  !
+             rhs, &                                                      !  !
+             2, &                                                        !  !
+             2, &                                                        !  !
+             1, &                                                        !  !
+             cond(isurf), &                                              !  !
+             tol=EPSmath )                                               !  !
+        !                                                                !  !
+        erruv(isurf) = sum(duv**2)                                       !  !
+        !                                                                !  !
+        ! modify Newton step => keep iterate inside feasible region      !  !
+        call nd_box_reflexions( &                                        !  !
+             uv(:,isurf), &                                              !  !
+             lowerb(2*isurf-1:2*isurf), &                                !  !
+             upperb(2*isurf-1:2*isurf), &                                !  !
+             duv, &                                                      !  !
+             2 )                                                         !  !
+        !                                                                !  !
+        ! update solution                                                !  !
+        uv(:,isurf) = uv(:,isurf) + duv                                  !  !
+     end do ! <----------------------------------------------------------+  !
+     !                                                                      !
+     IF ( DEBUG ) PRINT *,norm2(r), sqrt(erruv), EPSfp*cond
+     ! termination criteria                                                 !
+     if ( all(erruv < max(EPSuvsqr, EPSfpsqr*cond**2)) ) then ! <--------+  !
+        if ( sum(r**2) < 0.25_fp*EPSxyzsqr ) then ! <----+               !  !
+           stat = 0                                      !               !  !
+           do isurf = 1,2 ! <--------------+             !               !  !
+              call eval( &                 !             !               !  !
+                   xyzs(:,isurf), &        !             !               !  !
+                   surf(isurf)%ptr, &      !             !               !  !
+                   uv(:,isurf) )           !             !               !  !
+           end do ! <----------------------+             !               !  !
+           xyz = 0.5_fp * sum(xyzs, 2)                   !               !  !
+           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
+        else ! ------------------------------------------+               !  !
+           IF ( DEBUG ) PRINT *,'STAGNATION'
+        end if ! <---------------------------------------+               !  !
+        return                                                           !  !
+     end if ! <----------------------------------------------------------+  !
+  end do ! <----------------------------------------------------------------+
+  
+end subroutine simultaneous_point_inversions
+
+
+
 subroutine check_curve_surface_intersection_point( &
    curv, &
    surf, &
@@ -785,6 +892,7 @@ subroutine diffgeom_intersection( &
   !PRINT *,'N ='
   !CALL PRINT_MAT(N)
   dotn = dot_product(n(:,1), n(:,2))
+  !PRINT *,'DOTN =',DOTN
 
   if ( abs(dotn) > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <---------------------+
      !! tangential intersection                                                       !
@@ -804,6 +912,8 @@ subroutine diffgeom_intersection( &
         LMN(:,isurf) = LMN(:,isurf) * invsqrtdetEFG(isurf)
      end do
      !PRINT *,'DETLMN =',LMN(1,:)*LMN(3,:) - LMN(2,:)**2
+     !PRINT *,'LMN ='
+     !CALL PRINT_MAT(LMN)
      jsurf = minloc(detEFG, 1)
      isurf = 1+mod(jsurf,2)
      ! linear realtion duvj_ds = A * duvi_ds                                          !
@@ -982,7 +1092,7 @@ subroutine intersect_border_surface( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .false. )
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
@@ -1352,6 +1462,17 @@ subroutine intersect_all_surfaces( &
            if ( .not.mask(jsurf) ) cycle inner
         end if
 
+        !IF ( ISURF == 37 .OR. JSURF == 37 ) THEN
+        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
+        !IF ( ISURF == 37 ) then
+        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
+        !   pause
+        !END IF
+        !IF ( JSURF == 37 ) then
+        !   CALL EXPORT_REGION_TREE( root(jsurf), 'Jouke/tree_surf37.dat' )
+        !   pause
+        !END IF
+
         ! check if there is a previously discovered tangential intersection curve between 
         ! the two intersected surfaces
         do ic = 1,interdata_global%nc
@@ -1608,7 +1729,7 @@ subroutine merge_intersection_data( &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
           HMIN=REAL(1.D-4,KIND=FP), &
-          HMAX=REAL(1.D-1,KIND=FP) )
+          HMAX=REAL(5.D-3,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
@@ -1676,6 +1797,7 @@ subroutine newton_three_surfaces( &
   cond = 1._fp
 
   do it = 1,itmax
+     !IF ( DEBUG ) PRINT *,'UV =',UV
      !! compute residual
      do isurf = 1,3
         call eval( &
@@ -1698,11 +1820,12 @@ subroutine newton_three_surfaces( &
      jac(1:3,5:6) = 0._fp
      jac(4:6,3:4) = 0._fp
 
-     PRINT *,'JAC ='
-     CALL PRINT_MAT(JAC)
+     IF ( .false. ) THEN
+        PRINT *,'JAC ='
+        CALL PRINT_MAT(JAC)
 
-     PRINT *,'RHS =',-r
-     
+        PRINT *,'RHS =',-r
+     END IF
 
      !! solve for Newton step
      call linsolve_svd( &
@@ -1867,7 +1990,7 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .TRUE. )
   logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
   integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
@@ -1900,7 +2023,7 @@ subroutine newton_curve_surface( &
   cond = 1._fp
   fac = 1._fp
   linear_conv = .false.
-  IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
+  !IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
   do it = 1,itmax
      !! compute residual
      call eval(xyz_c, curv, tuv(1)  ) ! curve's position vector
@@ -1934,9 +2057,11 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
-     !PRINT *,'JAC ='
-     !CALL PRINT_MAT(JAC)
-     !PRINT *,'RHS =',-R
+     IF ( .false. ) THEN
+        PRINT *,'JAC ='
+        CALL PRINT_MAT(JAC)
+        PRINT *,'RHS =',-R
+     END IF
 
      !! solve for Newton step
      call linsolve_svd( &
@@ -1958,11 +2083,16 @@ subroutine newton_curve_surface( &
      errtuv = sum(dtuv**2)
 
      ! correct Newton step to keep the iterate inside feasible region
-     IF ( .false. ) THEN
+     IF ( DEBUG ) THEN
         PRINT *,' TUV =',TUV
         PRINT *,'DTUV =',DTUV
         PRINT *,'REFLEXIONS...'
      END IF
+     if ( .true. ) then
+        if ( errtuv > sum((upperb - lowerb)**2) ) then
+           dtuv = sqrt(sum((upperb - lowerb)**2) / errtuv) * dtuv
+        end if
+     end if
      call nd_box_reflexions( &
           tuv, &
           lowerb, &
@@ -2210,7 +2340,7 @@ subroutine newton_three_surfaces_1tangential( &
   use mod_diffgeom
   use mod_tolerances  
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(3)
   real(kind=fp),     intent(in)    :: lowerb(6)
@@ -2220,12 +2350,20 @@ subroutine newton_three_surfaces_1tangential( &
   real(kind=fp),     intent(out)   :: xyz(3)
   real(kind=fp)                    :: xyzs(3,3), r(6)
   type(ptr_surface)                :: surftng(2)
+  real(kind=fp)                    :: uvtng(2,2)
   real(kind=fp)                    :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                    :: mat(3,3), dtuv(3), duv(6)
   integer                          :: stat_contactpoint
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
 
+  IF ( DEBUG ) THEN
+     PRINT *,''
+     PRINT *,'NEWTON_THREE_SURFACES_1TANGENTIAL'
+     PRINT *,'UV0 ='
+     CALL PRINT_MAT(transpose(UV))
+  END IF
+  
   stat = 1
   erruv = 0._fp
   cond = 1._fp
@@ -2233,8 +2371,27 @@ subroutine newton_three_surfaces_1tangential( &
   surftng(1)%ptr => surf(1)%ptr
   surftng(2)%ptr => surf(3)%ptr
 
+  IF ( DEBUG ) PRINT *,'|X1 - X2| , |X1 - X3| , |DUV| , eps*cond'
   do it = 1,itmax
-     IF ( DEBUG ) PRINT *,'UV =',UV
+     IF ( DEBUG ) PRINT *,'IT. #',IT
+     uvtng = uv(:,[1,3])
+     !! relax tangential intersection
+     call simultaneous_point_inversions( &
+          surftng, &
+          lowerb([1,2,5,6]), &
+          upperb([1,2,5,6]), &
+          stat, &
+          uvtng, &
+          xyz )
+     if ( stat > 0 ) then
+        STOP 'relaxation onto tangential intersection failed :('
+     end if
+     uv(:,[1,3]) = uvtng
+     IF ( DEBUG ) THEN
+        PRINT *,'UV='
+        CALL PRINT_MAT(transpose(UV))
+     END IF
+     
      !! compute residual
      do isurf = 1,3
         call eval( &
@@ -2242,8 +2399,21 @@ subroutine newton_three_surfaces_1tangential( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
+     !IF ( DEBUG ) THEN
+     !   PRINT *,'XYZ='
+     !   CALL PRINT_MAT(transpose(XYZS))
+     !END IF
+     
      r(1:3) = xyzs(:,1) - xyzs(:,2)
      r(4:6) = xyzs(:,1) - xyzs(:,3)
+     IF ( .true. ) THEN
+        if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
+           stat = 0
+           xyz = sum(xyzs, 2)/3._fp
+           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
+           return
+        end if
+     END IF
 
      !! compute derivatives
      if ( sum(r(4:6)**2) > EPSxyzsqr ) then
@@ -2258,9 +2428,9 @@ subroutine newton_three_surfaces_1tangential( &
              dxyz_ds, &
              stat_contactpoint, &
              curvature )
-        IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
+        !IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
         IF ( DEBUG ) PRINT *,'DUV_DS  =',duv_ds(:,1,:)
-        IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
+        !IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
         !call diffgeom_intersection_curve( &
         !     surftng, &
         !     uv(:,[1,3]), &
@@ -2296,6 +2466,7 @@ subroutine newton_three_surfaces_1tangential( &
           1, &
           cond, &
           tol=EPSmath )
+     PRINT *,'DTUV =',DTUV
 
      duv(1:2) = dtuv(1)*duv_ds(:,1,1)
      duv(3:4) = dtuv(2:3)
@@ -2310,7 +2481,13 @@ subroutine newton_three_surfaces_1tangential( &
           upperb, &
           duv, &
           6 )
-     IF ( DEBUG ) PRINT *,'DUV =',DUV
+     !IF ( DEBUG ) PRINT *,'DUV =',DUV
+     IF ( DEBUG ) THEN
+        PRINT *,'DUV ='
+        DO IVAR = 1,SIZE(DUV)
+           PRINT *,DUV(IVAR)
+        END DO
+     END IF
 
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
@@ -2806,7 +2983,7 @@ subroutine intersect_intersection_curves( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .false. )
   type(type_intersection_data), target, intent(inout) :: interdata
   integer,                              intent(in)    :: curvpair(2)
   type(ptr_intersection_curve)                        :: curv(2)
@@ -2822,10 +2999,12 @@ subroutine intersect_intersection_curves( &
   real(kind=fp)                                       :: uv3(2,3), xyz(3), uv2(2,2)
   real(kind=fp)                                       :: w, wi, wip1
   real(kind=fp), dimension(6)                         :: lowerb, upperb
+  real(kind=fp), allocatable                          :: uv3tmp(:,:,:)
   integer                                             :: stat
   integer                                             :: idpt
   integer                                             :: isurf, jsurf, ivar, icurv, ipt, jpt
-  INTEGER :: FID, I
+  INTEGER :: FID = 13, I
+  CHARACTER :: STRNUM
 
   do icurv = 1,2
      curv(icurv)%ptr => interdata%curves(curvpair(icurv))
@@ -2872,9 +3051,32 @@ subroutine intersect_intersection_curves( &
        npts, &
        ipls, &
        lambda )
-  deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+  IF ( .false. ) THEN
+     DO ICURV = 1,2
+        WRITE (STRNUM,'(I1)') ICURV
+        OPEN(UNIT=FID, FILE='polylines/xy'//strnum//'.dat', ACTION='WRITE')
+        WRITE (FID,*) NP(ICURV)
+        DO IPT = 1,NP(ICURV)
+           WRITE (FID,*) POLYLINEUV(ICURV)%MAT(1:2,IPT)
+        END DO
+        CLOSE(FID)
+     END DO
+     OPEN(UNIT=FID, FILE='polylines/result.dat', ACTION='WRITE')
+     WRITE (FID,*) NPTS
+     DO IPT = 1,NPTS
+        WRITE (FID,*) IPLS(:,IPT)
+     END DO
+     DO IPT = 1,NPTS
+        WRITE (FID,*) LAMBDA(:,IPT)
+     END DO
+     CLOSE(FID)
+  END IF
 
-  if ( npts < 1 ) return ! the polylines do not intersect, we assume the curves do not either
+  if ( npts < 1 ) then
+     ! the polylines do not intersect, we assume the curves do not either
+     deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+     return
+  end if
 
   !! refine all intersection points using Newton-Raphson algorithm and add them to the collections  
   ! form the triplet of surfaces (one common incident surface, plus one other for each curve)
@@ -2893,21 +3095,37 @@ subroutine intersect_intersection_curves( &
   lowerb = lowerb - EPSuv
   upperb = upperb + EPSuv
 
+  allocate(uv3tmp(2,3,npts))
+  do ipt = 1,npts
+     uv3tmp(:,1,ipt) = &
+          (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &
+          lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)
+     do icurv = 1,2 ! <-----------------------------------------------------------------------------+
+        isurf = 1 + mod(numsurf(icurv),2)                                                           !
+        uv3tmp(:,1+icurv,ipt) = &                                                                   !
+             (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !
+             lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !
+     end do ! <-------------------------------------------------------------------------------------+
+  end do
+
   do ipt = 1,npts ! <----------------------------------------------------------------------------------+
      ! set initial iterate (result of polyline intersection)                                           !
-     uv3(:,1) = &                                                                                      !
-          (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &              !
-          lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)                          !
-     do icurv = 1,2 ! <-----------------------------------------------------------------------------+  !
-        isurf = 1 + mod(numsurf(icurv),2)                                                           !  !
-        uv3(:,1+icurv) = &                                                                          !  !
-             (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !  !
-             lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !  !
-     end do ! <-------------------------------------------------------------------------------------+  !
+     uv3 = uv3tmp(:,:,ipt)                                                                             !
+     !uv3(:,1) = &                                                                                      !
+     !     (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &              !
+     !     lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)                          !
+     !do icurv = 1,2 ! <-----------------------------------------------------------------------------+  !
+     !   isurf = 1 + mod(numsurf(icurv),2)                                                           !  !
+     !   uv3(:,1+icurv) = &                                                                          !  !
+     !        (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !  !
+     !        lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !  !
+     !end do ! <-------------------------------------------------------------------------------------+  !
      !                                                                                                 !
      ! run Newton-Raphson algorithm                                                                    !
-     PRINT *,'SMOOTH? ', curv(1)%ptr%smooth, curv(2)%ptr%smooth
-     PRINT *,'UV0 = ',UV3
+     IF ( DEBUG ) THEN
+        PRINT *,'SMOOTH? ', curv(1)%ptr%smooth, curv(2)%ptr%smooth
+        PRINT *,'UV0 = ',UV3
+     END IF
      if ( curv(2)%ptr%smooth ) then
         call newton_three_surfaces_1tangential( &
              surf, &
@@ -2926,6 +3144,7 @@ subroutine intersect_intersection_curves( &
              xyz )                                                                                        !
      end if
      !                                                                                                 !
+     IF ( STAT /= 0 ) CYCLE
      IF ( DEBUG ) THEN
         IF ( STAT == 0 ) THEN
            PRINT *,'NEWTON 3 SURFACES CONVERGED'
@@ -3053,7 +3272,9 @@ subroutine intersect_intersection_curves( &
      end do curv_loop ! <-------------------------------------------------------------+                !
      !                                                                                                 !
   end do ! <-------------------------------------------------------------------------------------------+
-
+  
+  deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+  
 end subroutine intersect_intersection_curves
 
 
@@ -3075,7 +3296,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
   type(type_curve),           intent(in)    :: root_c
   type(type_surface),         intent(in)    :: root_s
   type(type_region), target,  intent(inout) :: region_c
@@ -4293,8 +4514,8 @@ recursive subroutine intersect_2Dpolylines( &
   ! compute axis-aligned bounding boxes for children
   do i = 1,2
      do ichild = 1,nchild(i)
-        xybox(:,1,ichild,i) = minval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
-        xybox(:,2,ichild,i) = maxval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
+        xybox(:,1,ichild,i) = minval(xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2)
+        xybox(:,2,ichild,i) = maxval(xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2)
      end do
   end do
 
@@ -4313,7 +4534,6 @@ recursive subroutine intersect_2Dpolylines( &
         end if
      end do
   end do
-
 
 end subroutine intersect_2Dpolylines
 
@@ -4334,7 +4554,7 @@ recursive subroutine intersect_surface_pair( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdata
@@ -4575,7 +4795,10 @@ recursive subroutine intersect_surface_pair( &
           n_collineal, &                                                        !
           toluv, &
           xyz_collineal )                                                       !
-     IF ( DEBUG ) PRINT *,'STAT_COLLINEAL =',stat_collineal
+     IF ( DEBUG ) THEN
+        PRINT *,'STAT_COLLINEAL =',stat_collineal
+        IF ( stat_collineal <= 0 ) PRINT *,'UV_COLLINEAL =',UV_COLLINEAL
+     END IF
      !                                                                          !
      ! if a pair of collineal points have been discovered, we will subdivide    !
      ! the surface regions at that point                                        !
@@ -4711,6 +4934,7 @@ recursive subroutine intersect_surface_pair( &
   end if ! <--------------------------------------------------------------------+
 
   ! subdivide the surface regions
+  IF ( DEBUG ) PRINT *,'UV_SUBDIV =',UV_SUBDIV
   nchild(:) = 1
   stat_subdiv(:) = 2
   do isurf = 1,2 ! <------------------------------------------------------------+

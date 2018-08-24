@@ -10,7 +10,7 @@ subroutine newton_three_surfaces_1tangential( &
   use mod_diffgeom
   use mod_tolerances  
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(3)
   real(kind=fp),     intent(in)    :: lowerb(6)
@@ -20,12 +20,20 @@ subroutine newton_three_surfaces_1tangential( &
   real(kind=fp),     intent(out)   :: xyz(3)
   real(kind=fp)                    :: xyzs(3,3), r(6)
   type(ptr_surface)                :: surftng(2)
+  real(kind=fp)                    :: uvtng(2,2)
   real(kind=fp)                    :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
   real(kind=fp)                    :: mat(3,3), dtuv(3), duv(6)
   integer                          :: stat_contactpoint
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
 
+  IF ( DEBUG ) THEN
+     PRINT *,''
+     PRINT *,'NEWTON_THREE_SURFACES_1TANGENTIAL'
+     PRINT *,'UV0 ='
+     CALL PRINT_MAT(transpose(UV))
+  END IF
+  
   stat = 1
   erruv = 0._fp
   cond = 1._fp
@@ -33,8 +41,27 @@ subroutine newton_three_surfaces_1tangential( &
   surftng(1)%ptr => surf(1)%ptr
   surftng(2)%ptr => surf(3)%ptr
 
+  IF ( DEBUG ) PRINT *,'|X1 - X2| , |X1 - X3| , |DUV| , eps*cond'
   do it = 1,itmax
-     IF ( DEBUG ) PRINT *,'UV =',UV
+     IF ( DEBUG ) PRINT *,'IT. #',IT
+     uvtng = uv(:,[1,3])
+     !! relax tangential intersection
+     call simultaneous_point_inversions( &
+          surftng, &
+          lowerb([1,2,5,6]), &
+          upperb([1,2,5,6]), &
+          stat, &
+          uvtng, &
+          xyz )
+     if ( stat > 0 ) then
+        STOP 'relaxation onto tangential intersection failed :('
+     end if
+     uv(:,[1,3]) = uvtng
+     IF ( DEBUG ) THEN
+        PRINT *,'UV='
+        CALL PRINT_MAT(transpose(UV))
+     END IF
+     
      !! compute residual
      do isurf = 1,3
         call eval( &
@@ -42,8 +69,21 @@ subroutine newton_three_surfaces_1tangential( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
+     !IF ( DEBUG ) THEN
+     !   PRINT *,'XYZ='
+     !   CALL PRINT_MAT(transpose(XYZS))
+     !END IF
+     
      r(1:3) = xyzs(:,1) - xyzs(:,2)
      r(4:6) = xyzs(:,1) - xyzs(:,3)
+     IF ( .true. ) THEN
+        if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
+           stat = 0
+           xyz = sum(xyzs, 2)/3._fp
+           IF ( DEBUG ) PRINT *,'CONVERGED, UV =',UV,', XYZ =',XYZ
+           return
+        end if
+     END IF
 
      !! compute derivatives
      if ( sum(r(4:6)**2) > EPSxyzsqr ) then
@@ -58,9 +98,9 @@ subroutine newton_three_surfaces_1tangential( &
              dxyz_ds, &
              stat_contactpoint, &
              curvature )
-        IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
+        !IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
         IF ( DEBUG ) PRINT *,'DUV_DS  =',duv_ds(:,1,:)
-        IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
+        !IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
         !call diffgeom_intersection_curve( &
         !     surftng, &
         !     uv(:,[1,3]), &
@@ -96,6 +136,7 @@ subroutine newton_three_surfaces_1tangential( &
           1, &
           cond, &
           tol=EPSmath )
+     PRINT *,'DTUV =',DTUV
 
      duv(1:2) = dtuv(1)*duv_ds(:,1,1)
      duv(3:4) = dtuv(2:3)
@@ -110,7 +151,13 @@ subroutine newton_three_surfaces_1tangential( &
           upperb, &
           duv, &
           6 )
-     IF ( DEBUG ) PRINT *,'DUV =',DUV
+     !IF ( DEBUG ) PRINT *,'DUV =',DUV
+     IF ( DEBUG ) THEN
+        PRINT *,'DUV ='
+        DO IVAR = 1,SIZE(DUV)
+           PRINT *,DUV(IVAR)
+        END DO
+     END IF
 
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)

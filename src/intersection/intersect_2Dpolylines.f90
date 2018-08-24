@@ -70,8 +70,8 @@ recursive subroutine intersect_2Dpolylines( &
   ! compute axis-aligned bounding boxes for children
   do i = 1,2
      do ichild = 1,nchild(i)
-        xybox(:,1,ichild,i) = minval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
-        xybox(:,2,ichild,i) = maxval( xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2 )
+        xybox(:,1,ichild,i) = minval(xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2)
+        xybox(:,2,ichild,i) = maxval(xy(i)%mat(:,ind(ichild,i):ind(ichild+1,i)), dim=2)
      end do
   end do
 
@@ -90,6 +90,5 @@ recursive subroutine intersect_2Dpolylines( &
         end if
      end do
   end do
-
 
 end subroutine intersect_2Dpolylines

@@ -5,8 +5,8 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurftotal = 112;
-listsurf = [1:7,28:44]; % 1:nsurftotal;%
+nsurftotal = 126;
+listsurf = 1:nsurftotal;%[1:7,28:44];%
 nsurf = length(listsurf);
 
 PLOT_TREE = 0;
@@ -29,6 +29,7 @@ nc = str2num( fgetl( fid ) );
 aabb = 1e6*repmat([1,-1],1,3);
 for ic = 1:nc
     curves(ic).dummy = str2num( fgetl( fid ) );
+    curves(ic).smooth = str2num( fgetl( fid ) );
     %curves(ic).endpoints = str2num( fgetl( fid ) );
     curves(ic).uvbox = zeros( 2, 4 );
     for isurf = 1:2
@@ -63,6 +64,7 @@ fclose( fid );
 
 scn_diameter = norm(aabb(2:2:6) - aabb(1:2:5));
 
+
 %% Plot
 
 figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
@@ -70,8 +72,17 @@ hold on
 
 for isurf = listsurf%1:nsurf%[1:7,28:44]%1:nsurf
     c = readCoeffs2( sprintf('propergol/C_%3.3d.cheb', isurf) );
+    surfaces(isurf).D = cheb_diff2(c);
+    du = cheb_diff2(surfaces(isurf).D(:,:,:,1));
+    dv = cheb_diff2(surfaces(isurf).D(:,:,:,2));
+    surfaces(isurf).D2 = cat(4,du,dv(:,:,:,2));
+    
     si = surf_chebyshev( c, 1, 100 );
     set( si, 'facecolor', cl(isurf,:), 'specularstrength', 0 );
+%     set( si, 'facecolor', [1,1,0.7], 'specularstrength', 0 );
+    if isurf > 112
+        set( si, 'facecolor', 0.5*[1,1,1], 'facealpha', 0.2 );
+    end
     
     if PLOT_TREE
         tree = importdata(sprintf('treessi_%d.dat',isurf));
@@ -105,12 +116,13 @@ end
 
 for ic = 1:nc
     %if curves(ic).dummy; continue; end
+    if curves(ic).smooth; continue; end
     if isempty(curves(ic).xyz); continue; end
     plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
         '-', 'color', cli, 'linewidth', 1.0, 'markersize', 5 )
 end
 
-plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
+% plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
 
 
 axis image vis3d
@@ -122,6 +134,12 @@ camproj('persp');
 light( 'style', 'infinite', 'position', [xl,yl,zl] );
 light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
 
+
+if nsurf > 50
+    listsurf = [1:7,28:44]; %
+    nsurf = length(listsurf);
+    %     return
+end
 
 %% point -> curve segment incidence
 p2cs = {};
@@ -144,18 +162,19 @@ for ip = 1:np
 end
 
 %% overwrite curve segments classification
-for ic = 1:nc
-    for is = 1:curves(ic).nsplit - 1
-        curves(ic).class(is) = 1;
-        for jp = 0:1
-            ip = curves(ic).isplit(is+jp,1);
-            if np2cs(ip) < 2
-                curves(ic).class(is) = -1;
+if 0
+    for ic = 1:nc
+        for is = 1:curves(ic).nsplit - 1
+            curves(ic).class(is) = 1;
+            for jp = 0:1
+                ip = curves(ic).isplit(is+jp,1);
+                if np2cs(ip) < 2
+                    curves(ic).class(is) = -1;
+                end
             end
         end
     end
 end
-
 
 %%
 
@@ -173,11 +192,12 @@ figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
 hold on
 
 l = find(np2cs > 1);
-plot3( points(l,1), points(l,2), points(l,3), '.', 'color', 'b', 'markersize', 10 );
+% plot3( points(l,1), points(l,2), points(l,3), '.', 'color', 'b', 'markersize', 10 );
 
 js = 0;
 for ic = 1:nc
     %if curves(ic).dummy; continue; end
+    if curves(ic).smooth; continue; end
     if isempty(curves(ic).xyz); continue; end
     
     if curves(ic).nsplit > 0
@@ -230,7 +250,7 @@ col = ceil(nsurf/row);
 
 clcs = CC(cl,0.0,1.2,0.8);
 
-lq = 0.1;%0.05;
+lq = 0.05;%0.05;
 
 figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
 fid = fopen('result/interdata_surf2curv.dat', 'r');
@@ -258,6 +278,10 @@ for isurf=1:nsurftotal
                     '-', 'color', clcs(js,:), 'linewidth', 1);
                 plot(curves(ic).uv(l,1,is), curves(ic).uv(l,2,is), ...
                     '.', 'color', 'k', 'markersize', 7);
+                %                 for k = 1:2
+                %                     text(curves(ic).uv(l(k),1,is), curves(ic).uv(l(k),2,is), ...
+                %                         num2str(curves(ic).isplit(i-1+k,1)));
+                %                 end
                 
                 p = reshape(curves(ic).uv(l(1):l(2),:,is),[],2);
                 ds = sqrt(sum( (p(2:end,:) - p(1:end-1,:)).^2, 2 ));
@@ -319,7 +343,7 @@ for isurf=1:nsurftotal
         icis = str2num(fgetl(fid));
         ic = icis(1);
         is = icis(2);
-        
+        js = icis(3);
         if is == 1
             order = [2,1];
         else
@@ -341,17 +365,47 @@ for isurf=1:nsurftotal
             %                 xy(endve(order(2)),2) - xy(endve(order(1)),2), 0);
             
             arc_end = [arc_end; endve(order)];
-            
-            if is == 1
-                %                 ang = [atan2(p(end-1,2)-p(end,2), p(end-1,1)-p(end,1)), ...
-                %                     atan2(p(1,2)-p(2,2), p(1,1)-p(2,1))];
-                ang = atan2(p(1,2)-p(end,2), p(1,1)-p(end,1));
+            if 0
+                pairsurf = [0,0];
+                pairsurf(is) = isurf;
+                pairsurf(1+mod(is,2)) = js;
+                pairsurf
+                
+                if isempty(intersect(listsurf, js))
+                    c = readCoeffs2( sprintf('propergol/C_%3.3d.cheb', js) );
+                    surfaces(js).D = cheb_diff2(c);
+                    du = cheb_diff2(surfaces(js).D(:,:,:,1));
+                    dv = cheb_diff2(surfaces(js).D(:,:,:,2));
+                    surfaces(js).D2 = cat(4,du,dv(:,:,:,2));
+                end
+                
+                for k = 1:2
+                    [~, duv_ds] = diffgeom_intersection_curve(...
+                        surfaces(pairsurf), ...
+                        reshape(curves(ic).uv(endpt(k),:,:),2,2));
+                    duv_ds
+                    duv_ds = (-1)^is * duv_ds(:,is);
+                    ang(k) = atan2(duv_ds(2), duv_ds(1));
+                end
             else
-                %                 ang = [atan2(p(2,2)-p(1,2), p(2,1)-p(1,1)), ...
-                %                     atan2(p(end,2)-p(end-1,2), p(end,1)-p(end-1,1))];
-                ang = atan2(p(end,2)-p(1,2), p(end,1)-p(1,1));
+                if is == 1
+                    duv_ds = p([end-1,1],:) - p([end,2],:);
+                else
+                    duv_ds = p([2,end],:) - p([1,end-1],:);
+                end
+                ang = atan2(duv_ds(:,2), duv_ds(:,1))';
             end
-            ang = ang*[1,1];
+            
+            %             if is == 1
+            %                 %                 ang = [atan2(p(end-1,2)-p(end,2), p(end-1,1)-p(end,1)), ...
+            %                 %                     atan2(p(1,2)-p(2,2), p(1,1)-p(2,1))];
+            %                 ang = atan2(p(1,2)-p(end,2), p(1,1)-p(end,1));
+            %             else
+            %                 %                 ang = [atan2(p(2,2)-p(1,2), p(2,1)-p(1,1)), ...
+            %                 %                     atan2(p(end,2)-p(end-1,2), p(end,1)-p(end-1,1))];
+            %                 ang = atan2(p(end,2)-p(1,2), p(end,1)-p(1,1));
+            %             end
+            %             ang = ang*[1,1];
             arc_ang = [arc_ang; ang];
         end
     end
@@ -391,5 +445,3 @@ for isurf=1:nsurftotal
     %     end
     %     axis image
 end
-
-

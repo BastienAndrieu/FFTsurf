@@ -16,13 +16,19 @@ f.close()
 print isegm
 
 
-clr = ['r','b']
+clr = ['b','r']
 fig, ax = plt.subplots()
 for i in range(2):
+    print 'polyline #',i
     xy = np.loadtxt( 'xy'+str(i+1)+'.dat', dtype=float, skiprows=1 )
-    plt.plot(xy[:,0], xy[:,1], '-', color=clr[i], markersize=3)
+    plt.plot(xy[:,0], xy[:,1], '.-', color=clr[i], markersize=5)
+    y = np.zeros((n,2))
     for j in range(n):
         z = (1.0 - lambd[i,j])*xy[isegm[i,j],:] + lambd[i,j]*xy[isegm[i,j]+1,:]
-        plt.plot(z[0], z[1], 'ko', markersize=4)
+        y[j] = z
+        plt.plot(z[0], z[1], 'kx', markersize=6)
+    for j in range(n-1):
+        for k in range(j+1,n):
+            print j,k,np.sqrt(np.sum(np.power((y[j] - y[k]),2)))
 ax.set_aspect('equal', adjustable='box')
 plt.show()

@@ -2,3 +2,9 @@
 * gestion branch point
 * intersection de 2 intersection_curves tangential/transversal, tangential/tangential
 * si mode de propagation == advection, tous les points d'intersection sont maintenus (d'autres peuvent éventuellement se rajouter)
+
+
+bidouilles
+* EPS variable dans subdiv_region
+* non convergence de Newton_3_surfaces
+* approximation polylines des intersection_curves

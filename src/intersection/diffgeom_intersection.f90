@@ -63,6 +63,7 @@ subroutine diffgeom_intersection( &
   !PRINT *,'N ='
   !CALL PRINT_MAT(N)
   dotn = dot_product(n(:,1), n(:,2))
+  !PRINT *,'DOTN =',DOTN
 
   if ( abs(dotn) > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <---------------------+
      !! tangential intersection                                                       !
@@ -82,6 +83,8 @@ subroutine diffgeom_intersection( &
         LMN(:,isurf) = LMN(:,isurf) * invsqrtdetEFG(isurf)
      end do
      !PRINT *,'DETLMN =',LMN(1,:)*LMN(3,:) - LMN(2,:)**2
+     !PRINT *,'LMN ='
+     !CALL PRINT_MAT(LMN)
      jsurf = minloc(detEFG, 1)
      isurf = 1+mod(jsurf,2)
      ! linear realtion duvj_ds = A * duvi_ds                                          !

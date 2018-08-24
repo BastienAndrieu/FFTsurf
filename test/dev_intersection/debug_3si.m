@@ -4,6 +4,11 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 
+
+uv0 = [
+    0.18416554789070413      -0.98458276729930339       0.96069455607300769      -0.90793532340117189      -0.18416554789071068      -0.98458276729930483
+];
+
 %%
 for isurf = 1:3
     S(isurf).x = readCoeffs2(sprintf('debug3si_surf%d.cheb',isurf));
@@ -32,6 +37,7 @@ cl = CC( cl, 0.0, 0.8, 1.5 );
 figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
 hold on
 
+b = zeros(1,3);
 for isurf = 1:3
     uvbox = [lowerb(2*isurf-1:2*isurf) ; upperb(2*isurf-1:2*isurf)];
     c = chgvar2(S(isurf).x, uvbox);
@@ -39,6 +45,10 @@ for isurf = 1:3
     
     si = surf_chebyshev( c, 1 );
     set( si, 'facecolor', cl(isurf,:), 'specularstrength', 0 );
+    
+    x = ICT2unstr(S(isurf).x, uv0(2*isurf-[1,0]));
+    b = b + x/3;
+    plot3(x(1), x(2), x(3), 'k.');
 end
 
 for icurv = 1:2
@@ -47,7 +57,10 @@ for icurv = 1:2
     plot3( x(:,1), x(:,2), x(:,3), 'k' );
 end
 
-axis image vis3d
+% axis image vis3d
+axis(b([1,1,2,2,3,3]) + 1e-2*repmat([-1,1],1,3));
+daspect([1,1,1])
+axis vis3d
 view(3)
 camproj('persp');
 % camlight(30,30);
@@ -60,9 +73,6 @@ light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] 
 %% plot2d
 clr = ['r','b'];
 
-uv0 = [
-    0.10806671958044345      -0.25397233810585973       0.10501892724069131      -0.17046632961226238       0.22464656648506398      -0.22833299332038348 
-];
 
 
 
@@ -88,12 +98,12 @@ for isurf = 1:3
             jsurf = 1 + mod(curv(icurv).numsurf,2);
         end
         plot(curv(icurv).uv(:,2*jsurf-1), curv(icurv).uv(:,2*jsurf), ...
-            '.-', 'color', clr(icurv));
+            '-', 'color', clr(icurv));
         
-        for j = 1:curv(icurv).np
-            text(curv(icurv).uv(j,2*jsurf-1), curv(icurv).uv(j,2*jsurf), ...
-                num2str(j), 'color', clr(icurv), 'fontsize', 7);
-        end
+%         for j = 1:curv(icurv).np
+%             text(curv(icurv).uv(j,2*jsurf-1), curv(icurv).uv(j,2*jsurf), ...
+%                 num2str(j), 'color', clr(icurv), 'fontsize', 7);
+%         end
     end
     
     plot(uv0(2*isurf-1), uv0(2*isurf), 'k*');
@@ -112,7 +122,10 @@ addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
 uv = uv0;
 uv = reshape(uv, 2, 3)';
-[ stat, uv, xyz, res ] = newton_3_surfaces( S, lowerb, upperb, uv );
+% [ stat, uv, xyz, res, uvpath ] = newton_3_surfaces( S, lowerb, upperb, uv );
+[ stat, uv, xyz, res, uvpath ] = newton_3_surfaces_simult_pt_inv( S, lowerb, upperb, uv );
+% [ stat, uv, xyz, res, uvpath ] = newton_3_surfaces_min_distance( S, lowerb, upperb, uv );
+
 
 if 1
     figure;
@@ -126,6 +139,24 @@ if 1
         '$\epsilon_{x} \, \mathrm{cond}(\mathbf{J})$'}, ...
         'interpreter', 'latex', 'fontsize', 12, ...
         'location', 'northeast')%outside' )
+end
+
+
+
+
+figure( 'units', 'normalized', 'position',[.15 .15 .7 .7 ] );
+for isurf = 1:3
+    subplot(1,3,isurf);
+    hold on
+    
+    rectangle('position',...
+        [lowerb(2*isurf-1:2*isurf), ...
+        upperb(2*isurf-1:2*isurf) - lowerb(2*isurf-1:2*isurf)]);
+    
+    plot(uvpath(2*isurf-1,:), uvpath(2*isurf,:), '.-');
+    plot(uv(isurf,1), uv(isurf,2), '*');
+    
+    axis image
 end
 
 

@@ -64,6 +64,17 @@ subroutine intersect_all_surfaces( &
            if ( .not.mask(jsurf) ) cycle inner
         end if
 
+        !IF ( ISURF == 37 .OR. JSURF == 37 ) THEN
+        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
+        !IF ( ISURF == 37 ) then
+        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
+        !   pause
+        !END IF
+        !IF ( JSURF == 37 ) then
+        !   CALL EXPORT_REGION_TREE( root(jsurf), 'Jouke/tree_surf37.dat' )
+        !   pause
+        !END IF
+
         ! check if there is a previously discovered tangential intersection curve between 
         ! the two intersected surfaces
         do ic = 1,interdata_global%nc

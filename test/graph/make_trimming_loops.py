@@ -78,13 +78,38 @@ for iarc in range(narc):
     nin[jnod] += 1
     nod_in[jnod].append(iarc)
 
+explored = np.zeros(narc, dtype=bool)
+####################################################
+# DISABLE INVALID NODES/ARCS
+validarc = np.ones(narc, dtype=bool)
+for inod in range(nnod):
+    if nout[inod] < 1 or nin[inod] < 1:
+        for iarc in nod_out[inod]:
+            print 'arc #', iarc, arc_end[iarc],' is invalid'
+            explored[iarc] = True
+            validarc[iarc] = False
+            nod_out[inod].remove(iarc)
+            nout[inod] -= 1
+            jnod = arc_end[iarc][1]
+            nod_in[jnod].remove(iarc)
+            nin[jnod] -= 1
+        for iarc in nod_in[inod]:
+            print 'arc #', iarc, arc_end[iarc],' is invalid'
+            explored[iarc] = True
+            validarc[iarc] = False
+            nod_in[inod].remove(iarc)
+            nin[inod] -= 1
+            jnod = arc_end[iarc][0]
+            nod_out[jnod].remove(iarc)
+            nout[jnod] -= 1
+####################################################
+
 
 
 ####################################################
 # MAKE LOOPS
 ####################################################
 Loops = []
-explored = np.zeros(narc, dtype=bool)
 usedinaloop = np.zeros(narc, dtype=bool)
 inod = 0
 for inod in range(nnod):
@@ -157,6 +182,7 @@ for inod in range(nnod):
                 usedinaloop[iarc] = True
         else:
             print '\tinvalid loop, nodes=',loopnod,', arcs=',looparc
+            print 'last node, out :',nod_out[loopnod[-1]],', in :',nod_in[loopnod[-1]]
             continue
             
 print 'explored =',explored
@@ -213,14 +239,15 @@ cm = plt.get_cmap('Set2')#'rainbow')
 cl = [cm(1.*i/narc) for i in range(narc)]
 
 for iarc in range(narc):
-    xya = np.matmul(np.transpose(cp[iarc,:,:]), b)
-    ax[0].plot(xya[0], xya[1], '-', color=cl[iarc], lw=lwa)
-    xym = 0.25*cp[iarc,0] + 0.5*cp[iarc,1] + 0.25*cp[iarc,2]
-    dxym = cp[iarc,2] - cp[iarc,0]
-    dxym = lq*dxym/np.hypot(dxym[0], dxym[1])
-    #ax[0].arrow(xym[0], xym[1], dxym[0], dxym[1],
-    #                fc='k', ec='k',
-    #                head_length=lq, head_width=wq, length_includes_head=True)
+    if True:#validarc[iarc]:
+        xya = np.matmul(np.transpose(cp[iarc,:,:]), b)
+        ax[0].plot(xya[0], xya[1], '-', color=cl[iarc], lw=lwa)
+        xym = 0.25*cp[iarc,0] + 0.5*cp[iarc,1] + 0.25*cp[iarc,2]
+        dxym = cp[iarc,2] - cp[iarc,0]
+        dxym = lq*dxym/np.hypot(dxym[0], dxym[1])
+        ax[0].arrow(xym[0], xym[1], dxym[0], dxym[1],
+                        fc=cl[iarc], ec=cl[iarc],
+                        head_length=lq, head_width=wq, length_includes_head=True)
 ax[0].plot(xy[:,0], xy[:,1], 'k.', markersize=10)
 for inod in range(nnod):
     ax[0].text(xy[inod,0], xy[inod,1], str(inod))

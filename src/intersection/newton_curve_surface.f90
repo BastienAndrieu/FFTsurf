@@ -15,7 +15,7 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .TRUE. )
   logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
   integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
@@ -48,7 +48,7 @@ subroutine newton_curve_surface( &
   cond = 1._fp
   fac = 1._fp
   linear_conv = .false.
-  IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
+  !IF ( DEBUG ) PRINT *,'|XS - XC|, |DTUV|, EPS*COND(J)'
   do it = 1,itmax
      !! compute residual
      call eval(xyz_c, curv, tuv(1)  ) ! curve's position vector
@@ -82,9 +82,11 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
-     !PRINT *,'JAC ='
-     !CALL PRINT_MAT(JAC)
-     !PRINT *,'RHS =',-R
+     IF ( .false. ) THEN
+        PRINT *,'JAC ='
+        CALL PRINT_MAT(JAC)
+        PRINT *,'RHS =',-R
+     END IF
 
      !! solve for Newton step
      call linsolve_svd( &
@@ -106,11 +108,16 @@ subroutine newton_curve_surface( &
      errtuv = sum(dtuv**2)
 
      ! correct Newton step to keep the iterate inside feasible region
-     IF ( .false. ) THEN
+     IF ( DEBUG ) THEN
         PRINT *,' TUV =',TUV
         PRINT *,'DTUV =',DTUV
         PRINT *,'REFLEXIONS...'
      END IF
+     if ( .true. ) then
+        if ( errtuv > sum((upperb - lowerb)**2) ) then
+           dtuv = sqrt(sum((upperb - lowerb)**2) / errtuv) * dtuv
+        end if
+     end if
      call nd_box_reflexions( &
           tuv, &
           lowerb, &

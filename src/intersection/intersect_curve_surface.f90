@@ -15,7 +15,7 @@ recursive subroutine intersect_curve_surface( &
   use mod_regiontree
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
   type(type_curve),           intent(in)    :: root_c
   type(type_surface),         intent(in)    :: root_s
   type(type_region), target,  intent(inout) :: region_c

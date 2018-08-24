@@ -80,6 +80,9 @@ program jouke
      mask(28:44) = .true.
   else
      mask(:) = .true.
+     !MASK(1:36) = .FALSE.
+     !MASK(38:100) = .FALSE.
+     !MASK(112:) = .FALSE.
   end if
   call system_clock( tic, count_rate )
   call intersect_all_surfaces( &
@@ -185,6 +188,7 @@ contains
        !     ic, &
        !     class )
        write ( fileunit, * ) logic2int(interdata%curves(ic)%dummy)
+       write ( fileunit, * ) logic2int(interdata%curves(ic)%smooth)
        write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,1)
        write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,2)
        write ( fileunit, * ) interdata%curves(ic)%nsplit

@@ -34,6 +34,7 @@ subroutine newton_three_surfaces( &
   cond = 1._fp
 
   do it = 1,itmax
+     !IF ( DEBUG ) PRINT *,'UV =',UV
      !! compute residual
      do isurf = 1,3
         call eval( &
@@ -56,11 +57,12 @@ subroutine newton_three_surfaces( &
      jac(1:3,5:6) = 0._fp
      jac(4:6,3:4) = 0._fp
 
-     PRINT *,'JAC ='
-     CALL PRINT_MAT(JAC)
+     IF ( .false. ) THEN
+        PRINT *,'JAC ='
+        CALL PRINT_MAT(JAC)
 
-     PRINT *,'RHS =',-r
-     
+        PRINT *,'RHS =',-r
+     END IF
 
      !! solve for Newton step
      call linsolve_svd( &

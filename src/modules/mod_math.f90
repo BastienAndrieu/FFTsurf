@@ -343,6 +343,8 @@ contains
        dx, &
        dim )
     implicit none
+    LOGICAL, PARAMETER :: DEBUG = .FALSE.
+    INTEGER, PARAMETER :: ITMAX = 100
     integer,       intent(in)    :: dim
     real(kind=fp), intent(in)    :: x(dim)
     real(kind=fp), intent(in)    :: lowerb(dim)
@@ -350,8 +352,15 @@ contains
     real(kind=fp), intent(inout) :: dx(dim)
     real(kind=fp)                :: xtmp(dim), dxtmp(dim)
     real(kind=fp)                :: lambda, lambda_i
-    integer                      :: ib, idim
+    integer                      :: ib, idim, it
 
+    IF ( DEBUG ) THEN
+       PRINT *,'IN'
+       PRINT *,'LOWERB =',LOWERB
+       PRINT *,'UPPERB =',UPPERB
+       PRINT *,'     X =',X
+       PRINT *,'    DX =',DX
+    END IF
     xtmp = x
     dxtmp = dx
 
@@ -370,7 +379,10 @@ contains
        end if
     end do
 
+    it = 0
     do
+       it = it + 1
+       if ( it > itmax ) STOP 'nd_box_reflexions : it > itmax'
        lambda = 1._fp
        ib = 0
        do idim = 1,dim
@@ -389,6 +401,7 @@ contains
        if ( ib == 0 ) then
           xtmp = xtmp + dxtmp
           dx = xtmp - x
+          IF ( DEBUG ) PRINT *,'OUT'
           return
        else
           xtmp = xtmp + lambda*dxtmp

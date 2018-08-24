@@ -8,7 +8,7 @@ subroutine intersect_intersection_curves( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .false. )
   type(type_intersection_data), target, intent(inout) :: interdata
   integer,                              intent(in)    :: curvpair(2)
   type(ptr_intersection_curve)                        :: curv(2)
@@ -24,10 +24,12 @@ subroutine intersect_intersection_curves( &
   real(kind=fp)                                       :: uv3(2,3), xyz(3), uv2(2,2)
   real(kind=fp)                                       :: w, wi, wip1
   real(kind=fp), dimension(6)                         :: lowerb, upperb
+  real(kind=fp), allocatable                          :: uv3tmp(:,:,:)
   integer                                             :: stat
   integer                                             :: idpt
   integer                                             :: isurf, jsurf, ivar, icurv, ipt, jpt
-  INTEGER :: FID, I
+  INTEGER :: FID = 13, I
+  CHARACTER :: STRNUM
 
   do icurv = 1,2
      curv(icurv)%ptr => interdata%curves(curvpair(icurv))
@@ -74,9 +76,32 @@ subroutine intersect_intersection_curves( &
        npts, &
        ipls, &
        lambda )
-  deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+  IF ( .false. ) THEN
+     DO ICURV = 1,2
+        WRITE (STRNUM,'(I1)') ICURV
+        OPEN(UNIT=FID, FILE='polylines/xy'//strnum//'.dat', ACTION='WRITE')
+        WRITE (FID,*) NP(ICURV)
+        DO IPT = 1,NP(ICURV)
+           WRITE (FID,*) POLYLINEUV(ICURV)%MAT(1:2,IPT)
+        END DO
+        CLOSE(FID)
+     END DO
+     OPEN(UNIT=FID, FILE='polylines/result.dat', ACTION='WRITE')
+     WRITE (FID,*) NPTS
+     DO IPT = 1,NPTS
+        WRITE (FID,*) IPLS(:,IPT)
+     END DO
+     DO IPT = 1,NPTS
+        WRITE (FID,*) LAMBDA(:,IPT)
+     END DO
+     CLOSE(FID)
+  END IF
 
-  if ( npts < 1 ) return ! the polylines do not intersect, we assume the curves do not either
+  if ( npts < 1 ) then
+     ! the polylines do not intersect, we assume the curves do not either
+     deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+     return
+  end if
 
   !! refine all intersection points using Newton-Raphson algorithm and add them to the collections  
   ! form the triplet of surfaces (one common incident surface, plus one other for each curve)
@@ -95,21 +120,37 @@ subroutine intersect_intersection_curves( &
   lowerb = lowerb - EPSuv
   upperb = upperb + EPSuv
 
+  allocate(uv3tmp(2,3,npts))
+  do ipt = 1,npts
+     uv3tmp(:,1,ipt) = &
+          (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &
+          lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)
+     do icurv = 1,2 ! <-----------------------------------------------------------------------------+
+        isurf = 1 + mod(numsurf(icurv),2)                                                           !
+        uv3tmp(:,1+icurv,ipt) = &                                                                   !
+             (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !
+             lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !
+     end do ! <-------------------------------------------------------------------------------------+
+  end do
+
   do ipt = 1,npts ! <----------------------------------------------------------------------------------+
      ! set initial iterate (result of polyline intersection)                                           !
-     uv3(:,1) = &                                                                                      !
-          (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &              !
-          lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)                          !
-     do icurv = 1,2 ! <-----------------------------------------------------------------------------+  !
-        isurf = 1 + mod(numsurf(icurv),2)                                                           !  !
-        uv3(:,1+icurv) = &                                                                          !  !
-             (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !  !
-             lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !  !
-     end do ! <-------------------------------------------------------------------------------------+  !
+     uv3 = uv3tmp(:,:,ipt)                                                                             !
+     !uv3(:,1) = &                                                                                      !
+     !     (1._fp - lambda(1,ipt)) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)) + &              !
+     !     lambda(1,ipt) * curv(1)%ptr%polyline%uv(:,numsurf(1),ipls(1,ipt)+1)                          !
+     !do icurv = 1,2 ! <-----------------------------------------------------------------------------+  !
+     !   isurf = 1 + mod(numsurf(icurv),2)                                                           !  !
+     !   uv3(:,1+icurv) = &                                                                          !  !
+     !        (1._fp - lambda(icurv,ipt)) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)) + & !  !
+     !        lambda(icurv,ipt) * curv(icurv)%ptr%polyline%uv(:,isurf,ipls(icurv,ipt)+1)             !  !
+     !end do ! <-------------------------------------------------------------------------------------+  !
      !                                                                                                 !
      ! run Newton-Raphson algorithm                                                                    !
-     PRINT *,'SMOOTH? ', curv(1)%ptr%smooth, curv(2)%ptr%smooth
-     PRINT *,'UV0 = ',UV3
+     IF ( DEBUG ) THEN
+        PRINT *,'SMOOTH? ', curv(1)%ptr%smooth, curv(2)%ptr%smooth
+        PRINT *,'UV0 = ',UV3
+     END IF
      if ( curv(2)%ptr%smooth ) then
         call newton_three_surfaces_1tangential( &
              surf, &
@@ -128,6 +169,7 @@ subroutine intersect_intersection_curves( &
              xyz )                                                                                        !
      end if
      !                                                                                                 !
+     IF ( STAT /= 0 ) CYCLE
      IF ( DEBUG ) THEN
         IF ( STAT == 0 ) THEN
            PRINT *,'NEWTON 3 SURFACES CONVERGED'
@@ -255,5 +297,7 @@ subroutine intersect_intersection_curves( &
      end do curv_loop ! <-------------------------------------------------------------+                !
      !                                                                                                 !
   end do ! <-------------------------------------------------------------------------------------------+
-
+  
+  deallocate(polylineuv(1)%mat, polylineuv(2)%mat)
+  
 end subroutine intersect_intersection_curves
