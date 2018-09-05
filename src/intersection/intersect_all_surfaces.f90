@@ -175,4 +175,11 @@ subroutine intersect_all_surfaces( &
 
   nullify(region(1)%ptr, region(2)%ptr)
 
+  do ic = 1,interdata_global%nc
+     if ( .not.allocated(interdata_global%curves(ic)%iedge) ) then
+        allocate(interdata_global%curves(ic)%iedge(interdata_global%curves(ic)%nsplit-1))
+        interdata_global%curves(ic)%iedge(:) = 0
+     end if
+  end do
+
 end subroutine intersect_all_surfaces

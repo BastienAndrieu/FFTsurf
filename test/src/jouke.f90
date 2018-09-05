@@ -6,6 +6,7 @@ program jouke
   use mod_diffgeom
   use mod_types_intersection
   use mod_intersection
+  use mod_brep2
 
   implicit none
   
@@ -18,9 +19,10 @@ program jouke
   type(type_surface), target, allocatable :: surf(:)
   logical, allocatable                    :: mask(:)
   type(type_intersection_data)            :: interdata
-  integer, allocatable                    :: surf2curv(:,:)
-  integer                                 :: nsurf2curv
-  integer                                 :: isurf, ic, jsurf, ksurf
+  type(type_BREP)                         :: brep
+  integer, allocatable                    :: surf2curv(:,:), faces(:)
+  integer                                 :: nsurf2curv, nfaces
+  integer                                 :: isurf, ic, jsurf, ksurf, iface, I, J, k
 
   ! =================================================================================
   ! Read propergol brep
@@ -94,17 +96,41 @@ program jouke
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
 
-  call write_intersection_data( &
-       interdata, &
-       'Jouke/result/interdata_points.dat', &
-       'Jouke/result/interdata_curves.dat' )
+
 
   PRINT *,'TOTAL :'
   PRINT *,INTERDATA%NP,' INTERSECTION POINT(S)'
   PRINT *,INTERDATA%NC,' INTERSECTION CURVE(S)'
 
 
-  ! surface -> incident intersection curves (brute force)
+  !allocate(brep%dcel%faces(1:200), brep%dcel%vertices(1:200), brep%dcel%halfedges(1:700), brep%faces(1:200), brep%edges(1:350))
+  !call brep_from_intersection_data( &
+  !     surf, &
+  !     nsurf, &
+  !     interdata, &
+  !     brep )
+  call make_brep_from_intersection_data( &
+       surf, &
+       nsurf, &
+       interdata, &
+       brep )
+
+  PRINT *,'BREP : NV =',BREP%NV,', NE =',BREP%NE,', NF =',BREP%NF
+  PRINT *,'EULER-POINCARE =',BREP%NV - BREP%NE + BREP%NF
+
+  call system_clock( toc )
+  PRINT *,''; PRINT *,''; PRINT *,''
+  PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
+
+
+  call write_brep_files( &
+       brep, &
+       'Jouke/brep/verts.dat', &
+       'Jouke/brep/edges.dat', &
+       'Jouke/brep/faces.dat' )
+
+
+    ! surface -> incident intersection curves (brute force)
   call get_free_unit( fid )
   open(unit=fid, file='Jouke/result/interdata_surf2curv.dat', action='write')
   do isurf = 1,nsurf
@@ -132,8 +158,70 @@ program jouke
   end do
   close(fid)
 
+  call write_intersection_data( &
+       interdata, &
+       'Jouke/result/interdata_points.dat', &
+       'Jouke/result/interdata_curves.dat' )
+
+
 
   
+
+  open(unit=13, file='Jouke/brep/v2f.dat', action='write')
+  do i = 1,brep%nv
+     call get_v2f( &
+          brep, &
+          i, &
+          faces, &
+          nfaces )
+     write (13,*) nfaces
+     write (13,*) faces(1:nfaces)
+  end do
+  close(13)
+
+
+  do iface = 1,brep%nf
+     PRINT *,'meshgen face #',iface
+     write (strnum3,'(I3.3)') iface
+     call generate_face_mesh( &       
+          brep, &
+          iface, &
+          'Jouke/meshgen/coeffs/c_'//strnum3//'.cheb', &
+          'Jouke/meshgen/contours/uv_'//strnum3//'.dat', &
+          'Jouke/meshgen/contours/edges_'//strnum3//'.dat', &
+          'Jouke/meshgen/info.dat', &
+          'Jouke/meshgen/tri_'//strnum3//'.dat', &
+          'Jouke/meshgen/uv_'//strnum3//'.dat' )
+  end do
+
+
+  
+  IF ( .FALSE.)  THEN
+     DO I = 1,BREP%NE-1
+        DO J = I+1,BREP%NE
+           IF ( ASSOCIATED(BREP%EDGES(I)%CURVE, BREP%EDGES(J)%CURVE) .AND. &
+                BREP%EDGES(I)%ISPLIT == BREP%EDGES(J)%ISPLIT ) THEN
+              PRINT *,'EDGES',I,J,' -> SAME CURVE SEGMENT'
+           END IF
+        END DO
+     END DO
+
+     k = 0
+     open(unit=13, file='Jouke/debug_curve_segments.dat', action='write')
+     do ic = 1,interdata%nc
+        do j = 1,interdata%curves(ic)%nsplit-1
+           if ( interdata%curves(ic)%iedge(j) > 0 ) then
+              k = k + 1
+              write (13,*) interdata%curves(ic)%isplit(2,j+1) - interdata%curves(ic)%isplit(2,j) + 1
+              do i = interdata%curves(ic)%isplit(2,j),interdata%curves(ic)%isplit(2,j+1)
+                 write (13,*) interdata%curves(ic)%polyline%xyz(:,i)
+              end do
+           end if
+        end do
+     end do
+     close(13)
+     PRINT *,'K =',K
+  END IF
 
   call free_intersection_data(interdata)
   ! =================================================================================

@@ -58,7 +58,6 @@ for inod in range(nnod):
 f.close()
 
 
-
 ####################################################
 # COMPUTE INITIAL NODE -> ARC INCIDENCE
 # (distinguish outgoing/ingoing arcs)

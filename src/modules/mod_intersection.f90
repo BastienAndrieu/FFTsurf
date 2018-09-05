@@ -1092,7 +1092,7 @@ subroutine intersect_border_surface( &
   use mod_types_intersection
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),          intent(in)    :: root_s(2)
   type(type_curve),           intent(in)    :: root_c
   type(ptr_region),           intent(inout) :: region(2)
@@ -1573,6 +1573,13 @@ subroutine intersect_all_surfaces( &
 
   nullify(region(1)%ptr, region(2)%ptr)
 
+  do ic = 1,interdata_global%nc
+     if ( .not.allocated(interdata_global%curves(ic)%iedge) ) then
+        allocate(interdata_global%curves(ic)%iedge(interdata_global%curves(ic)%nsplit-1))
+        interdata_global%curves(ic)%iedge(:) = 0
+     end if
+  end do
+
 end subroutine intersect_all_surfaces
 
 
@@ -1651,6 +1658,9 @@ subroutine transfer_intersection_curves( &
         call move_alloc(from=from%curves(ic)%isplit, to=to%curves(ic)%isplit)
      end if
      to%curves(ic)%nsplit       =  from%curves(ic)%nsplit
+     if ( allocated(from%curves(ic)%iedge) ) then
+        call move_alloc(from=from%curves(ic)%iedge, to=to%curves(ic)%iedge)
+     end if
      to%curves(ic)%polyline     => from%curves(ic)%polyline
      nullify( &
           from%curves(ic)%surf(1)%ptr, &
@@ -1729,7 +1739,7 @@ subroutine merge_intersection_data( &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
           HMIN=REAL(1.D-4,KIND=FP), &
-          HMAX=REAL(5.D-3,KIND=FP) )
+          HMAX=REAL(1.D-2,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
@@ -1990,7 +2000,7 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
   logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
   integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
@@ -2057,7 +2067,7 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
-     IF ( .false. ) THEN
+     IF ( DEBUG ) THEN
         PRINT *,'JAC ='
         CALL PRINT_MAT(JAC)
         PRINT *,'RHS =',-R
@@ -2086,11 +2096,11 @@ subroutine newton_curve_surface( &
      IF ( DEBUG ) THEN
         PRINT *,' TUV =',TUV
         PRINT *,'DTUV =',DTUV
-        PRINT *,'REFLEXIONS...'
      END IF
      if ( .true. ) then
         if ( errtuv > sum((upperb - lowerb)**2) ) then
            dtuv = sqrt(sum((upperb - lowerb)**2) / errtuv) * dtuv
+           IF ( DEBUG ) PRINT *,'DTUV*=',DTUV
         end if
      end if
      call nd_box_reflexions( &
@@ -4554,7 +4564,7 @@ recursive subroutine intersect_surface_pair( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   type(ptr_surface),            intent(in)    :: surfroot(2)
   type(ptr_region),             intent(inout) :: region(2)
   type(type_intersection_data), intent(inout) :: interdata
@@ -5150,9 +5160,10 @@ subroutine transfer_intersection_points( &
   to%np = from%np
 
   do ip = 1,from%np
-     to%points(ip)%xyz  =  from%points(ip)%xyz
-     to%points(ip)%pos  => from%points(ip)%pos
-     to%points(ip)%npos =  from%points(ip)%npos
+     to%points(ip)%xyz   =  from%points(ip)%xyz
+     to%points(ip)%pos   => from%points(ip)%pos
+     to%points(ip)%npos  =  from%points(ip)%npos
+     to%points(ip)%ivert =  from%points(ip)%ivert
      nullify(from%points(ip)%pos)
   end do
   deallocate(from%points)

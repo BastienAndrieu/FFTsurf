@@ -5,7 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurftotal = 126;
+nsurftotal = 112;%126;
 listsurf = 1:nsurftotal;%[1:7,28:44];%
 nsurf = length(listsurf);
 
@@ -120,6 +120,8 @@ for ic = 1:nc
     if isempty(curves(ic).xyz); continue; end
     plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...
         '-', 'color', cli, 'linewidth', 1.0, 'markersize', 5 )
+    e = curves(ic).isplit(:,1)';
+    plot3( points(e,1), points(e,2), points(e,3), '.', 'color', cli, 'markersize', 10 );
 end
 
 % plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
@@ -136,7 +138,7 @@ light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] 
 
 
 if nsurf > 50
-    listsurf = [1:7,28:44]; %
+    listsurf = [11];%[1:7,28:44]; %
     nsurf = length(listsurf);
     %     return
 end
@@ -213,6 +215,8 @@ for ic = 1:nc
             plot3( curves(ic).xyz(l,1), curves(ic).xyz(l,2), curves(ic).xyz(l,3), ...
                 '-', 'color', clsg, 'markersize', 5 )
             %                 '-', 'color', clrc(js,:), 'markersize', 5 )
+            e = curves(ic).isplit(:,1)';
+            plot3( points(e,1), points(e,2), points(e,3), '.', 'color', clsg, 'markersize', 10 );
         end
     else
         plot3( curves(ic).xyz(:,1), curves(ic).xyz(:,2), curves(ic).xyz(:,3), ...

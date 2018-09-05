@@ -10,9 +10,10 @@ subroutine transfer_intersection_points( &
   to%np = from%np
 
   do ip = 1,from%np
-     to%points(ip)%xyz  =  from%points(ip)%xyz
-     to%points(ip)%pos  => from%points(ip)%pos
-     to%points(ip)%npos =  from%points(ip)%npos
+     to%points(ip)%xyz   =  from%points(ip)%xyz
+     to%points(ip)%pos   => from%points(ip)%pos
+     to%points(ip)%npos  =  from%points(ip)%npos
+     to%points(ip)%ivert =  from%points(ip)%ivert
      nullify(from%points(ip)%pos)
   end do
   deallocate(from%points)

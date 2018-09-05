@@ -62,7 +62,7 @@ subroutine merge_intersection_data( &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
           HMIN=REAL(1.D-4,KIND=FP), &
-          HMAX=REAL(5.D-3,KIND=FP) )
+          HMAX=REAL(1.D-2,KIND=FP) )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT

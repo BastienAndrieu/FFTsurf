@@ -67,9 +67,18 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/dev_intersection.ou
 
 echo "...jouke.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/jouke.f90 -o test/obj/jouke.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/jouke.out test/obj/jouke.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/jouke.out test/obj/jouke.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_brep2.o -Lsrc/dfftpack -ldfftpack
 
 
 echo "...diffgeom.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/diffgeom.f90 -o test/obj/diffgeom.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/diffgeom.out test/obj/diffgeom.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
+
+echo "...hypergraph.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/hypergraph.f90 -o test/obj/hypergraph.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/hypergraph.out test/obj/hypergraph.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linalg.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_brep.o obj/mod_hypergraph.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...graph.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/graph.f90 -o test/obj/graph.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/graph.out test/obj/graph.o obj/mod_util.o obj/mod_math.o obj/mod_graph.o

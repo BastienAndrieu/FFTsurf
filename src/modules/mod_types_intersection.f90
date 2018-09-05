@@ -19,6 +19,7 @@ module mod_types_intersection
      real(kind=fp)                              :: xyz(3)
      type(type_point_on_surface), pointer       :: pos => null()
      integer                                    :: npos = 0
+     integer                                    :: ivert = 0
   end type type_intersection_point
 
 
@@ -41,6 +42,7 @@ module mod_types_intersection
      real(kind=fp)                              :: w0
      integer, allocatable                       :: isplit(:,:) ! row 1: #intersection point, row 2: #polyline point
      integer                                    :: nsplit = 0
+     integer, allocatable                       :: iedge(:)
      type(type_intersection_polyline), pointer  :: polyline => null()
   end type type_intersection_curve
 
@@ -96,6 +98,7 @@ contains
 
           ! free the list of split points
           if ( allocated(interdata%curves(ic)%isplit) ) deallocate(interdata%curves(ic)%isplit)
+          if ( allocated(interdata%curves(ic)%iedge) ) deallocate(interdata%curves(ic)%iedge)
 
           ! free the polyline
           if ( associated(interdata%curves(ic)%polyline) ) then

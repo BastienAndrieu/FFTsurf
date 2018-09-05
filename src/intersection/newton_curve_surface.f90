@@ -15,7 +15,7 @@ subroutine newton_curve_surface( &
   !        1 : not converged
   !        2 : degeneracy
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .TRUE. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .TRUE. )
   logical,       parameter          :: acceleration = .false.
   real(kind=fp), parameter          :: THRESHOLD = real(1.d-2, kind=fp)**2
   integer,       parameter          :: itmax = 30!2 + ceiling(-log10(EPSuv))
@@ -82,7 +82,7 @@ subroutine newton_curve_surface( &
      jac(:,1) = -jac(:,1)
      call evald1(jac(:,2), surf, tuv(2:3), 1)
      call evald1(jac(:,3), surf, tuv(2:3), 2)
-     IF ( .false. ) THEN
+     IF ( DEBUG ) THEN
         PRINT *,'JAC ='
         CALL PRINT_MAT(JAC)
         PRINT *,'RHS =',-R
@@ -111,11 +111,11 @@ subroutine newton_curve_surface( &
      IF ( DEBUG ) THEN
         PRINT *,' TUV =',TUV
         PRINT *,'DTUV =',DTUV
-        PRINT *,'REFLEXIONS...'
      END IF
      if ( .true. ) then
         if ( errtuv > sum((upperb - lowerb)**2) ) then
            dtuv = sqrt(sum((upperb - lowerb)**2) / errtuv) * dtuv
+           IF ( DEBUG ) PRINT *,'DTUV*=',DTUV
         end if
      end if
      call nd_box_reflexions( &

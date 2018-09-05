@@ -567,4 +567,31 @@ contains
   end function distance_from_line
 
 
+
+
+  subroutine point_in_polygon( &
+       px, &
+       py, &
+       np, &
+       x, &
+       y, &
+       inside )
+    implicit none
+    integer,                      intent(in)  :: np
+    real(kind=fp), dimension(np), intent(in)  :: px, py
+    real(kind=fp),                intent(in)  :: x, y
+    logical,                      intent(out) :: inside
+    integer                                   :: i, j
+
+    inside = .false.
+    do i = 1,np
+       j = 1 + mod(i,np)
+       if ( (py(i) > y) .neqv. (py(j) > y) .and. &
+            (py(i) > py(j)) .neqv. ((x - px(i))*(py(i) - py(j)) > (py(i) - y)*(px(j) - px(i))) ) then
+          inside = .not.inside
+       end if
+    end do
+    
+  end subroutine point_in_polygon
+
 end module mod_geometry

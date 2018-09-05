@@ -11,8 +11,8 @@ addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/separation/');
 cl = colorcet( 'I2', 'N', 2 );
 
 uvbox = [
-    -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000     
-  -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000
+    -1.0000000000000000        1.0000000000000000       -1.0000000000000000        1.0000000000000000     
+  -1.0000000000000000      -0.98698748125962998       -1.0000000000000000       -6.3451034861136291E-002
 % 0.0000000000000000        1.5258789062500000E-005 -0.30496215820312500      -0.30494689941406250     
 %  -0.10777282714843750      -0.10775756835937500       -4.9316406250000000E-002  -4.9301147460937500E-002
 %     -3.0575494019804609E-005  0.49997244140091862       0.49994384986693124        1.0000000000000000     
@@ -23,12 +23,13 @@ tbox = [
     -1.0000000000000000        1.0000000000000000
     ];
 ubox = [
-    -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000
+    -1.0000000000000000      -0.98698748125962998       -1.0000000000000000       -6.3451034861136291E-002
+%     -1.0000000000000000        0.0000000000000000       -1.0000000000000000        0.0000000000000000
 %     -0.10777282714843750      -0.10775756835937500       -4.9316406250000000E-002  -4.9301147460937500E-002
 % -3.0575494044112767E-005  -2.7497621712598644E-005  -1.0000000000000000       -2.7457768678921469E-006
 ];
 
-[icurv, ivar, ival] = deal(1,1,2);
+[icurv, ivar, ival] = deal(1,2,2);
 jvar = 1 + mod(ivar,2);
 
 tuvxyz = [
@@ -66,7 +67,7 @@ figure('units', 'normalized', 'position',[.15 .15 .7 .7 ]);
 hold on
 
 for isurf = 1:2
-    cr = readCoeffs2( sprintf('surfroot%d_x.cheb', isurf) );
+    cr = readCoeffs2( sprintf('surfroot%2.2d_x.cheb', isurf) );
     
     if isurf ~= icurv
         S.c = cr;
@@ -143,6 +144,47 @@ for isurf = 1:2
     plot(uv(1,isurf,:), uv(2,isurf,:), '*');
     axis image
 end
+
+
+%%
+figure;
+hold on
+
+cr = chgvar2(S.c, reshape(ubox,2,2));
+bs = chebyshev2bezier_2(cr);
+
+isurf = 1 + mod(icurv,2);
+si = surf_chebyshev( cr, 1 );
+set( si, 'facecolor', cl(isurf,:), 'specularstrength', 0 );
+
+
+cr = chgvar1(G.c, tbox);
+bc = chebyshev2bezier_1(cr);
+
+g = chebval1( cr, linspace(-1,1,100)' );
+plot3( g(:,1), g(:,2), g(:,3), '-', 'color', 0.2*cl(icurv,:), 'linewidth', 1 );
+
+boxc = OBB_Bernstein1(bc);
+boxs = OBB_Bernstein2(bs);
+
+b = plotOBB(boxc.center, boxc.extents, boxc.axes);
+set(b, 'edgecolor', 0.5*cl(icurv,:), 'facecolor', 'none');
+
+b = plotOBB(boxs.center, boxs.extents, boxs.axes);
+set(b, 'edgecolor', 0.5*cl(isurf,:), 'facecolor', 'none');
+
+
+axis image vis3d
+view(3)
+camproj('persp');
+% camlight(30,30);
+[azl,ell] = deal( 120, 60 );
+[xl,yl,zl] = sph2cart( pi()*azl/180, pi()*ell/180, 10 );
+light( 'style', 'infinite', 'position', [xl,yl,zl] );
+light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
+
+
+
 
 
 %%

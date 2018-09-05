@@ -84,7 +84,7 @@ contains
     integer                                  :: stat_alloc
     integer                                  :: idim, nchild, jdim, ichild
 
-    if ( present(tolopt) ) then
+    if ( present(EPSopt) ) then
        EPS = EPSopt
     else
        EPS = EPSregion

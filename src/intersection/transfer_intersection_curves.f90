@@ -21,6 +21,9 @@ subroutine transfer_intersection_curves( &
         call move_alloc(from=from%curves(ic)%isplit, to=to%curves(ic)%isplit)
      end if
      to%curves(ic)%nsplit       =  from%curves(ic)%nsplit
+     if ( allocated(from%curves(ic)%iedge) ) then
+        call move_alloc(from=from%curves(ic)%iedge, to=to%curves(ic)%iedge)
+     end if
      to%curves(ic)%polyline     => from%curves(ic)%polyline
      nullify( &
           from%curves(ic)%surf(1)%ptr, &

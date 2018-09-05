@@ -8,11 +8,11 @@ program diffgeom
 
   logical, parameter :: ECONOMIZE = .false.
   type(ptr_surface)  :: surf(2)
-  real(kind=fp)      :: r, uv(2,2)
+  real(kind=fp)      :: uv(2,2)
   real(kind=fp)      :: duv_ds(2,2,2) ! u/v, #branch, #surf
   real(kind=fp)      :: dxyz_ds(3,2)
   real(kind=fp)      :: curvature(2)
-  integer            :: stat, i, j
+  integer            :: stat, i
   
   allocate(surf(1)%ptr, surf(2)%ptr)
   

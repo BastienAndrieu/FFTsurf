@@ -15,6 +15,12 @@ module mod_util
      module procedure append_vec_i, append_vec_d
   end interface append_vec
 
+
+  type type_list
+     integer              :: n = 0
+     integer, allocatable :: list(:)
+  end type type_list
+
 contains
 
   subroutine get_free_unit( iunit )
@@ -622,4 +628,27 @@ contains
   end subroutine insert_column_after
 
 
+  subroutine remove_from_list( &
+       elem, &
+       list, &
+       nlist )
+    implicit none
+    integer, intent(in)    :: elem
+    integer, intent(inout) :: list(:)
+    integer, intent(inout) :: nlist
+    integer                :: i
+
+    i = 1
+    do while ( i <= nlist )
+       if ( list(i) == elem ) then
+          list(i:nlist-1) = list(i+1:nlist)
+          nlist = nlist - 1
+       else
+          i = i + 1
+       end if
+    end do
+    
+  end subroutine remove_from_list
+
+  
 end module mod_util
