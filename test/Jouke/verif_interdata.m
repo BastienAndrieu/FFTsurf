@@ -5,7 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurftotal = 112;%126;
+nsurftotal = 6;%112;%126;
 listsurf = 1:nsurftotal;%[1:7,28:44];%
 nsurf = length(listsurf);
 
@@ -81,7 +81,7 @@ for isurf = listsurf%1:nsurf%[1:7,28:44]%1:nsurf
     set( si, 'facecolor', cl(isurf,:), 'specularstrength', 0 );
 %     set( si, 'facecolor', [1,1,0.7], 'specularstrength', 0 );
     if isurf > 112
-        set( si, 'facecolor', 0.5*[1,1,1], 'facealpha', 0.2 );
+        set( si, 'facecolor', 0.5*[1,1,1], 'facealpha', 0.4 );
     end
     
     if PLOT_TREE

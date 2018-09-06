@@ -7,7 +7,8 @@ program jouke
   use mod_types_intersection
   use mod_intersection
   use mod_brep2
-
+  use mod_hypergraph
+  
   implicit none
   
   character(3)               :: strnum3
@@ -20,8 +21,11 @@ program jouke
   logical, allocatable                    :: mask(:)
   type(type_intersection_data)            :: interdata
   type(type_BREP)                         :: brep
-  integer, allocatable                    :: surf2curv(:,:), faces(:)
-  integer                                 :: nsurf2curv, nfaces
+  integer, allocatable                    :: surf2curv(:,:), faces(:), valence(:)
+  logical, allocatable                    :: feat_edge(:), feat_vert(:)
+  type(type_hyperface), allocatable       :: hyperfaces(:)
+  type(type_hyperedge), allocatable       :: hyperedges(:)
+  integer                                 :: nsurf2curv, nfaces, nhf, nhe
   integer                                 :: isurf, ic, jsurf, ksurf, iface, I, J, k
 
   ! =================================================================================
@@ -129,8 +133,71 @@ program jouke
        'Jouke/brep/edges.dat', &
        'Jouke/brep/faces.dat' )
 
+  ! get feature edges
+  allocate(feat_edge(brep%ne))
+  call get_feature_edges(brep, feat_edge)
+  call get_free_unit( fid )
+  open(unit=fid, file='Jouke/brep/feat_edge.dat', action='write')
+  do i = 1,brep%ne
+     if ( feat_edge(i) ) write (fid,*) i
+  end do
+  close(fid)
+  
+  ! get hyperfaces
+  call get_hyperfaces(brep, feat_edge, hyperfaces, nhf)
+  call get_free_unit( fid )
+  open(unit=fid, file='Jouke/brep/hyperfaces.dat', action='write')
+  write (fid,*) nhf
+  do i = 1,nhf
+     write (fid,*) hyperfaces(i)%nf
+     write (fid,*) hyperfaces(i)%faces(1:hyperfaces(i)%nf)
+  end do
+  close(fid)
 
-    ! surface -> incident intersection curves (brute force)
+  ! get feature vertices
+  allocate(feat_vert(brep%nv), valence(brep%nv))
+  call get_feature_vertices( &
+       brep, &
+       feat_edge, &
+       feat_vert, &
+       valence )
+  call get_free_unit( fid )
+  open(unit=fid, file='Jouke/brep/feat_vert.dat', action='write')
+  do i = 1,brep%nv
+     if ( feat_vert(i) ) then
+        write (fid,'(I1,1x)',advance='no') 1
+     else
+        write (fid,'(I1,1x)',advance='no') 0
+     end if
+     write (fid,*) valence(i)
+  end do
+  close(fid)
+
+
+  ! get hyperedges
+  call get_hyperedges( &
+       brep, &
+       feat_edge, &
+       feat_vert, &
+       valence, &
+       hyperedges, &
+       nhe )
+  call get_free_unit( fid )
+  open(unit=fid, file='Jouke/brep/hyperedges.dat', action='write')
+  write (fid,*) nhe
+  do i = 1,nhe
+     write (fid,*) hyperedges(i)%ne
+     write (fid,*) hyperedges(i)%verts
+     do j = 1,hyperedges(i)%ne
+        write (fid,*) hyperedges(i)%edges(1:2,j)
+     end do
+  end do
+  close(fid)
+
+
+  
+
+  ! surface -> incident intersection curves (brute force)
   call get_free_unit( fid )
   open(unit=fid, file='Jouke/result/interdata_surf2curv.dat', action='write')
   do isurf = 1,nsurf
@@ -179,24 +246,29 @@ program jouke
   end do
   close(13)
 
-
-  do iface = 1,brep%nf
-     PRINT *,'meshgen face #',iface
-     write (strnum3,'(I3.3)') iface
-     call generate_face_mesh( &       
-          brep, &
-          iface, &
-          'Jouke/meshgen/coeffs/c_'//strnum3//'.cheb', &
-          'Jouke/meshgen/contours/uv_'//strnum3//'.dat', &
-          'Jouke/meshgen/contours/edges_'//strnum3//'.dat', &
-          'Jouke/meshgen/info.dat', &
-          'Jouke/meshgen/tri_'//strnum3//'.dat', &
-          'Jouke/meshgen/uv_'//strnum3//'.dat' )
-  end do
-
+  
+  IF ( .false. ) THEN
+     do iface = 1,brep%nf
+        PRINT *,'meshgen face #',iface
+        write (strnum3,'(I3.3)') iface
+        call generate_face_mesh( &       
+             brep, &
+             iface, &
+             'Jouke/meshgen/coeffs/c_'//strnum3//'.cheb', &
+             'Jouke/meshgen/contours/uv_'//strnum3//'.dat', &
+             'Jouke/meshgen/contours/edges_'//strnum3//'.dat', &
+             'Jouke/meshgen/info.dat', &
+             'Jouke/meshgen/tri_'//strnum3//'.dat', &
+             'Jouke/meshgen/uv_'//strnum3//'.dat' )
+     end do
+  END IF
 
   
-  IF ( .FALSE.)  THEN
+  IF ( .false.)  THEN
+     DO I = 1,BREP%NE
+        IF ( IS_BOUNDARY_EDGE(BREP, I) ) PRINT *,'EDGE #',I,' ON BOUNDARY'
+     END DO
+     
      DO I = 1,BREP%NE-1
         DO J = I+1,BREP%NE
            IF ( ASSOCIATED(BREP%EDGES(I)%CURVE, BREP%EDGES(J)%CURVE) .AND. &

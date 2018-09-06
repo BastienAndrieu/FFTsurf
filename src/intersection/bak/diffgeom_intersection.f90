@@ -27,11 +27,11 @@ subroutine diffgeom_intersection( &
   integer,                 intent(out) :: stat
   real(kind=fp), optional, intent(out) :: curvature(2)
   real(kind=fp)                        :: dxyz_duv(3,2,2), n(3,2), d2xyz_duv2(3)
-  real(kind=fp)                        :: dotn, aux(3), w
+  real(kind=fp)                        :: dotn, sgndotn, aux(3), w
   real(kind=fp), dimension(3,2)        :: EFG, LMN
   real(kind=fp), dimension(2)          :: detEFG, invsqrtdetEFG
   real(kind=fp)                        :: A(2,2), B(3), discr, invdenom, kn(2)
-  integer                              :: isurf, ivar, i, j
+  integer                              :: isurf, jsurf, ivar, i, j
 
   do isurf = 1,2 ! <------------------------------------------------------------------+
      ! tangent vectors                                                                !
@@ -50,39 +50,24 @@ subroutine diffgeom_intersection( &
      !                                                                                !
      ! unit normal vector                                                             !
      n(:,isurf) = cross(dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf))                     !
-     PRINT *,'N =',N(:,ISURF)
-     n(:,isurf) = n(:,isurf) * invsqrtdetEFG(isurf)
+     !PRINT *,'N =',N(:,ISURF)
+     !n(:,isurf) = n(:,isurf) * invsqrtdetEFG(isurf)
      !n(:,isurf) = n(:,isurf) / norm2(n(:,isurf))
   end do ! <--------------------------------------------------------------------------+
-  PRINT *,'DXYZ_DUV(1) ='
-  CALL PRINT_MAT(DXYZ_DUV(:,:,1))
+  !PRINT *,'DXYZ_DUV(1) ='
+  !CALL PRINT_MAT(DXYZ_DUV(:,:,1))
   !PRINT *,'EFG ='
   !CALL PRINT_MAT(EFG)
-  PRINT *,'DETEFG =',DETEFG
-  PRINT *,'INVSQRTDETEFG =',INVSQRTDETEFG
-  PRINT *,'N ='
-  CALL PRINT_MAT(N)
-
+  !PRINT *,'DETEFG =',DETEFG
+  !PRINT *,'INVSQRTDETEFG =',INVSQRTDETEFG
+  !PRINT *,'N ='
+  !CALL PRINT_MAT(N)
   dotn = dot_product(n(:,1), n(:,2))
+  !PRINT *,'DOTN =',DOTN
 
-  if ( abs(dotn) > 1._fp - EPS ) then ! <---------------------------------------------+
+  if ( abs(dotn) > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <---------------------+
      !! tangential intersection                                                       !
-     ! linear realtion duv2_ds = A * duv1_ds                                          !
-     do i = 1,2 ! <---------------------------------------------------+               !
-        aux = real((-1)**i, kind=fp) * &                              !               !
-             cross(n(:,1), dxyz_duv(:,1+mod(i,2),2))                  !               !
-        PRINT *,'AUX =',AUX
-        do j = 1,2 ! <---------------------------------+              !               !
-           A(i,j) = dot_product(aux, dxyz_duv(:,j,1))  !              !               !
-        end do ! <-------------------------------------+              !               !
-     end do ! <-------------------------------------------------------+               !
-     !where( abs(A) < EPSmath ) A = 0._fp
-     PRINT *,'A ='
-     CALL PRINT_MAT(A)
-     !A = sign(invsqrtdetEFG(2), dotn)*A                                              !
-     !PRINT *,'A ='
-     !CALL PRINT_MAT(A)
-     !                                                                                !
+     sgndotn = sign(1._fp, dotn)                                                      !
      ! Second Fundamental Form coefficients                                           !
      do isurf = 1,2 ! <-----------------------------------------------+               !
         do ivar = 1,3 ! <-----------------------------------------+   !               !
@@ -94,28 +79,39 @@ subroutine diffgeom_intersection( &
         end do ! <------------------------------------------------+   !               !
      end do ! <-------------------------------------------------------+               !
      where( abs(LMN) < EPSmath ) LMN = 0._fp
+     do isurf = 1,2
+        LMN(:,isurf) = LMN(:,isurf) * invsqrtdetEFG(isurf)
+     end do
+     !PRINT *,'DETLMN =',LMN(1,:)*LMN(3,:) - LMN(2,:)**2
      !PRINT *,'LMN ='
      !CALL PRINT_MAT(LMN)
-     !                                                                                !
+     jsurf = minloc(detEFG, 1)
+     isurf = 1+mod(jsurf,2)
+     ! linear realtion duvj_ds = A * duvi_ds                                          !
+     do i = 1,2 ! <---------------------------------------------------+               !
+        aux = real((-1)**i, kind=fp) * &                              !               !
+             cross(n(:,jsurf), dxyz_duv(:,1+mod(i,2),isurf))          !               !
+        !PRINT *,'AUX =',AUX
+        do j = 1,2 ! <-------------------------------------+          !               !
+           A(i,j) = dot_product(aux, dxyz_duv(:,j,jsurf))  !          !               !
+        end do ! <-----------------------------------------+          !               !
+     end do ! <-------------------------------------------------------+               !
+     !A = sign(invsqrtdetEFG(jsurf), dotn)*A
+     where( abs(A) < EPSmath ) A = 0._fp
+     A = A / dotn
+     !PRINT *,'A ='
+     !CALL PRINT_MAT(A)
      ! quadratic equation for duv1_ds                                                 !
-     B(1) = LMN(1,2)*A(1,1)**2 + 2._fp*LMN(2,2)*A(1,1)*A(2,1) + LMN(3,2)*A(2,1)**2
-     B(2) = LMN(1,2)*A(1,1)*A(1,2) + LMN(2,2)*(A(1,2)*A(2,1) + A(1,1)*A(2,2)) + LMN(3,2)*A(2,1)*A(2,2)
-     B(3) = LMN(1,2)*A(1,2)**2 + 2._fp*LMN(2,2)*A(1,2)*A(2,2) + LMN(3,2)*A(2,2)**2
-     !B(1) = LMN(1,2)*A(1,1)**2 + &                                                    !
-     !     LMN(2,2)*2*A(1,1)*A(2,1) + &                                                !
-     !     LMN(3,2)*A(2,1)**2                                                          !
-     !B(2) = LMN(1,2)*A(1,1)*A(1,2) + &                                                !
-     !     LMN(2,2)*(A(1,1)*A(2,2) + A(1,2)*A(2,1)) + &                                !
-     !     LMN(3,2)*A(2,1)*A(2,2)                                                      !
-     !B(3) = LMN(1,2)*A(1,2)**2 + &                                                    !
-     !     LMN(2,2)*2*A(1,2)*A(2,2) + &                                                !
-     !     LMN(3,2)*A(2,2)**2                                                          !
-     !                                                                                !
-     B = LMN(:,1) - sign(1._fp, dotn)*B/detEFG(2)                                     !
-     PRINT *,'B =',B
+     B(1) = LMN(1,isurf)*A(1,1)**2 + 2._fp*LMN(2,isurf)*A(1,1)*A(2,1) + LMN(3,isurf)*A(2,1)**2
+     B(2) = LMN(1,isurf)*A(1,1)*A(1,2) + LMN(2,isurf)*(A(1,2)*A(2,1) + A(1,1)*A(2,2)) + LMN(3,isurf)*A(2,1)*A(2,2)
+     B(3) = LMN(1,isurf)*A(1,2)**2 + 2._fp*LMN(2,isurf)*A(1,2)*A(2,2) + LMN(3,isurf)*A(2,2)**2
+     !B = B / detEFG(jsurf)
+     B = LMN(:,jsurf) - sign(1._fp, dotn)*B
+     where( abs(B) < EPSmath ) B = 0._fp
+     !PRINT *,'B =',B
      discr = B(2)**2 - B(1)*B(3)                                                      !
-     A = sign(invsqrtdetEFG(2), dotn)*A
-     PRINT *,'DISCR =',DISCR
+     !A = sign(invsqrtdetEFG(jsurf), dotn)*A
+     !PRINT *,'DISCR =',DISCR
      !                                                                                !
      if ( all(abs(B) < EPS) ) then ! <-------------------------------------+          !
         ! high-order contact point (dxyz_ds cannot be determined)          !          !
@@ -143,19 +139,24 @@ subroutine diffgeom_intersection( &
         if ( abs(B(1)) > abs(B(3)) ) then ! <---------------------------+  !          !
            do i = 1,stat ! <-----------------------------------------+  !  !          !
               w = (discr*real((-1)**i, kind=fp) - B(2)) / B(1)       !  !  !          !
-              duv_ds(:,1,1) = [w, 1._fp] / &                         !  !  !          !
-                   sqrt(EFG(1,1)*w**2 + 2._fp*EFG(2,1)*w + EFG(3,1)) !  !  !          !
+              duv_ds(:,i,jsurf) = [w, 1._fp] / &                     !  !  !          !
+                   sqrt(EFG(1,jsurf)*w**2 + &                        !  !  !          !
+                   2._fp*EFG(2,jsurf)*w + &                          !  !  !          !
+                   EFG(3,jsurf))                                     !  !  !          !
            end do ! <------------------------------------------------+  !  !          !
         else ! ---------------------------------------------------------+  !          !
            do i = 1,stat ! <-----------------------------------------+  !  !          !
               w = (discr*real((-1)**i, kind=fp) - B(2)) / B(3)       !  !  !          !
-              duv_ds(:,1,1) = [1._fp, w] / &                         !  !  !          !
-                   sqrt(EFG(1,1) + 2._fp*EFG(2,1)*w + EFG(3,1)*w**2) !  !  !          !
+              duv_ds(:,i,jsurf) = [1._fp, w] / &                     !  !  !          !
+                   sqrt(EFG(1,jsurf) + &                             !  !  !          !
+                   2._fp*EFG(2,jsurf)*w + &                          !  !  !          !
+                   EFG(3,jsurf)*w**2)                                !  !  !          !
            end do ! <------------------------------------------------+  !  !          !
         end if ! <------------------------------------------------------+  !          !
         do i = 1,stat ! <--------------------------------------------+     !          !
-           duv_ds(:,2,i) = matmul(A, duv_ds(:,1,i))                  !     !          !
-           dxyz_ds(:,i)  = matmul(dxyz_duv(:,:,1), duv_ds(:,1,i))    !     !          !
+           duv_ds(:,i,isurf) = matmul(A, duv_ds(:,i,jsurf))          !     !          !
+           dxyz_ds(:,i) = matmul(dxyz_duv(:,:,jsurf), &              !     !          !
+                duv_ds(:,i,jsurf))                                   !     !          !
         end do ! <---------------------------------------------------+     !          !
         !                                                                  !          !
      end if ! <------------------------------------------------------------+          !
@@ -163,8 +164,10 @@ subroutine diffgeom_intersection( &
      !                                                                                !
   else ! -----------------------------------------------------------------------------+
      !! transversal intersection                                                      !
+     stat = 0                                                                         !
      invdenom = 1._fp * sqrt(1._fp - dotn**2)                                         !
-     dxyz_ds(:,1) = cross(n(:,1), n(:,2)) * invdenom                                  !
+     dxyz_ds(:,1) = cross(n(:,1), n(:,2))                                             !
+     dxyz_ds(:,1) = dxyz_ds(:,1) / norm2(dxyz_ds(:,1))                                !
      !                                                                                !
      do isurf = 1,2 ! <-----------------------------------------------+               !
         aux(1) = dot_product(dxyz_ds(:,1), dxyz_duv(:,1,isurf))       !               !
@@ -184,6 +187,7 @@ subroutine diffgeom_intersection( &
                    ivar )                                            !      !      !  !
               LMN(ivar,isurf) = dot_product(n(:,isurf), d2xyz_duv2)  !      !      !  !
            end do ! <------------------------------------------------+      !      !  !
+           LMN(:,isurf) = LMN(:,isurf) * invsqrtdetEFG(isurf)               !      !  !
            !                                                                !      !  !
            ! normal curvature                                               !      !  !
            kn(isurf) =  &                                                   !      !  !

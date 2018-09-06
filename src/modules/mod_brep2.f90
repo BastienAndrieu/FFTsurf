@@ -30,7 +30,7 @@ module mod_brep2
      type(type_intersection_curve), pointer :: curve => null()
      integer                                :: isplit = 0
      type(type_BREPhalfedge)                :: halfedges(2)
-
+     
      integer                                :: hyperedge = 0
   end type type_BREPedge
 
@@ -219,7 +219,7 @@ contains
        npts = npts + npedge - 1                                         !
        nedg = nedg + npedge - 1                                         !
        !                                                                !
-       iedge = brep%edges(iedge(1))%halfedges(iedge(2))%next            !
+       iedge = get_next(brep, iedge) !brep%edges(iedge(1))%halfedges(iedge(2))%next            !
        if ( all(iedge - ifirstedge == 0) ) then ! <----------+          !
           edg(2,nedg) = edg(1,nedgprev+1)                    !          !
           return                                             !          !
@@ -717,15 +717,6 @@ contains
   end subroutine point_in_loop
 
 
-
-
-
-
-
-
-
-
-
   
   function is_smooth( &
        brep, &
@@ -751,8 +742,79 @@ contains
 
     is_boundary_edge = &
          ( brep%edges(iedge)%halfedges(1)%face == 0 ) .or. &
-         ( brep%edges(iedge)%halfedges(2)%face == 0 )    
+         ( brep%edges(iedge)%halfedges(2)%face == 0 )
+    
   end function is_boundary_edge
+
+
+  function get_prev( &
+       brep, &
+       iedge )
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_prev(2)
+
+    get_prev = brep%edges(iedge(1))%halfedges(iedge(2))%prev
+  end function get_prev
+
+
+  function get_next( &
+       brep, &
+       iedge )
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_next(2)
+
+    get_next = brep%edges(iedge(1))%halfedges(iedge(2))%next
+  end function get_next
+
+  
+  function get_twin( &
+       iedge )
+    implicit none
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_twin(2)
+
+    get_twin = [iedge(1), 1 + mod(iedge(2),2)]
+  end function get_twin
+  
+
+  function get_face( &
+       brep, &
+       iedge )
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_face
+
+    get_face = brep%edges(iedge(1))%halfedges(iedge(2))%face
+  end function get_face
+
+
+  function get_orig( &
+       brep, &
+       iedge )
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_orig
+
+    get_orig = brep%edges(iedge(1))%halfedges(iedge(2))%orig
+  end function get_orig
+
+
+  function get_dest( &
+       brep, &
+       iedge )
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    integer,         intent(in) :: iedge(2)
+    integer                     :: get_dest
+
+    get_dest = get_orig(brep, get_next(brep, iedge))
+  end function get_dest
 
   
   
@@ -788,7 +850,7 @@ contains
     integer                             :: iedge(2), iface
 
     iedge = brep%verts(ivert)%edge
-    iface = brep%edges(iedge(1))%halfedges(iedge(2))%face
+    iface = get_face(brep, iedge)!brep%edges(iedge(1))%halfedges(iedge(2))%face
 
     nfaces = 0
     do
@@ -798,9 +860,12 @@ contains
             iface, &
             nfaces )
 
-       iedge = brep%edges(iedge(1))%halfedges(iedge(2))%prev ! previous halfedge
-       iedge(2) = 1 + mod(iedge(2),2) ! twin halfedge
-       iface = brep%edges(iedge(1))%halfedges(iedge(2))%face
+       !iedge = brep%edges(iedge(1))%halfedges(iedge(2))%prev ! previous halfedge
+       iedge = get_prev(brep, iedge)
+       !iedge(2) = 1 + mod(iedge(2),2) ! twin halfedge
+       iedge = get_twin(iedge)
+       !iface = brep%edges(iedge(1))%halfedges(iedge(2))%face
+       iface = get_face(brep, iedge)
 
        if ( iface < 1 .or. iface == faces(1) ) return
     end do

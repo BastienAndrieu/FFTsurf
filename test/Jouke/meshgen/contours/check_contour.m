@@ -1,6 +1,6 @@
 clc; clear; close all
 
-iface = 3;
+iface = 55;
 
 
 
@@ -60,3 +60,18 @@ end
 axis image
 
 
+
+%%
+c = readCoeffs2(sprintf('../coeffs/c_%3.3d.cheb',iface));
+
+figure;
+hold on
+
+surf_chebyshev(c, 1, 200, 11);
+
+xyz = ICT2unstr(c, uv);
+trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), 'facecolor', 'none');
+
+axis image vis3d
+view(3)
+camlight(30,30);

@@ -995,7 +995,8 @@ subroutine diffgeom_intersection( &
      !! transversal intersection                                                      !
      stat = 0                                                                         !
      invdenom = 1._fp * sqrt(1._fp - dotn**2)                                         !
-     dxyz_ds(:,1) = cross(n(:,1), n(:,2)) * product(invsqrtdetEFG)                    !
+     dxyz_ds(:,1) = cross(n(:,1), n(:,2))                                             !
+     dxyz_ds(:,1) = dxyz_ds(:,1) / norm2(dxyz_ds(:,1))                                !
      !                                                                                !
      do isurf = 1,2 ! <-----------------------------------------------+               !
         aux(1) = dot_product(dxyz_ds(:,1), dxyz_duv(:,1,isurf))       !               !

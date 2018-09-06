@@ -7,7 +7,7 @@ addpath('/stck8/bandrieu/Bureau/INRIA/Matlab/');
 addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf_janvier2016/ImportCAD/');
 addpath('/stck8/bandrieu/Bureau/CYPRES/Regression3D/GPeyre/toolbox_graph/');
 
-nfaces = 122;%15;%
+nfaces = 127;%15;%
 cl = colorcet( 'I2', 'N', nfaces );
 cl = cl(randperm(size(cl,1)),:);
 cl = CC( cl, 0.0, 0.8, 1.5 );
