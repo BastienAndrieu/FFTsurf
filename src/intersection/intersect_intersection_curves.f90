@@ -169,7 +169,13 @@ subroutine intersect_intersection_curves( &
              xyz )                                                                                        !
      end if
      !                                                                                                 !
-     IF ( STAT /= 0 ) CYCLE
+     IF ( STAT /= 0 ) THEN
+        PRINT *,'******************************************'
+        PRINT *,' NEWTON 3 SURFACES DID NOT CONVERGE'
+        PRINT *,'******************************************'
+        PAUSE
+        CYCLE
+     END IF
      IF ( DEBUG ) THEN
         IF ( STAT == 0 ) THEN
            PRINT *,'NEWTON 3 SURFACES CONVERGED'

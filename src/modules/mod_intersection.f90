@@ -1784,7 +1784,7 @@ subroutine newton_three_surfaces( &
   use mod_diffgeom
   use mod_tolerances  
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(3)
   real(kind=fp),     intent(in)    :: lowerb(6)
@@ -1879,8 +1879,8 @@ subroutine newton_three_surfaces( &
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
            if ( erruv > EPSuvsqr ) then
-              IF ( DEBUG ) PRINT *,'newton_three_surfaces : /!\ toluv > EPSuv'
-              !pause
+              IF ( .true. ) PRINT *,'newton_three_surfaces : /!\ toluv > EPSuv'
+              pause
            end if
            stat = 0
            do isurf = 1,3
@@ -3155,7 +3155,13 @@ subroutine intersect_intersection_curves( &
              xyz )                                                                                        !
      end if
      !                                                                                                 !
-     IF ( STAT /= 0 ) CYCLE
+     IF ( STAT /= 0 ) THEN
+        PRINT *,'******************************************'
+        PRINT *,' NEWTON 3 SURFACES DID NOT CONVERGE'
+        PRINT *,'******************************************'
+        PAUSE
+        CYCLE
+     END IF
      IF ( DEBUG ) THEN
         IF ( STAT == 0 ) THEN
            PRINT *,'NEWTON 3 SURFACES CONVERGED'

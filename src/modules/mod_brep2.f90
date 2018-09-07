@@ -37,7 +37,7 @@ module mod_brep2
   
   type type_BREPvertex
      type(type_intersection_point), pointer :: point => null()
-     integer                                :: edge(2) = 0 ! [#edge, #halfedge]
+     integer                                :: halfedge(2) = 0 ! [#edge, #halfedge]
   end type type_BREPvertex
 
 
@@ -67,7 +67,7 @@ contains
 
     open(unit=fid, file=fileve, action='write')
     do ive = 1,brep%nv
-       write (fid,*) brep%verts(ive)%point%xyz, brep%verts(ive)%edge
+       write (fid,*) brep%verts(ive)%point%xyz, brep%verts(ive)%halfedge
     end do
     close(fid)
 
@@ -188,14 +188,14 @@ contains
     integer, allocatable,        intent(inout) :: edg(:,:)
     real(kind=fp), allocatable                 :: uvtmp(:,:), uvedge(:,:)
     integer, allocatable                       :: edgtmp(:,:)
-    integer                                    :: iedge(2), nedgprev, npedge, i
+    integer                                    :: ihedg(2), nedgprev, npedge, i
 
     nedgprev = nedg
-    iedge = ifirstedge
+    ihedg = ifirstedge
     do ! <--------------------------------------------------------------+
-       call get_edge_uv_polyline( &                                     !
+       call get_halfedge_uv_polyline( &                                 !
             brep, &                                                     !
-            iedge, &                                                    !
+            ihedg, &                                                    !
             npedge, &                                                   !
             uvedge )                                                    !
        !                                                                !
@@ -219,8 +219,8 @@ contains
        npts = npts + npedge - 1                                         !
        nedg = nedg + npedge - 1                                         !
        !                                                                !
-       iedge = get_next(brep, iedge) !brep%edges(iedge(1))%halfedges(iedge(2))%next            !
-       if ( all(iedge - ifirstedge == 0) ) then ! <----------+          !
+       ihedg = get_next(brep, ihedg)                                    !
+       if ( all(ihedg - ifirstedge == 0) ) then ! <----------+          !
           edg(2,nedg) = edg(1,nedgprev+1)                    !          !
           return                                             !          !
        end if ! <--------------------------------------------+          !
@@ -230,29 +230,29 @@ contains
   
 
 
-  subroutine get_edge_uv_polyline( &
+  subroutine get_halfedge_uv_polyline( &
        brep, &
-       iedge, &
+       ihedg, &
        np, &
        uv )
     implicit none
     type(type_BREP),             intent(in)    :: brep
-    integer,                     intent(in)    :: iedge(2)
+    integer,                     intent(in)    :: ihedg(2)
     integer,                     intent(out)   :: np
     real(kind=fp), allocatable,  intent(inout) :: uv(:,:)
     integer                                    :: sens, isplit, ifirst, ilast
 
-    sens = 3 - iedge(2)
+    sens = 3 - ihedg(2)
 
-    isplit = brep%edges(iedge(1))%isplit
-    ifirst = brep%edges(iedge(1))%curve%isplit(2,isplit + 2 - sens)
-    ilast  = brep%edges(iedge(1))%curve%isplit(2,isplit + 2 - sens + (-1)**sens)
+    isplit = brep%edges(ihedg(1))%isplit
+    ifirst = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens)
+    ilast  = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens + (-1)**sens)
     np = (-1)**sens * (ilast - ifirst) + 1
     if ( allocated(uv) .and. size(uv,2) < np ) deallocate(uv)
     if ( .not.allocated(uv) ) allocate(uv(2,np))
-    uv(1:2,1:np) = brep%edges(iedge(1))%curve%polyline%uv(:,sens,ifirst:ilast:(-1)**sens)
+    uv(1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv(:,sens,ifirst:ilast:(-1)**sens)
     
-  end subroutine get_edge_uv_polyline
+  end subroutine get_halfedge_uv_polyline
   
   
 
@@ -261,10 +261,12 @@ contains
        nsurf, &
        interdata, &
        brep )
+    USE MOD_UTIL
     use mod_graph
     use mod_intersection
     use mod_tolerances
     implicit none
+    LOGICAL, PARAMETER :: DEBUG = .TRUE.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata
@@ -282,6 +284,8 @@ contains
     integer                                     :: nfaces
     integer, allocatable                        :: outer(:), inner(:,:), ninner(:)
     integer                                     :: isurf, iloop, jloop, iface, jface, iedge, ihedg, ivert
+    INTEGER :: FID, IARC, INOD
+    CHARACTER(3) :: STRNUM
 
     do isurf = 1,nsurf
        ! build an embedded graph of intersection curves & points
@@ -367,6 +371,47 @@ contains
             ninner, &                                               
             nfaces )
 
+       IF ( DEBUG ) THEN
+          WRITE (STRNUM, '(I3.3)') ISURF
+          CALL GET_FREE_UNIT(FID)
+          
+          OPEN(UNIT=FID, FILE='Jouke/graph/graph_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NARC
+          DO IARC = 1,NARC
+             WRITE (FID,*) ARC2NOD(:,IARC)
+          END DO
+          DO IARC = 1,NARC
+             WRITE (FID,*) ARC_ANGLES(:,IARC)
+          END DO
+          WRITE (FID,*) NNOD
+          DO INOD = 1,NNOD
+             WRITE (FID,*) NOD_UV(:,INOD)
+          END DO
+          CLOSE(FID)
+
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='Jouke/graph/loops_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NLOOPS
+          DO ILOOP = 1,NLOOPS
+             WRITE (FID,*) LOOP2ARC(1:LENLOOP(ILOOP),ILOOP)
+             WRITE (FID,*) ARC2NOD(1,LOOP2ARC(1:LENLOOP(ILOOP),ILOOP))!LOOPNOD(1:LENLOOP(ILOOP),ILOOP)
+          END DO
+          CLOSE(FID)
+          
+          WRITE (STRNUM,'(I3.3)') ISURF
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='Jouke/graph/faces_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NFACES
+          DO IFACE = 1,NFACES
+             WRITE (FID,*) LOOP2ARC(1:LENLOOP(OUTER(IFACE)),OUTER(IFACE))
+             WRITE (FID,*) NINNER(IFACE)
+             DO ILOOP = 1,NINNER(IFACE)
+                WRITE (FID,*) LOOP2ARC(1:LENLOOP(INNER(ILOOP,IFACE)),INNER(ILOOP,IFACE))
+             END DO
+          END DO
+          CLOSE(FID)
+       END IF
+
        !! Insert faces in BREP
        do jface = 1,nfaces ! <-------------------------------+
           ! + 1 BREPface                                     !
@@ -425,18 +470,18 @@ contains
 
     ! finally, set halfedge record for BREPvertices
     do ivert = 1,brep%nv
-       brep%verts(ivert)%edge(:) = 0
+       brep%verts(ivert)%halfedge(:) = 0
     end do
     
     do iedge = 1,brep%ne ! <--------------------------------------------+
        do ihedg = 1,2 ! <-------------------------------------------+   !
           if ( brep%edges(iedge)%halfedges(ihedg)%face < 1 ) cycle  !   !
           ivert = brep%edges(iedge)%halfedges(ihedg)%orig           !   !
-          if ( brep%verts(ivert)%edge(1) > 0 ) then ! <-------+     !   !
+          if ( brep%verts(ivert)%halfedge(1) > 0 ) then ! <---+     !   !
              if ( .not.is_boundary_edge(brep, iedge) ) cycle  !     !   !
           end if ! <------------------------------------------+     !   !
           !                                                         !   !
-          brep%verts(ivert)%edge = [iedge, ihedg]                   !   !
+          brep%verts(ivert)%halfedge = [iedge, ihedg]               !   !
        end do ! <---------------------------------------------------+   !
     end do ! <----------------------------------------------------------+
     
@@ -527,11 +572,11 @@ contains
           ksplit = isplit                                                   !         !
           do jnod = 1,2 ! <---------------------------------------------+   !         !
              ! get intersection point index                             !   !         !
-             ipoint = interdata%curves(icurv)%isplit(1,ksplit+2-jsurf)          !   !         !
+             ipoint = interdata%curves(icurv)%isplit(1,ksplit+2-jsurf)  !   !         !
              ! set endpoint node index                                  !   !         !
              arc2nod(jnod,narc) = point2nod(ipoint)                     !   !         !
              ! get polyline point index                                 !   !         !
-             ipoint = interdata%curves(icurv)%isplit(2,ksplit+2-jsurf)          !   !         !
+             ipoint = interdata%curves(icurv)%isplit(2,ksplit+2-jsurf)  !   !         !
              ! compute tangent to the embedded arc at current endpoint  !   !         !
              duv_ds = &                                                 !   !         !
                   interdata%curves(icurv)%polyline%uv&                  !   !         !
@@ -586,7 +631,7 @@ contains
     integer,                              intent(in)    :: arc_sens(narc)
     integer,                              intent(in)    :: nnod
     integer,                              intent(in)    :: nod2point(nnod)
-    integer                                             :: iedge(2,lenloop)
+    integer                                             :: ihedg(2,lenloop)
     integer                                             :: iarc, jarc, icurve, isplit, ipoint, ivert
 
     do jarc = 1,lenloop ! <------------------------------------------------+
@@ -595,27 +640,27 @@ contains
        icurve = arc2curve(iarc)                                            !
        isplit = arc2split(iarc)                                            !
        !                                                                   !
-       iedge(1,jarc) = interdata%curves(icurve)%iedge(isplit)              !
-       iedge(2,jarc) = 3 - arc_sens(iarc)                                  !
+       ihedg(1,jarc) = interdata%curves(icurve)%iedge(isplit)              !
+       ihedg(2,jarc) = 3 - arc_sens(iarc)                                  !
        !                                                                   !
-       if ( iedge(1,jarc) == 0 ) then ! <------------------------------+   !
+       if ( ihedg(1,jarc) == 0 ) then ! <------------------------------+   !
           ! +1 BREPedge                                                !   !
-          iedge(1,jarc) = brep%ne + 1                                  !   !
-          interdata%curves(icurve)%iedge(isplit) = iedge(1,jarc)       !   !
+          ihedg(1,jarc) = brep%ne + 1                                  !   !
+          interdata%curves(icurve)%iedge(isplit) = ihedg(1,jarc)       !   !
           !                                                            !   !
           if ( .not.allocated(brep%edges) .or. &                       !   !
-               iedge(1,jarc) > size(brep%edges) ) then ! <---+         !   !
+               ihedg(1,jarc) > size(brep%edges) ) then ! <---+         !   !
              call reallocate_edges( &                        !         !   !
                   brep, &                                    !         !   !
-                  iedge(1,jarc) + PARAM_xtra_ne )            !         !   !
+                  ihedg(1,jarc) + PARAM_xtra_ne )            !         !   !
           end if ! <-----------------------------------------+         !   !
           brep%ne = brep%ne + 1                                        !   !
           ! set pointer to intersection curve segment                  !   !
-          brep%edges(iedge(1,jarc))%curve => interdata%curves(icurve)  !   !
-          brep%edges(iedge(1,jarc))%isplit = isplit                    !   !
+          brep%edges(ihedg(1,jarc))%curve => interdata%curves(icurve)  !   !
+          brep%edges(ihedg(1,jarc))%isplit = isplit                    !   !
        end if ! <------------------------------------------------------+   !
        !                                                                   !
-       brep%edges(iedge(1,jarc))%halfedges(iedge(2,jarc))%face = iface     !
+       brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%face = iface     !
        !                                                                   !
        ipoint = nod2point(arc2nod(1,iarc))                                 !
        ivert = interdata%points(ipoint)%ivert                              !
@@ -634,26 +679,26 @@ contains
           brep%verts(ivert)%point => interdata%points(ipoint)   !          !
        end if ! <-----------------------------------------------+          !
        !                                                                   !
-       brep%edges(iedge(1,jarc))%halfedges(iedge(2,jarc))%orig = ivert     !
+       brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%orig = ivert     !
     end do ! <-------------------------------------------------------------+
 
     ! set prev/next records for new halfedges
     do jarc = 1,lenloop ! <-----------------------------------------+
-       brep%edges(iedge(1,jarc))%halfedges(iedge(2,jarc))%prev = &  !
-            iedge(:,1 + mod(jarc + lenloop - 2,lenloop))            !
-       brep%edges(iedge(1,jarc))%halfedges(iedge(2,jarc))%next = &  !
-            iedge(:,1 + mod(jarc,lenloop))                          !
+       brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%prev = &  !
+            ihedg(:,1 + mod(jarc + lenloop - 2,lenloop))            !
+       brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%next = &  !
+            ihedg(:,1 + mod(jarc,lenloop))                          !
     end do ! <------------------------------------------------------+
 
     ! set outer/inner record for current face
     if ( is_outer_loop ) then ! <-----------+
-       brep%faces(iface)%outer = iedge(:,1) !
+       brep%faces(iface)%outer = ihedg(:,1) !
     else ! ---------------------------------+
        call insert_column_after( &          !
             brep%faces(iface)%inner, &      !
             2, &                            !
             brep%faces(iface)%ninner, &     !
-            iedge(:,1), &                   !
+            ihedg(:,1), &                   !
             brep%faces(iface)%ninner )      !
     end if ! <------------------------------+
     
@@ -671,6 +716,8 @@ contains
        arc2split, &
        arc_sens, &
        inside )
+    ! tests whether a point lies inside the region outlined by a loop of
+    ! intersection curves
     implicit none
     real(kind=fp), parameter                  :: M = 10._fp
     real(kind=fp),                intent(in)  :: uv(2)
@@ -683,7 +730,7 @@ contains
     real(kind=fp), pointer                    :: poly(:,:) => null()
     real(kind=fp)                             :: a, c, s, ub, vb
     integer                                   :: np
-    integer                                   :: iarc, icurv, isplit, ifirst, ilast, i
+    integer                                   :: iarc, sens, icurv, isplit, ifirst, ilast, i
 
     inside = .false.
 
@@ -695,29 +742,36 @@ contains
     vb = uv(2) + M*s
 
     do iarc = 1,lenloop
-       icurv = arc2curve(iarc)
-       isplit = arc2split(iarc)
+       sens   = arc_sens(iarc)
+       icurv  = arc2curve(iarc)
+       isplit = arc2split(iarc) + 2 - sens
 
-       ifirst = interdata%curves(icurv)%isplit(2,isplit + 2 - arc_sens(iarc))
-       ilast  = interdata%curves(icurv)%isplit(2,isplit + 2 - arc_sens(iarc) + (-1)**arc_sens(iarc))
-       np = (-1)**arc_sens(iarc) * (ilast - ifirst) + 1
+       ifirst = interdata%curves(icurv)%isplit(2,isplit)
+       ilast  = interdata%curves(icurv)%isplit(2,isplit + (-1)**sens)
+       np = (-1)**sens * (ilast - ifirst) + 1
 
-       poly => interdata%curves(icurv)%polyline%uv(:,arc_sens(iarc),ifirst:ilast:(-1)**arc_sens(iarc))
+       poly => interdata%curves(icurv)%polyline%uv(:,sens,ifirst:ilast:(-1)**sens)
        do i = 1,np-1
           if ( ( ((poly(1,i) - uv(1))*s > (poly(2,i) - uv(2))*c) .neqv. &
                ((poly(1,i+1) - uv(1))*s > (poly(2,i+1) - uv(2))*c) ) .and. &
-               ( ((uv(1) - poly(1,i))*(poly(2,i) - poly(2,i+1)) > (uv(2) - poly(2,i))*(poly(1,i) - poly(1,i+1))) .neqv. &
-               ((ub - poly(1,i))*(poly(2,i) - poly(2,i+1)) > (vb - poly(2,i))*(poly(1,i) - poly(1,i+1))) ) ) then
+               ( ((uv(1) - poly(1,i))*(poly(2,i) - poly(2,i+1)) > &
+               (uv(2) - poly(2,i))*(poly(1,i) - poly(1,i+1))) .neqv. &
+               ((ub - poly(1,i))*(poly(2,i) - poly(2,i+1)) > &
+               (vb - poly(2,i))*(poly(1,i) - poly(1,i+1))) ) ) then
              inside = .not.inside
           end if
        end do
 
        nullify(poly)
     end do
+    
   end subroutine point_in_loop
 
 
-  
+
+
+
+  ! =============== (HALF)EDGE QUERIES ===============
   function is_smooth( &
        brep, &
        iedge )
@@ -729,8 +783,6 @@ contains
     is_smooth = brep%edges(iedge)%curve%smooth
 
   end function is_smooth
-  
-
   
   function is_boundary_edge( &
        brep, &
@@ -749,91 +801,81 @@ contains
 
   function get_prev( &
        brep, &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's previous halfedge
     implicit none
     type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_prev(2)
 
-    get_prev = brep%edges(iedge(1))%halfedges(iedge(2))%prev
+    get_prev = brep%edges(ihedg(1))%halfedges(ihedg(2))%prev
   end function get_prev
 
 
   function get_next( &
        brep, &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's next halfedge
     implicit none
     type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_next(2)
 
-    get_next = brep%edges(iedge(1))%halfedges(iedge(2))%next
+    get_next = brep%edges(ihedg(1))%halfedges(ihedg(2))%next
   end function get_next
 
   
   function get_twin( &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's twin halfedge
     implicit none
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_twin(2)
 
-    get_twin = [iedge(1), 1 + mod(iedge(2),2)]
+    get_twin = [ihedg(1), 1 + mod(ihedg(2),2)]
   end function get_twin
   
 
   function get_face( &
        brep, &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's incident face
     implicit none
     type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_face
 
-    get_face = brep%edges(iedge(1))%halfedges(iedge(2))%face
+    get_face = brep%edges(ihedg(1))%halfedges(ihedg(2))%face
   end function get_face
 
-
+  
   function get_orig( &
        brep, &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's origin vertex
     implicit none
     type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_orig
 
-    get_orig = brep%edges(iedge(1))%halfedges(iedge(2))%orig
+    get_orig = brep%edges(ihedg(1))%halfedges(ihedg(2))%orig
   end function get_orig
 
 
   function get_dest( &
        brep, &
-       iedge )
+       ihedg )
+    ! returns the index of an halfedge's destination vertex
     implicit none
     type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge(2)
+    integer,         intent(in) :: ihedg(2)
     integer                     :: get_dest
 
-    get_dest = get_orig(brep, get_next(brep, iedge))
+    get_dest = get_orig(brep, get_next(brep, ihedg))
   end function get_dest
+  ! ==================================================
 
   
-  
-  function get_e2v( &
-       brep, &
-       iedge )
-    implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: iedge
-    integer                     :: get_e2v(2)
-    integer                     :: jedge, ihedg
-
-    get_e2v(1) = brep%edges(iedge)%halfedges(1)%orig
-    jedge = brep%edges(iedge)%halfedges(1)%next(1)
-    ihedg = brep%edges(iedge)%halfedges(1)%next(2)
-    get_e2v(2) = brep%edges(jedge)%halfedges(ihedg)%orig
-
-  end function get_e2v
-
 
 
   subroutine get_v2f( &
@@ -841,16 +883,17 @@ contains
        ivert, &
        faces, &
        nfaces )
+    ! returns all faces incident to a vertex, traversed CW
     use mod_util
     implicit none
     type(type_BREP),      intent(in)    :: brep
     integer,              intent(in)    :: ivert
     integer, allocatable, intent(inout) :: faces(:)
     integer,              intent(out)   :: nfaces
-    integer                             :: iedge(2), iface
+    integer                             :: ihedg(2), iface
 
-    iedge = brep%verts(ivert)%edge
-    iface = get_face(brep, iedge)!brep%edges(iedge(1))%halfedges(iedge(2))%face
+    ihedg = brep%verts(ivert)%halfedge
+    iface = get_face(brep, ihedg)
 
     nfaces = 0
     do
@@ -860,12 +903,10 @@ contains
             iface, &
             nfaces )
 
-       !iedge = brep%edges(iedge(1))%halfedges(iedge(2))%prev ! previous halfedge
-       iedge = get_prev(brep, iedge)
-       !iedge(2) = 1 + mod(iedge(2),2) ! twin halfedge
-       iedge = get_twin(iedge)
-       !iface = brep%edges(iedge(1))%halfedges(iedge(2))%face
-       iface = get_face(brep, iedge)
+       ! traverse halfedges clock-wise
+       ihedg = get_prev(brep, ihedg) ! previous halfedge
+       ihedg = get_twin(ihedg) ! twin halfedge
+       iface = get_face(brep, ihedg)
 
        if ( iface < 1 .or. iface == faces(1) ) return
     end do
@@ -982,7 +1023,7 @@ contains
     do i = 1,n
        to(i)%point => from(i)%point
        nullify(from(i)%point)
-       to(i)%edge  =  from(i)%edge
+       to(i)%halfedge  =  from(i)%halfedge
     end do
 
   end subroutine transfer_vertices

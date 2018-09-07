@@ -77,7 +77,7 @@ contains
     end do ! <------------------------------------------------------------+
     
     do ivert = 1,brep%nv ! <-----------------------------------------------------+
-       iedge = brep%verts(ivert)%edge ! outgoing                                 !
+       iedge = brep%verts(ivert)%halfedge ! outgoing                             !
        do ! <----------------------------------------------------------------+   !
           if ( feat_edge(iedge(1)) ) then ! <-----------------------------+  !   !
              valence(ivert) = valence(ivert) + 1                          !  !   !
@@ -91,7 +91,7 @@ contains
           iedge = get_prev(brep, iedge) ! ingoing                            !   !
           iedge = get_twin(iedge)       ! outgoing                           !   !
           if ( brep%edges(iedge(1))%halfedges(iedge(2))%face < 1 .or. &      !   !
-               iedge(1) == brep%verts(ivert)%edge(1) ) exit                  !   !
+               iedge(1) == brep%verts(ivert)%halfedge(1) ) exit              !   !
        end do ! <------------------------------------------------------------+   !
        !                                                                         !
        if ( valence(ivert) == 0 ) cycle                                          !
@@ -226,6 +226,8 @@ contains
 
 
 
+  
+
   subroutine get_hyperedges( &
        brep, &
        feat_edge, &
@@ -248,60 +250,61 @@ contains
     visited(:) = .false.
     nhe = 0
     ! first, build open hyperedges (paths)
-    do ivert = 1,brep%nv
-       if ( .not.feat_vert(ivert) ) cycle
-       do while ( valence(ivert) > 0 )
-
-          if ( .not.allocated(hyperedges) .or. &
-               nhe + 1 > size(hyperedges) ) then ! <-------+
-             call reallocate_hyperedges( &                 !
-                  hyperedges, &                            !
-                  nhe + PARAM_xtra_nhe )                   !
-          end if ! <---------------------------------------+
-
-          nhe = nhe + 1
-          PRINT *,'+1 PATH'
-          hyperedges(nhe)%ne = 0
-          call build_hyperedge( &
-               brep, &
-               ivert, &
-               feat_edge, &
-               visited, &
-               feat_vert, &
-               valence, &
-               hyperedges(nhe) )
-
-          hyperedges(nhe)%verts(1) = get_orig(brep, hyperedges(nhe)%edges(:,1))
-          hyperedges(nhe)%verts(2) = get_dest(brep, hyperedges(nhe)%edges(:,hyperedges(nhe)%ne))
-          PRINT *,'   VERTS =',hyperedges(nhe)%verts
-       end do
+    do ivert = 1,brep%nv ! <----------------------------------------------------------------------+
+       if ( .not.feat_vert(ivert) ) cycle                                                         !
+       do while ( valence(ivert) > 0 )                                                            !
+          !                                                                                       !
+          if ( .not.allocated(hyperedges) .or. &                                                  !
+               nhe + 1 > size(hyperedges) ) then ! <-------+                                      !
+             call reallocate_hyperedges( &                 !                                      !
+                  hyperedges, &                            !                                      !
+                  nhe + PARAM_xtra_nhe )                   !                                      !
+          end if ! <---------------------------------------+                                      !
+          !                                                                                       !
+          nhe = nhe + 1                                                                           !
+          PRINT *,'+1 PATH'                                                                       !
+          hyperedges(nhe)%ne = 0                                                                  !
+          call build_hyperedge( &                                                                 !
+               brep, &                                                                            !
+               ivert, &                                                                           !
+               feat_edge, &                                                                       !
+               visited, &                                                                         !
+               feat_vert, &                                                                       !
+               valence, &                                                                         !
+               hyperedges(nhe) )                                                                  !
+          !                                                                                       !
+          ! set boundary vertices indices                                                         !
+          hyperedges(nhe)%verts(1) = get_orig(brep, hyperedges(nhe)%edges(:,1))                   !
+          hyperedges(nhe)%verts(2) = get_dest(brep, hyperedges(nhe)%edges(:,hyperedges(nhe)%ne))  !
+          PRINT *,'   VERTS =',hyperedges(nhe)%verts                                              !
+       end do ! <---------------------------------------------------------------------------------+
     end do
 
     ! then, build closed hyperedges (cycles)
-    do iedge = 1,brep%ne
-       if ( visited(iedge) .or. .not.feat_edge(iedge) ) cycle
-       
-       if ( .not.allocated(hyperedges) .or. &
-            nhe + 1 > size(hyperedges) ) then ! <-------+
-          call reallocate_hyperedges( &                 !
-               hyperedges, &                            !
-               nhe + PARAM_xtra_nhe )                   !
-       end if ! <---------------------------------------+
-          
-       ivert = brep%edges(iedge)%halfedges(1)%orig
-       nhe = nhe + 1
-       PRINT *,'+1 CYCLE'
-       hyperedges(nhe)%ne = 0
-       call build_hyperedge( &
-            brep, &
-            ivert, &
-            feat_edge, &
-            visited, &
-            feat_vert, &
-            valence, &
-            hyperedges(nhe) )
-          
-    end do
+    do iedge = 1,brep%ne ! <------------------------------------+
+       if ( visited(iedge) .or. .not.feat_edge(iedge) ) cycle   !
+       !                                                        !
+       if ( .not.allocated(hyperedges) .or. &                   !
+            nhe + 1 > size(hyperedges) ) then ! <-------+       !
+          call reallocate_hyperedges( &                 !       !
+               hyperedges, &                            !       !
+               nhe + PARAM_xtra_nhe )                   !       !
+       end if ! <---------------------------------------+       !
+       !                                                        !
+       ivert = brep%edges(iedge)%halfedges(1)%orig              !
+       nhe = nhe + 1                                            !
+       PRINT *,'+1 CYCLE'                                       !
+       hyperedges(nhe)%ne = 0                                   !
+       call build_hyperedge( &                                  !
+            brep, &                                             !
+            ivert, &                                            !
+            feat_edge, &                                        !
+            visited, &                                          !
+            feat_vert, &                                        !
+            valence, &                                          !
+            hyperedges(nhe) )                                   !
+       !                                                        !
+    end do ! <--------------------------------------------------+
     
   end subroutine get_hyperedges
 
@@ -327,37 +330,37 @@ contains
     logical,              intent(in)    :: feat_vert(brep%nv)
     integer,              intent(inout) :: valence(brep%nv)
     type(type_hyperedge), intent(inout) :: he
-    integer                             :: ivert, iedge(2)
+    integer                             :: ivert, ihedg(2)
 
     ivert = istart
     IF ( DEBUG ) PRINT *,'ISTART =',ISTART
     do
        IF ( DEBUG ) PRINT *,'IVERT =',IVERT
-       iedge = brep%verts(ivert)%edge
+       ihedg = brep%verts(ivert)%halfedge
        do ! <-------------------------------------------------------------------+
-          IF ( DEBUG ) PRINT *,'IEDGE =',IEDGE
+          IF ( DEBUG ) PRINT *,'IHEDG =',IHEDG
           ! traverse halfedges around vertex to find an unvisited feature edge  !
-          if ( feat_edge(iedge(1)) .and. .not.visited(iedge(1)) ) exit          !
+          if ( feat_edge(ihedg(1)) .and. .not.visited(ihedg(1)) ) exit          !
           if ( he%ne > 0 ) then ! <-------------------------+                   !
              ! traverse halfedges CCW                       !                   !
-             iedge = get_twin(get_prev(brep, iedge))        !                   !
+             ihedg = get_twin(get_prev(brep, ihedg))        !                   !
           else ! -------------------------------------------+                   !
              ! traverse halfedges CW                        !                   !
-             iedge = get_next(brep, get_twin(iedge))        !                   !
+             ihedg = get_next(brep, get_twin(ihedg))        !                   !
           end if ! <----------------------------------------+                   !
        end do ! <---------------------------------------------------------------+
 
-       visited(iedge(1)) = .true.
+       visited(ihedg(1)) = .true.
        call insert_column_after( &
             he%edges, &
             2, &
             he%ne, &
-            iedge, &
+            ihedg, &
             he%ne )
-       IF ( DEBUG ) PRINT *,'   + EDGE',IEDGE
+       IF ( DEBUG ) PRINT *,'   + EDGE',IHEDG
        valence(ivert) = valence(ivert) - 1
 
-       ivert = get_dest(brep, iedge)
+       ivert = get_dest(brep, ihedg)
        valence(ivert) = valence(ivert) - 1
        
        if ( feat_vert(ivert) .or. ivert == istart ) exit

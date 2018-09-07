@@ -5,7 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurftotal = 6;%112;%126;
+nsurftotal = 14;%112;%126;
 listsurf = 1:nsurftotal;%[1:7,28:44];%
 nsurf = length(listsurf);
 

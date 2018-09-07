@@ -133,67 +133,68 @@ program jouke
        'Jouke/brep/edges.dat', &
        'Jouke/brep/faces.dat' )
 
-  ! get feature edges
-  allocate(feat_edge(brep%ne))
-  call get_feature_edges(brep, feat_edge)
-  call get_free_unit( fid )
-  open(unit=fid, file='Jouke/brep/feat_edge.dat', action='write')
-  do i = 1,brep%ne
-     if ( feat_edge(i) ) write (fid,*) i
-  end do
-  close(fid)
-  
-  ! get hyperfaces
-  call get_hyperfaces(brep, feat_edge, hyperfaces, nhf)
-  call get_free_unit( fid )
-  open(unit=fid, file='Jouke/brep/hyperfaces.dat', action='write')
-  write (fid,*) nhf
-  do i = 1,nhf
-     write (fid,*) hyperfaces(i)%nf
-     write (fid,*) hyperfaces(i)%faces(1:hyperfaces(i)%nf)
-  end do
-  close(fid)
-
-  ! get feature vertices
-  allocate(feat_vert(brep%nv), valence(brep%nv))
-  call get_feature_vertices( &
-       brep, &
-       feat_edge, &
-       feat_vert, &
-       valence )
-  call get_free_unit( fid )
-  open(unit=fid, file='Jouke/brep/feat_vert.dat', action='write')
-  do i = 1,brep%nv
-     if ( feat_vert(i) ) then
-        write (fid,'(I1,1x)',advance='no') 1
-     else
-        write (fid,'(I1,1x)',advance='no') 0
-     end if
-     write (fid,*) valence(i)
-  end do
-  close(fid)
-
-
-  ! get hyperedges
-  call get_hyperedges( &
-       brep, &
-       feat_edge, &
-       feat_vert, &
-       valence, &
-       hyperedges, &
-       nhe )
-  call get_free_unit( fid )
-  open(unit=fid, file='Jouke/brep/hyperedges.dat', action='write')
-  write (fid,*) nhe
-  do i = 1,nhe
-     write (fid,*) hyperedges(i)%ne
-     write (fid,*) hyperedges(i)%verts
-     do j = 1,hyperedges(i)%ne
-        write (fid,*) hyperedges(i)%edges(1:2,j)
+  IF ( .FALSE. ) THEN ! HYPERGRAPHE
+     ! get feature edges
+     allocate(feat_edge(brep%ne))
+     call get_feature_edges(brep, feat_edge)
+     call get_free_unit( fid )
+     open(unit=fid, file='Jouke/brep/feat_edge.dat', action='write')
+     do i = 1,brep%ne
+        if ( feat_edge(i) ) write (fid,*) i
      end do
-  end do
-  close(fid)
+     close(fid)
 
+     ! get hyperfaces
+     call get_hyperfaces(brep, feat_edge, hyperfaces, nhf)
+     call get_free_unit( fid )
+     open(unit=fid, file='Jouke/brep/hyperfaces.dat', action='write')
+     write (fid,*) nhf
+     do i = 1,nhf
+        write (fid,*) hyperfaces(i)%nf
+        write (fid,*) hyperfaces(i)%faces(1:hyperfaces(i)%nf)
+     end do
+     close(fid)
+
+     ! get feature vertices
+     allocate(feat_vert(brep%nv), valence(brep%nv))
+     call get_feature_vertices( &
+          brep, &
+          feat_edge, &
+          feat_vert, &
+          valence )
+     call get_free_unit( fid )
+     open(unit=fid, file='Jouke/brep/feat_vert.dat', action='write')
+     do i = 1,brep%nv
+        if ( feat_vert(i) ) then
+           write (fid,'(I1,1x)',advance='no') 1
+        else
+           write (fid,'(I1,1x)',advance='no') 0
+        end if
+        write (fid,*) valence(i)
+     end do
+     close(fid)
+
+
+     ! get hyperedges
+     call get_hyperedges( &
+          brep, &
+          feat_edge, &
+          feat_vert, &
+          valence, &
+          hyperedges, &
+          nhe )
+     call get_free_unit( fid )
+     open(unit=fid, file='Jouke/brep/hyperedges.dat', action='write')
+     write (fid,*) nhe
+     do i = 1,nhe
+        write (fid,*) hyperedges(i)%ne
+        write (fid,*) hyperedges(i)%verts
+        do j = 1,hyperedges(i)%ne
+           write (fid,*) hyperedges(i)%edges(1:2,j)
+        end do
+     end do
+     close(fid)
+  END IF
 
   
 
@@ -247,7 +248,7 @@ program jouke
   close(13)
 
   
-  IF ( .false. ) THEN
+  IF ( .true. ) THEN
      do iface = 1,brep%nf
         PRINT *,'meshgen face #',iface
         write (strnum3,'(I3.3)') iface

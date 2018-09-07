@@ -20,7 +20,7 @@ cle = cle(randperm(ne),:);
 clf = colorcet( 'I2', 'N', nf );
 clf = clf(randperm(nf),:);
 
-falph = 1;%
+falph = 0.5;%
 
 %%
 figure;
@@ -30,9 +30,9 @@ lv = 1:nv;
 % plot3( vxyz(lv,1), vxyz(lv,2), vxyz(lv,3), 'k.');
 
 
-for iv = 1:nv
-    text( vxyz(iv,1), vxyz(iv,2), vxyz(iv,3), num2str(iv), 'color', 'b' );
-end
+% for iv = 1:nv
+%     text( vxyz(iv,1), vxyz(iv,2), vxyz(iv,3), num2str(iv), 'color', 'b' );
+% end
 
 % plot faces
 f2v = {};
@@ -92,7 +92,7 @@ for ih = 1:nh
         j = 2;
         i = i - 1;
     end
-    text( a(1) + 0.5*v(1), a(2) + 0.5*v(2), a(3) + 0.5*v(3), sprintf('%d,%d',i,j), 'color', 'r');
+%     text( a(1) + 0.5*v(1), a(2) + 0.5*v(2), a(3) + 0.5*v(3), sprintf('%d,%d',i,j), 'color', 'r');
 end
 
 if 0 % plot prev, next & twin of random halfedge
@@ -169,7 +169,7 @@ end
 % end
 
 
-
+% return
 
 %% Feature edges & vertices
 lfeat_edge = importdata('feat_edge.dat')';
