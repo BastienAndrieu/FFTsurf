@@ -1,6 +1,10 @@
 module mod_hypergraph
 
   implicit none
+
+  integer, parameter :: PARAM_xtra_nhf = 10
+  integer, parameter :: PARAM_xtra_nhe = 10
+
   
   type type_hyperface
      integer              :: nf = 0
@@ -19,7 +23,8 @@ contains
   subroutine get_feature_edges( &
        brep, &
        feat_edge )
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     ! returns the list of feature edges in a BREP, i.e. non smooth or boundary edges
     implicit none
     type(type_BREP), intent(in)  :: brep
@@ -39,7 +44,8 @@ contains
        feat_vert, &
        valence )
     use mod_intersection
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
     real(kind=fp), parameter     :: EPScosangle = real(1.d-3, kind=fp)
     type(type_BREP), intent(in)  :: brep
@@ -115,9 +121,9 @@ contains
        feat_edge, &
        hyperfaces, &
        nhf )
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
-    integer, parameter                               :: PARAM_xtra_nhf = 10
     type(type_BREP),                   intent(inout) :: brep
     logical,                           intent(in)    :: feat_edge(brep%ne)
     type(type_hyperface), allocatable, intent(inout) :: hyperfaces(:)
@@ -184,7 +190,8 @@ contains
        hf, &
        visited )
     use mod_util
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
     type(type_BREP),      intent(in)    :: brep
     integer,              intent(in)    :: ifa
@@ -236,9 +243,9 @@ contains
        valence, &
        hyperedges, &
        nhe )
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
-    integer, parameter                               :: PARAM_xtra_nhe = 10
     type(type_BREP),                   intent(inout) :: brep
     logical,                           intent(in)    :: feat_edge(brep%ne)
     logical,                           intent(in)    :: feat_vert(brep%nv)
@@ -329,7 +336,8 @@ contains
        valence, &
        he )
     use mod_util
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
     LOGICAL, PARAMETER :: DEBUG = .FALSE.
     type(type_BREP),      intent(in)    :: brep
@@ -380,7 +388,8 @@ contains
 
 
   subroutine reverse_hyperedge(self)
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
     type(type_hyperedge), intent(inout) :: self
     integer                             :: iedge
@@ -399,7 +408,8 @@ contains
        brep, &
        len_edg, &
        len_tot )
-    use mod_brep2
+    use mod_types_brep
+    use mod_brep
     implicit none
     type(type_hyperedge), intent(in)  :: self
     type(type_brep),      intent(in)  :: brep

@@ -16,8 +16,9 @@ contains
        hmax )
     use mod_diffgeom
     use mod_intersection
-    use mod_brep2
+    use mod_types_brep
     use mod_mesh
+    use mod_halfedge
     use mod_linalg
     implicit none
     type(type_brep),         intent(in)    :: brep

@@ -7,7 +7,7 @@ program jouke
   use mod_types_intersection
   use mod_intersection
   use mod_types_brep
-  use mod_brep2
+  use mod_brep
   use mod_hypergraph
   use mod_mesh
   use mod_tolerances
@@ -604,7 +604,7 @@ contains
        hyperedges, &
        nhe, &
        mesh )
-    use mod_brep2
+    use mod_brep
     use mod_hypergraph
     use mod_mesh
     use mod_util
