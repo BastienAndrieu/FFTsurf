@@ -9,8 +9,9 @@ module mod_hypergraph
 
   type type_hyperedge
      integer              :: ne = 0
-     integer, allocatable :: edges(:,:)
+     integer, allocatable :: halfedges(:,:)
      integer              :: verts(2) = 0
+     integer              :: hyperfaces(2) = 0
   end type type_hyperedge
   
 contains
@@ -167,7 +168,7 @@ contains
 
     do ihf = 1,nhf
        do ifa = 1,hyperfaces(ihf)%nf
-          brep%faces(ifa)%hyperface = ihf
+          brep%faces(hyperfaces(ihf)%faces(ifa))%hyperface = ihf
        end do
     end do
     
@@ -245,39 +246,39 @@ contains
     type(type_hyperedge), allocatable, intent(inout) :: hyperedges(:)
     integer,                           intent(out)   :: nhe
     logical                                          :: visited(brep%ne)
-    integer                                          :: ivert, iedge
+    integer                                          :: ivert, iedge, ihe, ihedg(2)
 
     visited(:) = .false.
     nhe = 0
     ! first, build open hyperedges (paths)
-    do ivert = 1,brep%nv ! <----------------------------------------------------------------------+
-       if ( .not.feat_vert(ivert) ) cycle                                                         !
-       do while ( valence(ivert) > 0 )                                                            !
-          !                                                                                       !
-          if ( .not.allocated(hyperedges) .or. &                                                  !
-               nhe + 1 > size(hyperedges) ) then ! <-------+                                      !
-             call reallocate_hyperedges( &                 !                                      !
-                  hyperedges, &                            !                                      !
-                  nhe + PARAM_xtra_nhe )                   !                                      !
-          end if ! <---------------------------------------+                                      !
-          !                                                                                       !
-          nhe = nhe + 1                                                                           !
-          PRINT *,'+1 PATH'                                                                       !
-          hyperedges(nhe)%ne = 0                                                                  !
-          call build_hyperedge( &                                                                 !
-               brep, &                                                                            !
-               ivert, &                                                                           !
-               feat_edge, &                                                                       !
-               visited, &                                                                         !
-               feat_vert, &                                                                       !
-               valence, &                                                                         !
-               hyperedges(nhe) )                                                                  !
-          !                                                                                       !
-          ! set boundary vertices indices                                                         !
-          hyperedges(nhe)%verts(1) = get_orig(brep, hyperedges(nhe)%edges(:,1))                   !
-          hyperedges(nhe)%verts(2) = get_dest(brep, hyperedges(nhe)%edges(:,hyperedges(nhe)%ne))  !
-          PRINT *,'   VERTS =',hyperedges(nhe)%verts                                              !
-       end do ! <---------------------------------------------------------------------------------+
+    do ivert = 1,brep%nv ! <-------------------------------------------------------------------------+
+       if ( .not.feat_vert(ivert) ) cycle                                                            !
+       do while ( valence(ivert) > 0 )                                                               !
+          !                                                                                          !
+          if ( .not.allocated(hyperedges) .or. &                                                     !
+               nhe + 1 > size(hyperedges) ) then ! <-------+                                         !
+             call reallocate_hyperedges( &                 !                                         !
+                  hyperedges, &                            !                                         !
+                  nhe + PARAM_xtra_nhe )                   !                                         !
+          end if ! <---------------------------------------+                                         !
+          !                                                                                          !
+          nhe = nhe + 1                                                                              !
+          PRINT *,'+1 PATH'                                                                          !
+          hyperedges(nhe)%ne = 0                                                                     !
+          call build_hyperedge( &                                                                    !
+               brep, &                                                                               !
+               ivert, &                                                                              !
+               feat_edge, &                                                                          !
+               visited, &                                                                            !
+               feat_vert, &                                                                          !
+               valence, &                                                                            !
+               hyperedges(nhe) )                                                                     !
+          !                                                                                          !
+          ! set boundary vertices indices                                                            !
+          hyperedges(nhe)%verts(1) = get_orig(brep, hyperedges(nhe)%halfedges(:,1))                  !
+          hyperedges(nhe)%verts(2) = get_dest(brep, hyperedges(nhe)%halfedges(:,hyperedges(nhe)%ne)) !
+          PRINT *,'   VERTS =',hyperedges(nhe)%verts                                                 !
+       end do ! <------------------------------------------------------------------------------------+
     end do
 
     ! then, build closed hyperedges (cycles)
@@ -305,6 +306,14 @@ contains
             hyperedges(nhe) )                                   !
        !                                                        !
     end do ! <--------------------------------------------------+
+
+    ! set incident hyperfaces
+    do ihe = 1,nhe
+       ihedg = hyperedges(ihe)%halfedges(:,1)
+       hyperedges(ihe)%hyperfaces(1) = brep%faces(get_face(brep, ihedg))%hyperface
+       ihedg = get_twin(ihedg)
+       hyperedges(ihe)%hyperfaces(2) = brep%faces(get_face(brep, ihedg))%hyperface
+    end do
     
   end subroutine get_hyperedges
 
@@ -352,7 +361,7 @@ contains
 
        visited(ihedg(1)) = .true.
        call insert_column_after( &
-            he%edges, &
+            he%halfedges, &
             2, &
             he%ne, &
             ihedg, &
@@ -368,6 +377,49 @@ contains
     
   end subroutine build_hyperedge
        
+
+
+  subroutine reverse_hyperedge(self)
+    use mod_brep2
+    implicit none
+    type(type_hyperedge), intent(inout) :: self
+    integer                             :: iedge
+
+    self%verts(1:2) = self%verts([2,1])
+    self%halfedges(1:2,1:self%ne) = self%halfedges(1:2,self%ne:1:-1)
+    do iedge = 1,self%ne
+       self%halfedges(1:2,iedge) = get_twin(self%halfedges(1:2,iedge))
+    end do
+    
+  end subroutine reverse_hyperedge
+
+
+  subroutine get_hyperedge_length( &
+       self, &
+       brep, &
+       len_edg, &
+       len_tot )
+    use mod_brep2
+    implicit none
+    type(type_hyperedge), intent(in)  :: self
+    type(type_brep),      intent(in)  :: brep
+    real(kind=fp),        intent(out) :: len_edg(self%ne)
+    real(kind=fp),        intent(out) :: len_tot
+    integer                           :: iedge
+
+    len_tot = 0._fp
+    do iedge = 1,self%ne
+       len_edg(iedge) = get_polyline_length(brep, self%halfedges(:,iedge))
+       len_tot = len_tot + len_edg(iedge)
+    end do
+    
+  end subroutine get_hyperedge_length
+  
+
+
+
+
+
 
   
 
@@ -402,8 +454,9 @@ contains
 
     do i = 1,n
        to(i)%ne = from(i)%ne
-       call move_alloc(from(i)%edges, to(i)%edges)
+       call move_alloc(from(i)%halfedges, to(i)%halfedges)
        to(i)%verts = from(i)%verts
+       to(i)%hyperfaces = from(i)%hyperfaces
     end do
     
   end subroutine transfer_hyperedges

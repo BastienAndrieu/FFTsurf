@@ -7,7 +7,7 @@ addpath('/stck8/bandrieu/Bureau/INRIA/Matlab/');
 addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf_janvier2016/ImportCAD/');
 addpath('/stck8/bandrieu/Bureau/CYPRES/Regression3D/GPeyre/toolbox_graph/');
 
-nfaces = 127;%
+nfaces = 179;%
 cl = colorcet( 'I2', 'N', nfaces );
 cl = cl(randperm(size(cl,1)),:);
 cl = CC( cl, 0.0, 0.8, 1.5 );
@@ -29,9 +29,10 @@ for iface = 1:nfaces
     uv = importdata(sprintf('uv_%3.3d.dat',iface));
 %     isurf = importdata(sprintf('numsurf_%3.3d.dat',iface));
 %     c = readCoeffs2(sprintf('../propergol/C_%3.3d.cheb',isurf));
-    c = readCoeffs2(sprintf('coeffs/c_%3.3d.cheb',iface));
+%     c = readCoeffs2(sprintf('coeffs/c_%3.3d.cheb',iface));
     
-    xyz = ICT2unstr(c, uv);
+%     xyz = ICT2unstr(c, uv);
+    xyz = importdata(sprintf('xyz_%3.3d.dat',iface));
     b = ( xyz(tri(:,1),:) + xyz(tri(:,2),:) + xyz(tri(:,3),:) ) / 3.0;
     
     l = [];%find( b(:,2) < -1.e-4 & b(:,3) > 1.e-4 )';

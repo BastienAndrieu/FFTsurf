@@ -8,6 +8,7 @@ subroutine merge_intersection_data( &
   use mod_math
   use mod_diffgeom
   use mod_types_intersection
+  use mod_tolerances
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
@@ -61,8 +62,8 @@ subroutine merge_intersection_data( &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
-          HMIN=REAL(1.D-4,KIND=FP), &
-          HMAX=REAL(1.D-2,KIND=FP) )
+          hmin=PARAM_hmin, &
+          hmax=PARAM_hmax )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT

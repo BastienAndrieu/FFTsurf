@@ -3,6 +3,8 @@ module mod_diffgeom
   use mod_math
   use mod_polynomial
 
+  implicit none
+
   type type_curve
      type(type_polynomial) :: x, xt, xtt
   end type type_curve

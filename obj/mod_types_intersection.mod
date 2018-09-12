@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_types_intersection.f90
-MD5:c9475a2feeb79a9eec3aea4c15424e37 -- If you edit this, you'll get what you deserve.
+MD5:37f30740434077f4e39976538f017ceb -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -541,8 +541,8 @@ UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
 435 'ptr_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
-UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
-0 () () 0 () () () 0 0)
+UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
+()) 0 0 () () 0 () () () 0 0)
 436 'read_polynomial' 'mod_polynomial' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE ALWAYS_EXPLICIT) (UNKNOWN 0 0 0
 0 UNKNOWN ()) 437 0 (438 439 440 441) () 0 () () () 0 0)
@@ -590,8 +590,8 @@ DIMENSION) (DERIVED 24 0 0 0 DERIVED ()) 0 0 () (1 0 DEFERRED () ()) 0 ()
 MODULE-PROC DECL UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 509 0 (
 510 511 512) () 513 () () () 0 0)
 514 'type_curve' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
-UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
-0 () () 0 () () () 0 0)
+UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
+()) 0 0 () () 0 () () () 0 0)
 515 'type_intersection_curve' 'mod_types_intersection' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
@@ -617,8 +617,8 @@ UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
 523 'type_surface' 'mod_diffgeom' '' 1 ((PROCEDURE UNKNOWN-INTENT
-UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (REAL 4 0 0 0 REAL ()) 0
-0 () () 0 () () () 0 0)
+UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
+()) 0 0 () () 0 () () () 0 0)
 524 'write_obb' 'mod_obb' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 525 0 (526 527)
 () 0 () () () 0 0)

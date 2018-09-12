@@ -108,6 +108,7 @@ subroutine trace_intersection_polyline( &
      dist_from_end = sum((polyline%xyz(:,polyline%np) - xyz_endpoints(:,2))**2)  !
      if ( dist_from_end < h**2 ) then ! <-----------------------+                !
         if ( dist_from_end < h_endpoints(2)**2 ) then ! <----+  !                !
+           if ( dist_from_end < (TOLh * min(h, h_endpoints(2)))**2 ) polyline%np = polyline%np - 1
            exit outer                                        !  !                !
         else ! ----------------------------------------------+  !                !
            IF ( DEBUG ) PRINT *,'SHORTEN H : H =',h,', DIST =',sqrt(dist_from_end),', HEND =',h_endpoints(2)

@@ -1,54 +1,14 @@
 module mod_brep2
 
   use mod_math
-  use mod_diffgeom
-  use mod_types_intersection
+  use mod_types_brep
+  use mod_halfedge
 
   implicit none
 
-  integer, parameter :: PARAM_xtra_nv = 20
-  integer, parameter :: PARAM_xtra_ne = 20
-  integer, parameter :: PARAM_xtra_nf = 20
-
-  type type_BREPface
-     type(type_surface), pointer            :: surface => null()
-     integer                                :: outer(2) = 0 ! [#edge, #halfedge]
-     integer, allocatable                   :: inner(:,:)
-     integer                                :: ninner = 0
-
-     integer                                :: hyperface = 0
-  end type type_BREPface
-
-  type type_BREPhalfedge
-     integer                                :: face = 0
-     integer                                :: orig = 0
-     integer                                :: prev(2) = 0 ! [#edge, #halfedge]
-     integer                                :: next(2) = 0 ! [#edge, #halfedge]
-  end type type_BREPhalfedge
-  
-  type type_BREPedge
-     type(type_intersection_curve), pointer :: curve => null()
-     integer                                :: isplit = 0
-     type(type_BREPhalfedge)                :: halfedges(2)
-     
-     integer                                :: hyperedge = 0
-  end type type_BREPedge
-
-  
-  type type_BREPvertex
-     type(type_intersection_point), pointer :: point => null()
-     integer                                :: halfedge(2) = 0 ! [#edge, #halfedge]
-  end type type_BREPvertex
-
-
-  type type_BREP
-     ! Boundary Representation
-     integer                                :: nv = 0, ne = 0, nf = 0
-     type(type_BREPvertex), allocatable     :: verts(:)
-     type(type_BREPedge), allocatable       :: edges(:)
-     type(type_BREPface), allocatable       :: faces(:)
-  end type type_BREP
-
+  integer, parameter :: BREP_xtra_nv = 20
+  integer, parameter :: BREP_xtra_ne = 20
+  integer, parameter :: BREP_xtra_nf = 20
 
 contains
 
@@ -94,8 +54,8 @@ contains
     close(fid)
     
   end subroutine write_brep_files
-
-
+  
+  
 
 
   subroutine generate_face_mesh( &       
@@ -106,13 +66,14 @@ contains
        filebedg, &
        fileinfo, &
        filetri, &
-       fileuv )
+       fileuv, &
+       filexyz )
     use mod_util
     use mod_polynomial
     implicit none
     type(type_BREP), intent(in) :: brep
     integer,         intent(in) :: iface
-    character(*),    intent(in) :: filec, filebpts, filebedg, fileinfo, filetri, fileuv
+    character(*),    intent(in) :: filec, filebpts, filebedg, fileinfo, filetri, fileuv, filexyz
     integer                     :: npts, nedg
     real(kind=fp), allocatable  :: uv(:,:)
     integer, allocatable        :: edg(:,:)
@@ -145,7 +106,7 @@ contains
     call get_free_unit(fid)
     ! write boundary points
     open(unit=fid, file=filebpts, action='write')
-    write (fid,*) npts, 2
+    !write (fid,*) npts, 2
     do ipt = 1,npts
        write (fid,*) uv(:,ipt)
     end do
@@ -153,7 +114,7 @@ contains
 
     ! write boundary edges
     open(unit=fid, file=filebedg, action='write')
-    write (fid,*) nedg
+    !write (fid,*) nedg
     do ied = 1,nedg
        write (fid,*) edg(:,ied)
     end do
@@ -161,12 +122,13 @@ contains
 
     ! run surface mesher
     call system('/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
-                     & '//trim(filec)//'&
-                     & '//trim(filebpts)//'&
-                     & '//trim(filebedg)//'&
-                     & '//trim(fileinfo)//'&
-                     & '//trim(filetri)//'&
-                     & '//trim(fileuv))
+         & '//trim(filec)//'&
+         & '//trim(filebpts)//'&
+         & '//trim(filebedg)//'&
+         & '//trim(fileinfo)//'&
+         & '//trim(filetri)//'&
+         & '//trim(fileuv)//'&
+         & '//trim(filexyz))
     
   end subroutine generate_face_mesh
 
@@ -193,7 +155,7 @@ contains
     nedgprev = nedg
     ihedg = ifirstedge
     do ! <--------------------------------------------------------------+
-       call get_halfedge_uv_polyline( &                                 !
+       call get_uv_polyline( &                                          !
             brep, &                                                     !
             ihedg, &                                                    !
             npedge, &                                                   !
@@ -230,7 +192,7 @@ contains
   
 
 
-  subroutine get_halfedge_uv_polyline( &
+  subroutine get_uv_polyline( &
        brep, &
        ihedg, &
        np, &
@@ -240,19 +202,21 @@ contains
     integer,                     intent(in)    :: ihedg(2)
     integer,                     intent(out)   :: np
     real(kind=fp), allocatable,  intent(inout) :: uv(:,:)
-    integer                                    :: sens, isplit, ifirst, ilast
+    integer                                    :: sens, ifirst, ilast
 
-    sens = 3 - ihedg(2)
+    call get_polyline_endpoints( &
+         brep, &
+         ihedg, &
+         ifirst, &
+         ilast, &
+         sens, &
+         np )
 
-    isplit = brep%edges(ihedg(1))%isplit
-    ifirst = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens)
-    ilast  = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens + (-1)**sens)
-    np = (-1)**sens * (ilast - ifirst) + 1
     if ( allocated(uv) .and. size(uv,2) < np ) deallocate(uv)
     if ( .not.allocated(uv) ) allocate(uv(2,np))
     uv(1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv(:,sens,ifirst:ilast:(-1)**sens)
     
-  end subroutine get_halfedge_uv_polyline
+  end subroutine get_uv_polyline
   
   
 
@@ -421,7 +385,7 @@ contains
                iface > size(brep%faces) ) then ! <---+       !
              call reallocate_faces( &                !       !
                   brep, &                            !       !
-                  iface + PARAM_xtra_nf )            !       !
+                  iface + BREP_xtra_nf )             !       !
           end if ! <---------------------------------+       !
           !                                                  !
           brep%nf = brep%nf + 1                              !
@@ -641,7 +605,7 @@ contains
        isplit = arc2split(iarc)                                            !
        !                                                                   !
        ihedg(1,jarc) = interdata%curves(icurve)%iedge(isplit)              !
-       ihedg(2,jarc) = 3 - arc_sens(iarc)                                  !
+       ihedg(2,jarc) = 1 + mod(arc_sens(iarc),2)                           !
        !                                                                   !
        if ( ihedg(1,jarc) == 0 ) then ! <------------------------------+   !
           ! +1 BREPedge                                                !   !
@@ -652,7 +616,7 @@ contains
                ihedg(1,jarc) > size(brep%edges) ) then ! <---+         !   !
              call reallocate_edges( &                        !         !   !
                   brep, &                                    !         !   !
-                  ihedg(1,jarc) + PARAM_xtra_ne )            !         !   !
+                  ihedg(1,jarc) + BREP_xtra_ne )             !         !   !
           end if ! <-----------------------------------------+         !   !
           brep%ne = brep%ne + 1                                        !   !
           ! set pointer to intersection curve segment                  !   !
@@ -671,7 +635,7 @@ contains
                ivert > size(brep%verts) ) then ! <---+          !          !
              call reallocate_vertices( &             !          !          !
                   brep, &                            !          !          !
-                  ivert + PARAM_xtra_nv )            !          !          !
+                  ivert + BREP_xtra_nv )             !          !          !
           end if ! <---------------------------------+          !          !
           interdata%points(ipoint)%ivert = ivert                !          !
           brep%nv = brep%nv + 1                                 !          !
@@ -799,80 +763,53 @@ contains
   end function is_boundary_edge
 
 
-  function get_prev( &
+  subroutine get_polyline_endpoints( &
+       brep, &
+       ihedg, &
+       ifirst, &
+       ilast, &
+       sens, &
+       np )
+    implicit none
+    type(type_BREP), intent(in)  :: brep
+    integer,         intent(in)  :: ihedg(2)
+    integer,         intent(out) :: ifirst
+    integer,         intent(out) :: ilast
+    integer,         intent(out) :: sens
+    integer,         intent(out) :: np
+    integer                      :: isplit
+
+    isplit = brep%edges(ihedg(1))%isplit
+
+    sens = 1 + mod(ihedg(2),2)
+    ifirst = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens)
+    ilast  = brep%edges(ihedg(1))%curve%isplit(2,isplit + 2 - sens + (-1)**sens)
+    np = (-1)**sens * (ilast - ifirst) + 1
+    
+  end subroutine get_polyline_endpoints
+
+
+  function get_polyline_length( &
        brep, &
        ihedg )
-    ! returns the index of an halfedge's previous halfedge
     implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_prev(2)
-
-    get_prev = brep%edges(ihedg(1))%halfedges(ihedg(2))%prev
-  end function get_prev
-
-
-  function get_next( &
+    type(type_BREP), intent(in)  :: brep
+    integer,         intent(in)  :: ihedg(2)
+    real(kind=fp)                :: get_polyline_length
+    integer                      :: ifirst, ilast, sens, np
+    
+    call get_polyline_endpoints( &
        brep, &
-       ihedg )
-    ! returns the index of an halfedge's next halfedge
-    implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_next(2)
-
-    get_next = brep%edges(ihedg(1))%halfedges(ihedg(2))%next
-  end function get_next
-
-  
-  function get_twin( &
-       ihedg )
-    ! returns the index of an halfedge's twin halfedge
-    implicit none
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_twin(2)
-
-    get_twin = [ihedg(1), 1 + mod(ihedg(2),2)]
-  end function get_twin
-  
-
-  function get_face( &
-       brep, &
-       ihedg )
-    ! returns the index of an halfedge's incident face
-    implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_face
-
-    get_face = brep%edges(ihedg(1))%halfedges(ihedg(2))%face
-  end function get_face
-
-  
-  function get_orig( &
-       brep, &
-       ihedg )
-    ! returns the index of an halfedge's origin vertex
-    implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_orig
-
-    get_orig = brep%edges(ihedg(1))%halfedges(ihedg(2))%orig
-  end function get_orig
-
-
-  function get_dest( &
-       brep, &
-       ihedg )
-    ! returns the index of an halfedge's destination vertex
-    implicit none
-    type(type_BREP), intent(in) :: brep
-    integer,         intent(in) :: ihedg(2)
-    integer                     :: get_dest
-
-    get_dest = get_orig(brep, get_next(brep, ihedg))
-  end function get_dest
+       ihedg, &
+       ifirst, &
+       ilast, &
+       sens, &
+       np )
+    get_polyline_length = real((-1)**sens, kind=fp) * ( &
+         brep%edges(ihedg(1))%curve%polyline%s(ilast) - &
+         brep%edges(ihedg(1))%curve%polyline%s(ifirst) )
+    
+  end function get_polyline_length
   ! ==================================================
 
   
@@ -1015,6 +952,7 @@ contains
        from, &
        to, &
        n )
+    implicit none
     integer,               intent(in)    :: n
     type(type_BREPvertex), intent(inout) :: from(:)
     type(type_BREPvertex), intent(inout) :: to(:)
@@ -1034,6 +972,7 @@ contains
        from, &
        to, &
        n )
+    implicit none
     integer,             intent(in)    :: n
     type(type_BREPedge), intent(inout) :: from(:)
     type(type_BREPedge), intent(inout) :: to(:)
@@ -1055,6 +994,7 @@ contains
        from, &
        to, &
        n )
+    implicit none
     integer,             intent(in)    :: n
     type(type_BREPface), intent(inout) :: from(:)
     type(type_BREPface), intent(inout) :: to(:)

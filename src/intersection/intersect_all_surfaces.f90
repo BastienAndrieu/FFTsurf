@@ -180,6 +180,14 @@ subroutine intersect_all_surfaces( &
         allocate(interdata_global%curves(ic)%iedge(interdata_global%curves(ic)%nsplit-1))
         interdata_global%curves(ic)%iedge(:) = 0
      end if
+
+     ! compute polyline arclength
+     allocate(interdata_global%curves(ic)%polyline%s(interdata_global%curves(ic)%polyline%np))
+     interdata_global%curves(ic)%polyline%s(1) = 0._fp
+     do i = 2,interdata_global%curves(ic)%polyline%np
+        interdata_global%curves(ic)%polyline%s(i) = interdata_global%curves(ic)%polyline%s(i-1) + &
+             norm2(interdata_global%curves(ic)%polyline%xyz(:,i) - interdata_global%curves(ic)%polyline%xyz(:,i-1))
+     end do
   end do
 
 end subroutine intersect_all_surfaces

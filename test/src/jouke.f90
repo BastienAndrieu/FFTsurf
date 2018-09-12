@@ -6,11 +6,15 @@ program jouke
   use mod_diffgeom
   use mod_types_intersection
   use mod_intersection
+  use mod_types_brep
   use mod_brep2
   use mod_hypergraph
-  
+  use mod_mesh
+  use mod_tolerances
+  use mod_optimmesh
+
   implicit none
-  
+
   character(3)               :: strnum3
   integer                    :: fid
   integer*8                  :: tic, toc, count_rate
@@ -26,6 +30,10 @@ program jouke
   type(type_hyperface), allocatable       :: hyperfaces(:)
   type(type_hyperedge), allocatable       :: hyperedges(:)
   integer                                 :: nsurf2curv, nfaces, nhf, nhe
+  type(type_surface_mesh)                 :: mesh
+  real(kind=fp)                           :: xyzverif(3,2)
+  real(kind=fp), allocatable              :: wei(:), hve(:), ener(:), grad(:,:), hess(:,:,:)
+  
   integer                                 :: isurf, ic, jsurf, ksurf, iface, I, J, k
 
   ! =================================================================================
@@ -48,7 +56,7 @@ program jouke
   !end do
   close(fid)
   !PRINT *,'';PRINT *,'';PRINT *,'';
-  
+
   ! =================================================================================
   ! Import surfaces
   allocate( surf(nsurf) )
@@ -133,7 +141,7 @@ program jouke
        'Jouke/brep/edges.dat', &
        'Jouke/brep/faces.dat' )
 
-  IF ( .FALSE. ) THEN ! HYPERGRAPHE
+  IF ( .true. ) THEN ! HYPERGRAPHE
      ! get feature edges
      allocate(feat_edge(brep%ne))
      call get_feature_edges(brep, feat_edge)
@@ -187,16 +195,19 @@ program jouke
      open(unit=fid, file='Jouke/brep/hyperedges.dat', action='write')
      write (fid,*) nhe
      do i = 1,nhe
+        call reverse_hyperedge(hyperedges(i))
         write (fid,*) hyperedges(i)%ne
         write (fid,*) hyperedges(i)%verts
+        write (fid,*) hyperedges(i)%hyperfaces
         do j = 1,hyperedges(i)%ne
-           write (fid,*) hyperedges(i)%edges(1:2,j)
+           !PRINT *,get_polyline_length(brep, hyperedges(i)%halfedges(1:2,j))
+           write (fid,*) hyperedges(i)%halfedges(1:2,j)
         end do
      end do
      close(fid)
   END IF
 
-  
+
 
   ! surface -> incident intersection curves (brute force)
   call get_free_unit( fid )
@@ -233,7 +244,7 @@ program jouke
 
 
 
-  
+
 
   open(unit=13, file='Jouke/brep/v2f.dat', action='write')
   do i = 1,brep%nv
@@ -247,10 +258,130 @@ program jouke
   end do
   close(13)
 
+
+
+  PRINT *,'GENERATE BREP MESH...'
+  call generate_brep_mesh( &
+       brep, &
+       PARAM_hmin, &
+       PARAM_hmax, &
+       TOLchord, &
+       feat_edge, &
+       feat_vert, &
+       hyperedges(1:nhe), &
+       nhe, &
+       mesh )
+  PRINT *,'...OK'
+
+  PRINT *,'MAKE HALFEDGES...'
+  call make_halfedges( &
+       mesh )
+  PRINT *,'...OK'
   
+  open(unit=13, file='Jouke/meshgen/brepmesh/mv2h.dat', action='write')
+  do i = 1,mesh%nv
+     write (13,*) mesh%v2h(:,i)
+  end do
+  close(13)
+  open(unit=13, file='Jouke/meshgen/brepmesh/mtwin.dat', action='write')
+  do i = 1,mesh%nt
+     write (13,*) mesh%twin(:,:,i)
+  end do
+  close(13)
+
+  call write_inria_mesh( &
+       mesh, &
+       'Jouke/meshgen/brepmesh/brepmesh.mesh' )
+  
+  call write_mesh_files( &
+       mesh, &
+       'Jouke/meshgen/brepmesh/tri.dat', &
+       'Jouke/meshgen/brepmesh/xyz.dat', &
+       'Jouke/meshgen/brepmesh/uv.dat', &
+       'Jouke/meshgen/brepmesh/idstyp.dat', &
+       'Jouke/meshgen/brepmesh/paths.dat' )
+
+  
+  ! CHECK UVs
+  IF ( .true. ) THEN
+     PRINT *,'CHECK UVs'
+     do i = 1,mesh%nv
+        select case(mesh%typ(i))
+        case (0)
+        case (1)
+           do j = 1,2
+              iface = brep%edges(mesh%ids(i))%halfedges(j)%face
+              call eval( &
+                   xyzverif(:,j), &
+                   brep%faces(iface)%surface, &
+                   mesh%uv(:,j,i) )
+           end do
+           !PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
+        case (2)
+           call eval( &
+                xyzverif(:,1), &
+                brep%faces(mesh%ids(i))%surface, &
+                mesh%uv(:,1,i) )
+           IF ( norm2(mesh%xyz(:,i) - xyzverif(:,1)) > 1.D-13 ) THEN
+              PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1))
+           END IF
+        end select
+     end do
+  END IF
+
+
+  
+  IF ( .TRUE. ) THEN
+     call optim_jiao( &
+       brep, &
+       mesh, &
+       1, &
+       1.0_fp, &
+       PARAM_hmin, &
+       PARAM_hmax )
+     call write_inria_mesh( &
+       mesh, &
+       'Jouke/meshgen/brepmesh/brepmesh_optim.mesh' )
+  ELSE
+     allocate(wei(mesh%nt), hve(mesh%nv), ener(mesh%nt), grad(3,mesh%nv), hess(3,3,mesh%nv))
+     wei(:) = 1._fp
+     hve(:) = 1._fp
+     call energy_jiao( &
+          mesh%nt, &
+          mesh%tri(1:3,1:mesh%nt), &
+          wei, &
+          mesh%nv, &
+          mesh%xyz(1:3,1:mesh%nv), &
+          hve, &
+          0.7_fp, &
+          ener, &
+          grad, &
+          hess )
+
+     open(unit=13, file='Jouke/meshgen/brepmesh/ener.dat', action='write')
+     do i = 1,mesh%nt
+        write (13,*) ener(i)
+     end do
+     close(13)
+
+     open(unit=13, file='Jouke/meshgen/brepmesh/grad.dat', action='write')
+     do i = 1,mesh%nv
+        write (13,*) grad(:,i)
+     end do
+     close(13)
+
+     open(unit=13, file='Jouke/meshgen/brepmesh/hess.dat', action='write')
+     do i = 1,mesh%nv
+        write (13,*) hess(:,:,i)
+     end do
+     close(13)
+  END IF
+  
+  STOP
+
   IF ( .true. ) THEN
      do iface = 1,brep%nf
-        PRINT *,'meshgen face #',iface
+        PRINT '(A14,I0,A1,I0)','meshgen face #',iface,'/',brep%nf
         write (strnum3,'(I3.3)') iface
         call generate_face_mesh( &       
              brep, &
@@ -260,16 +391,17 @@ program jouke
              'Jouke/meshgen/contours/edges_'//strnum3//'.dat', &
              'Jouke/meshgen/info.dat', &
              'Jouke/meshgen/tri_'//strnum3//'.dat', &
-             'Jouke/meshgen/uv_'//strnum3//'.dat' )
+             'Jouke/meshgen/uv_'//strnum3//'.dat', &
+             'Jouke/meshgen/xyz_'//strnum3//'.dat' )
      end do
   END IF
 
-  
+
   IF ( .false.)  THEN
      DO I = 1,BREP%NE
         IF ( IS_BOUNDARY_EDGE(BREP, I) ) PRINT *,'EDGE #',I,' ON BOUNDARY'
      END DO
-     
+
      DO I = 1,BREP%NE-1
         DO J = I+1,BREP%NE
            IF ( ASSOCIATED(BREP%EDGES(I)%CURVE, BREP%EDGES(J)%CURVE) .AND. &
@@ -304,12 +436,12 @@ program jouke
   deallocate(surf, mask)
   call free_transformation_matrices()
   ! =================================================================================
-  
+
 
 
 
 contains
-!end program dev_intersection
+  !end program dev_intersection
 
 
   subroutine write_intersection_data( &
@@ -322,11 +454,10 @@ contains
     type(type_intersection_data), intent(in) :: interdata
     character(*),                 intent(in) :: filepoints, filecurves
     integer                                  :: fileunit
-    !integer, allocatable                     :: class(:)
     integer                                  :: ip, ic, is
 
     call get_free_unit( fileunit )
-    
+
     ! intersection points
     open( &
          unit = fileunit, &
@@ -344,10 +475,6 @@ contains
          action = 'write' )
     write ( fileunit, * ) interdata%nc
     do ic = 1,interdata%nc
-       !call classify_in_on_out( &
-       !     interdata, &
-       !     ic, &
-       !     class )
        write ( fileunit, * ) logic2int(interdata%curves(ic)%dummy)
        write ( fileunit, * ) logic2int(interdata%curves(ic)%smooth)
        write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,1)
@@ -375,79 +502,6 @@ contains
 
 
 
-
-
-
-
-
-  subroutine classify_in_on_out( &
-       interdata, &
-       icurv, &
-       class )
-    ! class =  1 in
-    !          0 on
-    !         -1 out
-    use mod_math
-    use mod_diffgeom
-    use mod_types_intersection
-    use mod_intersection
-    implicit none
-    type(type_intersection_data), target, intent(in)    :: interdata
-    integer,                              intent(in)    :: icurv
-    integer, allocatable,                 intent(inout) :: class(:)
-    type(type_point_on_surface), pointer                :: pos => null()
-    real(kind=fp)                                       :: duv_ds(2,2,2), dxyz_ds(3,2)
-    real(kind=fp)                                       :: dxyz_duv(3,2), n(3)
-    integer                                             :: stat_point
-    integer                                             :: is, ivar
-
-    if ( allocated(class) ) deallocate(class)
-
-    if ( interdata%curves(icurv)%nsplit < 3 ) return
-    allocate(class(interdata%curves(icurv)%nsplit-1))
-    class(:) = 1
-    RETURN
-    split_loop : do is = 2,interdata%curves(icurv)%nsplit-1
-       ! get tangent to intersection curve at current split point
-       call diffgeom_intersection_curve( &
-            interdata%curves(icurv)%surf, &
-            interdata%curves(icurv)%polyline%uv(:,:,interdata%curves(icurv)%isplit(2,is)), &
-            duv_ds, &
-            dxyz_ds, &
-            stat_point )
-       pos => interdata%points(interdata%curves(icurv)%isplit(1,is))%pos
-       pos_loop : do while ( associated(pos) )
-          if ( associated(pos%surf, interdata%curves(icurv)%surf(1)%ptr) .or. &
-               associated(pos%surf, interdata%curves(icurv)%surf(2)%ptr) ) then
-             pos => pos%next
-             cycle pos_loop
-          end if
-
-          ! compute normal of current surface at curve-surface intersection point
-          do ivar = 1,2
-             call evald1(dxyz_duv(:,ivar), pos%surf, pos%uv, ivar)
-          end do
-          n = cross(dxyz_duv(:,1), dxyz_duv(:,2))
-
-          ! check sign of dot product between the curve tangent and the surface normal
-          if ( dot_product(dxyz_ds(:,1), n) > 0._fp ) then ! check small values...
-             class(is) = -1
-          else
-             class(is-1) = -1
-          end if
-
-          pos => pos%next
-       end do pos_loop
-
-    end do split_loop
-    
-  end subroutine classify_in_on_out
-
-
-
-
-
-
   subroutine read_curves(filename, surf, interdata)
     character(*),                 intent(in)    :: filename
     type(type_surface), target,   intent(in)    :: surf(:)
@@ -465,7 +519,7 @@ contains
        surfpair(1)%ptr => surf(pair(1))
        surfpair(2)%ptr => surf(pair(2))
        read (fid,*) np
-       
+
        allocate(xyz(3,np), uv(2,2,np))
        do ip = 1,np
           read (fid,*) xyz(:,ip)
@@ -502,12 +556,466 @@ contains
        interdata%curves(interdata%nc)%polyline%np = np
        call move_alloc(from=xyz, to=interdata%curves(interdata%nc)%polyline%xyz)
        call move_alloc(from=uv , to=interdata%curves(interdata%nc)%polyline%uv )
-       
+
     end do
     close(fid)
-    
+
   end subroutine read_curves
 
-  
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine generate_brep_mesh( &
+       brep, &
+       hmin, &
+       hmax, &
+       tol, &
+       feat_edge, &
+       feat_vert, &
+       hyperedges, &
+       nhe, &
+       mesh )
+    use mod_brep2
+    use mod_hypergraph
+    use mod_mesh
+    use mod_util
+    implicit none
+    type(type_brep),         intent(in)    :: brep
+    real(kind=fp),           intent(in)    :: hmin
+    real(kind=fp),           intent(in)    :: hmax
+    real(kind=fp),           intent(in)    :: tol
+    logical,                 intent(in)    :: feat_edge(brep%ne)
+    logical,                 intent(in)    :: feat_vert(brep%nv)
+    integer,                 intent(in)    :: nhe
+    type(type_hyperedge),    intent(inout) :: hyperedges(nhe)
+    type(type_surface_mesh), intent(inout) :: mesh
+    integer                                :: finf, fpts, fedg
+    integer                                :: bv2mv(brep%nv), be2mv(2,brep%ne)
+    integer, allocatable                   :: loc2glob(:), idsf(:), typf(:)
+    real(kind=fp), allocatable             :: uvf(:,:,:), xyzf(:,:), uvi(:,:)
+    integer, allocatable                   :: trif(:,:)
+    integer                                :: npf, np, ntrif
+    integer                                :: ifirstedge, ifirstpoint, sens, ifirst, ilast
+    type(type_path)                        :: pathtmp
+    integer                                :: iface, iloop, ihedg(2), ivert, ihype, iedge, i
+
+    ! write 'info' file (common to all faces)
+    call get_free_unit(finf)
+    open(unit=finf, file='tmp/info.dat', action='write')
+    write (finf,*) hmin
+    write (finf,*) hmax
+    write (finf,*) tol
+    close(finf)
+
+    allocate(loc2glob(100), idsf(100), typf(100))
+    mesh%nv = 0
+    mesh%nt = 0
+    bv2mv(:) = 0
+    be2mv(:,:) = 0
+    faces : do iface = 1,brep%nf
+       ! write polynomial parametric surface 
+       call write_polynomial(brep%faces(iface)%surface%x, 'tmp/c.cheb')
+       !
+       ! open boundary points & edges files
+       call get_free_unit(fpts)
+       open(unit=fpts, file='tmp/bpts.dat', action='write')
+       call get_free_unit(fedg)
+       open(unit=fedg, file='tmp/bedg.dat', action='write')
+       !
+       npf = 0
+       loops : do iloop = 0,brep%faces(iface)%ninner ! <-----------------------------------+
+          ! first halfedge of the loop                                                     !
+          if ( iloop == 0 ) then ! <-------------------+                                   !
+             ihedg = brep%faces(iface)%outer           !                                   !
+          else ! --------------------------------------+                                   !
+             ihedg = brep%faces(iface)%inner(:,iloop)  !                                   !
+          end if ! <-----------------------------------+                                   !
+          ifirstedge = ihedg(1)                                                            !
+          !                                                                                !
+          ifirstpoint = npf + 1                                                            !
+          ! traverse the loop                                                              !
+          halfedges : do ! <------------------------------------------------------------+  !
+             ! get polyline points                                                      !  !
+             call get_polyline_endpoints( &
+                  brep, &
+                  ihedg, &
+                  ifirst, &
+                  ilast, &
+                  sens, &
+                  np )
+             !
+             if ( .not.allocated(loc2glob) .or. &
+                  size(loc2glob) < npf + np - 1 ) then ! <------+
+                call reallocate_list(loc2glob, npf + np + 100)  !
+             end if ! <-----------------------------------------+
+             !
+             if ( .not.allocated(idsf) .or. &
+                  size(idsf) < npf + np - 1 ) then ! <----------+
+                call reallocate_list(idsf, npf + np + 100)      !
+             end if ! <-----------------------------------------+
+             !
+             if ( .not.allocated(typf) .or. &
+                  size(typf) < npf + np - 1 ) then ! <----------+
+                call reallocate_list(typf, npf + np + 100)      !
+             end if ! <-----------------------------------------+
+             !
+             if ( allocated(uvf) .and. size(uvf,3) < np ) deallocate(uvf)
+             if ( .not.allocated(uvf) ) allocate(uvf(2,2,np))
+             if ( sens == 2 ) then
+                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&
+                     (1:2,[2,1],ifirst:ilast)
+             else
+                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&
+                     (1:2,1:2,ifirst:ilast:-1)
+             end if
+             !
+             if ( allocated(xyzf) .and. size(xyzf,2) < np ) deallocate(xyzf)
+             if ( .not.allocated(xyzf) ) allocate(xyzf(3,np))
+             xyzf(1:3,1:np) = brep%edges(ihedg(1))%curve%polyline%xyz&
+                  (1:3,ifirst:ilast:(-1)**sens)
+             !                                                                          !  !
+             ! get brep vertex index of first point
+             ivert = get_orig(brep, ihedg)
+             if ( bv2mv(ivert) == 0 ) then ! <-----------------------------------+
+                ! the brep vertex is not yet present in the mesh                 !
+                bv2mv(ivert) = mesh%nv+1                                         !
+                if ( feat_vert(ivert) ) then ! <------------------------------+  !
+                   ! the mesh vertex is locked on a brep vertex               !  !
+                   idsf(npf+1) = ivert                                        !  !
+                   typf(npf+1) = 0                                            !  !
+                else ! -------------------------------------------------------+  !
+                   if ( feat_edge(ihedg(1)) ) then ! <---------------------+  !  !
+                      ! the mesh vertex is locked on a hyperedge           !  !  !
+                      idsf(npf+1) = ihedg(1)                               !  !  !
+                      typf(npf+1) = 1                                      !  !  !
+                   else ! -------------------------------------------------+  !  !
+                      ! the mesh vertex is free to move along a hyperface  !  !  !
+                      idsf(npf+1) = iface                                  !  !  !
+                      typf(npf+1) = 2                                      !  !  !
+                   end if ! <----------------------------------------------+  !  !
+                end if ! <----------------------------------------------------+  !
+                !                                                                !
+                ! append new vertex to the mesh                                  !
+                call append_vertices( &                                          !
+                     mesh, &                                                     !
+                     xyzf(1:3,1), &                                              !
+                     uvf(1:2,1:2,1), &                                           !
+                     idsf(npf+1), &                                              !
+                     typf(npf+1), &                                              !
+                     1 )                                                         !
+             end if ! <----------------------------------------------------------+
+             loc2glob(npf+1) = bv2mv(ivert)
+             !
+             if ( be2mv(1,ihedg(1)) == 0 ) then ! <-----------------------------------------+
+                ! the brep edge is not yet present in the mesh                              !
+                be2mv(1,ihedg(1)) = mesh%nv + 1                                             !
+                be2mv(2,ihedg(1)) = mesh%nv + np - 2                                        !
+                !                                                                           !
+                if ( feat_edge(ihedg(1)) ) then ! <-----------------------+                 !
+                   ! the mesh vertices are locked on a hyperedge          !                 !
+                   idsf(npf+2:npf+np-1) = ihedg(1)                        !                 !
+                   typf(npf+2:npf+np-1) = 1                               !                 !
+                else ! ---------------------------------------------------+                 !
+                   ! the mesh vertices are free to move along a hyperface !                 !
+                   idsf(npf+2:npf+np-1) = iface                           !                 !
+                   typf(npf+2:npf+np-1) = 2                               !                 !
+                end if ! <------------------------------------------------+                 !
+                !                                                                           !
+                if ( sens == 1 ) then ! <-----------------------------------+               !
+                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=np-2,1,-1)]  !               !
+                   call append_vertices( &                                  !               !
+                     mesh, &                                                !               !
+                     xyzf(1:3,np-1:2:-1), &                                 !               !
+                     uvf(1:2,1:2,np-1:2:-1), &                              !               !
+                     idsf(npf+2:npf+np-1), &                                !               !
+                     typf(npf+2:npf+np-1), &                                !               !
+                     np-2 )                                                 !               !
+                else ! -----------------------------------------------------+               !
+                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=1,np-2)]     !               !
+                   call append_vertices( &                                  !               !
+                     mesh, &                                                !               !
+                     xyzf(1:3,2:np-1), &                                    !               !
+                     uvf(1:2,1:2,2:np-1), &                                 !               !
+                     idsf(npf+2:npf+np-1), &                                !               !
+                     typf(npf+2:npf+np-1), &                                !               !
+                     np-2 )                                                 !               !
+                end if ! <--------------------------------------------------+               !
+             else ! ------------------------------------------------------------------------+
+                if ( sens == 1 ) then ! <-----------------------------------+               !
+                   loc2glob(npf+2:npf+np-1) = &                             !               !
+                        [(i, i=be2mv(2,ihedg(1)),be2mv(1,ihedg(1)),-1)]     !               !
+                else ! -----------------------------------------------------+               !
+                   loc2glob(npf+2:npf+np-1) = &                             !               !
+                        [(i, i=be2mv(1,ihedg(1)),be2mv(2,ihedg(1)))]        !               !
+                end if ! <--------------------------------------------------+               !
+             end if ! <---------------------------------------------------------------------+
+             !
+             ! write points...                            
+             do i = 1,np-1 ! <---------------------------+
+                write (fpts,*) uvf(:,1,i)             !
+             end do ! <----------------------------------+
+             ! ...and edges
+             do i = 1,np-2 ! <---------------------------+
+                write (fedg,*) npf + i, npf + i + 1      !
+             end do ! <----------------------------------+
+             !
+             npf = npf + np - 1
+             !
+             ! move on to the next halfedge on the loop
+             ihedg = get_next(brep, ihedg)
+             !
+             if ( ihedg(1) == ifirstedge ) then ! <------+
+                ! the loop is complete                   !
+                write (fedg,*) npf, ifirstpoint          !
+                exit                                     !
+             else ! -------------------------------------+
+                write (fedg,*) npf, npf+1                !
+             end if ! <----------------------------------+
+             !           
+          end do halfedges
+       end do loops
+       !
+       ! close files
+       close(fpts)
+       close(fedg)
+       !
+       ! run mesher
+       PRINT *,'MESH FACE #',IFACE
+       call system('/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
+            & tmp/c.cheb &
+            & tmp/bpts.dat &
+            & tmp/bedg.dat &
+            & tmp/info.dat &
+            & tmp/tri.dat &
+            & tmp/uv.dat &
+            & tmp/xyz.dat' )
+       !
+       ! read face submesh                                                                     !
+       call read_triangles( &                                                                  !
+            'tmp/tri.dat', &                                                                   !
+            trif, &                                                                            !
+            ntrif )                                                                            !
+       !
+       call read_points( &                                                                     !
+            'tmp/uv.dat', &                                                                    !
+            uvi, &                                                                             !
+            2, &                                                                               !
+            np )                                                                               !
+       if ( allocated(uvf) ) deallocate(uvf)
+       allocate(uvf(2,2,np-npf))
+       uvf(1:2,1,1:np-npf) = uvi(1:2,npf+1:np)
+       !
+       call read_points( &                                                                     !
+            'tmp/xyz.dat', &                                                                   !
+            xyzf, &                                                                            !
+            3, &                                                                               !
+            np )     
+       !
+       if ( size(loc2glob) < np ) call reallocate_list(loc2glob, np)
+       loc2glob(npf+1:np) = mesh%nv + [(i, i=1,np-npf)]
+       do i = 1,3 ! <----------------------------------+
+          trif(i,1:ntrif) = loc2glob(trif(i,1:ntrif))  !
+       end do ! <--------------------------------------+                                       !
+       !                                                                                       !
+       if ( size(idsf) < np ) call reallocate_list(idsf, np)                                   !
+       idsf(npf+1:np) = iface                                                                  !
+       !                                                                                       !
+       if ( size(typf) < np ) call reallocate_list(typf, np)                                   !
+       typf(npf+1:np) = 2                                                                      !
+       !                                                                                       !
+       ! add new triangles                                                                     !
+       call append_triangles( &                                                                !
+            mesh, &                                                                            !
+            trif(1:3,1:ntrif), &                                                               !
+            ntrif )                                                                            !
+       !                                                                                       !
+       ! add new mesh vertices                                                                 !
+       call append_vertices( &                                                                 !
+            mesh, &                                                                            !
+            xyzf(1:3,npf+1:np), &                                                              !
+            uvf(1:2,1:2,1:np-npf), &                                                           !
+            idsf(npf+1:np), &                                                                  !
+            typf(npf+1:np), &                                                                  !
+            np-npf )
+       !
+    end do faces
+
+    ! create a path for each hyperedge
+    do ihype = 1,nhe
+       pathtmp%nv = 0
+       pathtmp%hyperedge = ihype
+       !
+       if ( hyperedges(ihype)%verts(1) < 1 ) then ! <---+
+          ihedg = hyperedges(ihype)%halfedges(:,1)      !
+          ivert = get_orig(brep, ihedg)                 !
+          hyperedges(ihype)%verts(1) = ivert            !
+       end if ! <---------------------------------------+
+       !
+       do iedge = 1,hyperedges(ihype)%ne ! <---------------+
+          ihedg = hyperedges(ihype)%halfedges(:,iedge)     !
+          sens = 1 + mod(ihedg(2),2)                       !
+          !                                                !
+          call insert_after( &                             !
+               pathtmp%verts, &                            !
+               pathtmp%nv, &                               !
+               bv2mv(get_orig(brep, ihedg)), &             !
+               pathtmp%nv )                                !
+          !                                                !
+          np = be2mv(2,ihedg(1)) - be2mv(1,ihedg(1)) + 1   !
+          if ( sens == 1 ) then ! <------+                 !
+             ifirst = be2mv(2,ihedg(1))  !                 !
+             ilast = be2mv(1,ihedg(1))   !                 !
+          else ! ------------------------+                 !
+             ifirst = be2mv(1,ihedg(1))  !                 !
+             ilast = be2mv(2,ihedg(1))   !                 !
+          end if ! <---------------------+                 !
+          !                                                !
+          call insert_n_after( &                           !
+               pathtmp%verts, &                            !
+               pathtmp%nv, &                               !
+               np, &                                       !
+               [(i, i=ifirst,ilast,(-1)**sens)], &         !
+               pathtmp%nv )                                !
+       end do ! <------------------------------------------+
+       !
+       if ( hyperedges(ihype)%verts(2) > 0 ) then ! <---+
+          call insert_after( &                          !
+               pathtmp%verts, &                         !
+               pathtmp%nv, &                            !
+               bv2mv(hyperedges(ihype)%verts(2)), &     !
+               pathtmp%nv )                             !
+       end if ! <---------------------------------------+
+       !
+       call append_path( &
+            mesh, &
+            pathtmp )
+       !
+       ! compute discrete curvilinear abscissa along the path
+       allocate(mesh%paths(mesh%npaths)%s(mesh%paths(mesh%npaths)%nv))
+       mesh%paths(mesh%npaths)%s(1) = 0._fp
+       do i = 2,mesh%paths(mesh%npaths)%nv ! <-------------------------------+
+          mesh%paths(mesh%npaths)%s(i) = mesh%paths(mesh%npaths)%s(i-1) + &  !
+               norm2( &                                                      !
+               mesh%xyz(:,mesh%paths(mesh%npaths)%verts(i)) - &              !
+               mesh%xyz(:,mesh%paths(mesh%npaths)%verts(i-1)) )              !
+       end do ! <------------------------------------------------------------+
+       !
+    end do
+    
+  end subroutine generate_brep_mesh
+
+
+
+
+
+
+
+
+  subroutine read_triangles( &
+       filename, &
+       tri, &
+       n )
+    use mod_util
+    implicit none
+    character(*),         intent(in)    :: filename
+    integer, allocatable, intent(inout) :: tri(:,:)
+    integer,              intent(out)   :: n
+    integer, allocatable                :: tmp(:,:)
+    integer                             :: fid, io, t(3)
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='read')
+    n = 0
+    do
+       read (fid, *, iostat=io) t
+       if ( io /= 0 ) exit
+       if ( .not.allocated(tri) ) then
+          allocate(tri(3,100))
+       else
+          if ( n + 1 > size(tri,2) ) then
+             call move_alloc(from=tri, to=tmp)
+             allocate(tri(3,n+100))
+             tri(1:3,1:n) = tmp(1:3,1:n)
+             deallocate(tmp)
+          end if
+       end if
+       n = n + 1
+       tri(1:3,n) = t(1:3)
+    end do
+    close(fid)
+
+  end subroutine read_triangles
+
+
+
+
+  subroutine read_points( &
+       filename, &
+       pts, &
+       m, &
+       n )
+    use mod_util
+    implicit none
+    character(*),               intent(in)    :: filename
+    real(kind=fp), allocatable, intent(inout) :: pts(:,:)
+    integer,                    intent(in)    :: m
+    integer,                    intent(out)   :: n
+    real(kind=fp), allocatable                :: tmp(:,:)
+    real(kind=fp)                             :: p(m)
+    integer                                   :: fid, io
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='read')
+    n = 0
+    do
+       read (fid, *, iostat=io) p
+       if ( io /= 0 ) exit
+       if ( .not.allocated(pts) ) then
+          allocate(pts(m,100))
+       else
+          if ( n + 1 > size(pts,2) ) then
+             call move_alloc(from=pts, to=tmp)
+             allocate(pts(m,n+100))
+             pts(1:m,1:n) = tmp(1:m,1:n)
+             deallocate(tmp)
+          end if
+       end if
+       n = n + 1
+       pts(1:m,n) = p(1:m)
+    end do
+    close(fid)
+
+  end subroutine read_points
+
+
+
 end program jouke

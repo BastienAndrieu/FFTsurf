@@ -1579,6 +1579,14 @@ subroutine intersect_all_surfaces( &
         allocate(interdata_global%curves(ic)%iedge(interdata_global%curves(ic)%nsplit-1))
         interdata_global%curves(ic)%iedge(:) = 0
      end if
+
+     ! compute polyline arclength
+     allocate(interdata_global%curves(ic)%polyline%s(interdata_global%curves(ic)%polyline%np))
+     interdata_global%curves(ic)%polyline%s(1) = 0._fp
+     do i = 2,interdata_global%curves(ic)%polyline%np
+        interdata_global%curves(ic)%polyline%s(i) = interdata_global%curves(ic)%polyline%s(i-1) + &
+             norm2(interdata_global%curves(ic)%polyline%xyz(:,i) - interdata_global%curves(ic)%polyline%xyz(:,i-1))
+     end do
   end do
 
 end subroutine intersect_all_surfaces
@@ -1686,6 +1694,7 @@ subroutine merge_intersection_data( &
   use mod_math
   use mod_diffgeom
   use mod_types_intersection
+  use mod_tolerances
   ! Trace all intersection curves, intersect them and subidivide them accordingly and 
   implicit none
   LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
@@ -1739,8 +1748,8 @@ subroutine merge_intersection_data( &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
-          HMIN=REAL(1.D-4,KIND=FP), &
-          HMAX=REAL(1.D-2,KIND=FP) )
+          hmin=PARAM_hmin, &
+          hmax=PARAM_hmax )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
@@ -2641,6 +2650,7 @@ subroutine trace_intersection_polyline( &
      dist_from_end = sum((polyline%xyz(:,polyline%np) - xyz_endpoints(:,2))**2)  !
      if ( dist_from_end < h**2 ) then ! <-----------------------+                !
         if ( dist_from_end < h_endpoints(2)**2 ) then ! <----+  !                !
+           if ( dist_from_end < (TOLh * min(h, h_endpoints(2)))**2 ) polyline%np = polyline%np - 1
            exit outer                                        !  !                !
         else ! ----------------------------------------------+  !                !
            IF ( DEBUG ) PRINT *,'SHORTEN H : H =',h,', DIST =',sqrt(dist_from_end),', HEND =',h_endpoints(2)

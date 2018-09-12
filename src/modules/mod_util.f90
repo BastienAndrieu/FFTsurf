@@ -588,6 +588,43 @@ contains
   end subroutine insert_after
 
 
+  
+  subroutine insert_n_after( &
+       list, &
+       nlist, &
+       n, &
+       elem, &
+       iprev )
+    implicit none
+    integer, allocatable, intent(inout) :: list(:)
+    integer,              intent(inout) :: nlist
+    integer,              intent(in)    :: n
+    integer,              intent(in)    :: elem(n)
+    integer,              intent(inout) :: iprev
+    integer, allocatable                :: tmp(:)
+
+    if ( .not.allocated(list) ) then
+       allocate(list(n))
+       iprev = 0
+       nlist = n
+       list(1:n) = elem(1:n)
+    else
+       iprev = min(iprev, nlist)
+       iprev = max(iprev, 0)
+       if ( nlist + n > size(list) ) then
+          call move_alloc( from=list, to=tmp )
+          allocate(list(nlist+n))
+          list(1:nlist) = tmp(1:nlist)
+          deallocate(tmp)
+       end if
+       list(iprev+n+1:nlist+n) = list(iprev+1:nlist)
+       list(iprev+1:iprev+n) = elem(1:n)
+       nlist = nlist + n
+    end if
+
+  end subroutine insert_n_after
+
+
 
 
 
@@ -650,5 +687,27 @@ contains
     
   end subroutine remove_from_list
 
+
+
+
+  subroutine reallocate_list( &
+       list, &
+       n )
+    implicit none
+    integer,              intent(in)    :: n
+    integer, allocatable, intent(inout) :: list(:)
+    integer, allocatable                :: tmp(:)
+
+    if ( .not.allocated(list) ) then
+       allocate(list(n))
+       return
+    else
+       call move_alloc(from=list, to=tmp)
+       allocate(list(n))
+       list(1:min(n,size(tmp))) = tmp(1:min(n,size(tmp)))
+       deallocate(tmp)
+    end if
+    
+  end subroutine reallocate_list
   
 end module mod_util

@@ -20,7 +20,7 @@ cle = cle(randperm(ne),:);
 clf = colorcet( 'I2', 'N', nf );
 clf = clf(randperm(nf),:);
 
-falph = 0.5;%
+falph = 1;%0.5;%
 
 %%
 figure;
@@ -60,9 +60,9 @@ for ifa = 1:nf
     
     l = [1:length(f2v{ifa}),1];
     %     plot3( xf(l,1), xf(l,2), xf(l,3), '-', 'color', clf(ifa,:) );
-        patch( xf(l,1), xf(l,2), xf(l,3), 'r', ...
-            'facecolor', clf(ifa,:), 'edgecolor', 'none', ...0.5*clf(ifa,:), ...
-            'facealpha', falph );
+    patch( xf(l,1), xf(l,2), xf(l,3), 'r', ...
+        'facecolor', clf(ifa,:), 'edgecolor', 'none', ...0.5*clf(ifa,:), ...
+        'facealpha', falph );
 end
 
 
@@ -84,7 +84,7 @@ for ih = 1:nh
     v = (1 - 2*fracv)*v;
     heq(:,ih) = [a, v]';
     
-    quiver3( a(1), a(2), a(3), v(1), v(2), v(3), 0, 'k' );
+%     quiver3( a(1), a(2), a(3), v(1), v(2), v(3), 0, 'k' );
     
     j = mod(ih,2);
     i = 1 + (ih - j)/2;
@@ -96,25 +96,27 @@ for ih = 1:nh
 end
 
 if 0 % plot prev, next & twin of random halfedge
-    while 1
-        ih = randi(nh);
-        if edges(ih,1) ~= 0; break; end
-    end
-    quiver3( heq(1,ih), heq(2,ih), heq(3,ih), heq(4,ih), heq(5,ih), heq(6,ih), 0, 'k' );
-    prev = edges(ih,3:4);
-    jh = 2*(prev(1) - 1) + prev(2);
-    quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'r' );
-    next = edges(ih,5:6);
-    jh = 2*(next(1) - 1) + next(2);
-    quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'g' );
-    % twin
-    if mod(ih,2) == 0
-        jh = ih - 1;
-    else
-        jh = ih + 1;
-    end
-    if edges(jh,1) > 0
-        quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'b' );
+    for ii = 1:20
+        while 1
+            ih = randi(nh);
+            if edges(ih,1) ~= 0; break; end
+        end
+        quiver3( heq(1,ih), heq(2,ih), heq(3,ih), heq(4,ih), heq(5,ih), heq(6,ih), 0, 'b' );
+%         prev = edges(ih,3:4);
+%         jh = 2*(prev(1) - 1) + prev(2);
+%         quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'r' );
+%         next = edges(ih,5:6);
+%         jh = 2*(next(1) - 1) + next(2);
+%         quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'g' );
+        % twin
+        if mod(ih,2) == 0
+            jh = ih - 1;
+        else
+            jh = ih + 1;
+        end
+        if edges(jh,1) > 0
+            quiver3( heq(1,jh), heq(2,jh), heq(3,jh), heq(4,jh), heq(5,jh), heq(6,jh), 0, 'r' );
+        end
     end
 end
 
@@ -192,6 +194,7 @@ nhe = str2num(fgetl(fid));
 for i = 1:nhe
     hyperedge(i).ne = str2num(fgetl(fid));
     hyperedge(i).verts = str2num(fgetl(fid));
+    hyperedge(i).hyperfaces = str2num(fgetl(fid));
     hyperedge(i).edges = zeros(hyperedge(i).ne,2);
     for j = 1:hyperedge(i).ne
         hyperedge(i).edges(j,:) = str2num(fgetl(fid));
@@ -204,13 +207,13 @@ clhf = colorcet( 'I2', 'N', max(2,nhf) );
 % clhf = clhf(randperm(nhf),:);
 
 clhe = 0.6 * colorcet( 'R3', 'N', max(2,nhe) );
-% clhe = clhf(randperm(nhe),:);
+% clhe = clhe(randperm(size(clhe,1)),:);
 
 figure('name','Hyperfaces & Hyperedges');
 hold on
 
 
-if 1 % plot hyperfaces
+if 0 % plot hyperfaces
     for ihf = 1:nhf
         for ifa = hyperface(ihf).faces
             xf = vxyz(f2v{ifa},:);
@@ -247,16 +250,17 @@ if 1 % plot hyperedges
     for ihe = 1:nhe
         for i = 1:hyperedge(ihe).ne
             iedge = hyperedge(ihe).edges(i,:);
-            ih = (2*iedge(1) - 1) + iedge(2);
+            ih = 2*(iedge(1) - 1) + iedge(2);
             next = edges(ih,5:6);
             kh = 2*(next(1) - 1) + next(2);
             l = [edges(ih,2), edges(kh,2)];
 %             plot3( vxyz(l,1), vxyz(l,2), vxyz(l,3), '-', 'color', clhe(ihe,:), 'linewidth', 2 );
-%             quiver3(vxyz(l(1),1), vxyz(l(1),2), vxyz(l(1),3), ...
-%                 vxyz(l(2),1) - vxyz(l(1),1), vxyz(l(2),2) - vxyz(l(1),2), vxyz(l(2),3) - vxyz(l(1),3), ...
-%                 0, 'color', clhe(ihe,:), 'linewidth', 1 );
+            %             quiver3(vxyz(l(1),1), vxyz(l(1),2), vxyz(l(1),3), ...
+            %                 vxyz(l(2),1) - vxyz(l(1),1), vxyz(l(2),2) - vxyz(l(1),2), vxyz(l(2),3) - vxyz(l(1),3), ...
+            %                 0, 'color', clhe(ihe,:), 'linewidth', 1 );
             quiver3( heq(1,ih), heq(2,ih), heq(3,ih), ...
-                heq(4,ih), heq(5,ih), heq(6,ih), 0, 'color', clhe(ihe,:), 'linewidth', 1.4 );
+                heq(4,ih), heq(5,ih), heq(6,ih), 0, ...
+                'color', clhe(ihe,:), 'linewidth', 1.4, 'MaxHeadSize', 100 );
         end
     end
 else % plot feature edges
@@ -274,7 +278,7 @@ else % plot feature edges
     end
 end
 
-plot3( vxyz(lfeat_vert,1), vxyz(lfeat_vert,2), vxyz(lfeat_vert,3), 'k.', 'markersize', 8 );
+plot3( vxyz(lfeat_vert,1), vxyz(lfeat_vert,2), vxyz(lfeat_vert,3), 'k.', 'markersize', 10 );
 % for iv = lfeat_vert
 %     text(vxyz(iv,1), vxyz(iv,2), vxyz(iv,3), num2str(feat_vert(iv,2)), 'color', 'r');
 % end
