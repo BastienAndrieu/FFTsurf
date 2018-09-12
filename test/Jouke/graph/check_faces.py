@@ -11,7 +11,7 @@ class face:
         self.outer = outer
         self.inner = inner
 #############################################################
-class trimming_loop:
+class trimming_wire:
     def __init__( self, nod, arc ):
         self.nod = nod
         self.arc = arc
@@ -57,21 +57,21 @@ f = open('faces_'+format(num,'03')+'.dat', 'r')
 nfaces = int(f.readline())
 Faces = []
 for iface in range(nfaces):
-    looparc = [int(a)-1 for a in f.readline().split()]
-    loopnod = []
-    outer = trimming_loop(loopnod, looparc)
+    wirearc = [int(a)-1 for a in f.readline().split()]
+    wirenod = []
+    outer = trimming_wire(wirenod, wirearc)
     ninner = int(f.readline())
     inner = []
     for i in range(ninner):
-        looparc = [int(a)-1 for a in f.readline().split()]
-        loopnod = []
-        inner.append(trimming_loop(loopnod, looparc))
+        wirearc = [int(a)-1 for a in f.readline().split()]
+        wirenod = []
+        inner.append(trimming_wire(wirenod, wirearc))
     Faces.append(face(outer, inner))
 f.close()
 
 
 ####################################################
-# PLOT RAW GRAPH AND LOOPS
+# PLOT RAW GRAPH AND WIRES
 ####################################################
 
 t = np.linspace(0,1,20)
@@ -144,7 +144,7 @@ ax[0].set_title('Raw graph', size = 12, weight = 'bold')
 
 
 cm = plt.get_cmap('Set2')#'rainbow')
-#cl = myc.random_pastels(len(Loops))
+#cl = myc.random_pastels(len(Wires))
 cl = [cm(1.*i/len(Faces)) for i in range(len(Faces))]
 
 for il, f in enumerate(Faces):

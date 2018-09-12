@@ -6,7 +6,7 @@ sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
 import my_colors as myc
 
 #############################################################
-class trimming_loop:
+class trimming_wire:
     def __init__( self, nod, arc ):
         self.nod = nod
         self.arc = arc
@@ -48,18 +48,18 @@ f.close()
 
 
 
-f = open('loops_'+format(num,'03')+'.dat', 'r')
-nloops = int(f.readline())
-Loops = []
-for i in range(nloops):
-    looparc = [int(a)-1 for a in f.readline().split()]
-    loopnod = [int(a)-1 for a in f.readline().split()]
-    Loops.append(trimming_loop(loopnod, looparc))
+f = open('wires_'+format(num,'03')+'.dat', 'r')
+nwires = int(f.readline())
+Wires = []
+for i in range(nwires):
+    wirearc = [int(a)-1 for a in f.readline().split()]
+    wirenod = [int(a)-1 for a in f.readline().split()]
+    Wires.append(trimming_wire(wirenod, wirearc))
 f.close()
 
 
 ####################################################
-# PLOT RAW GRAPH AND LOOPS
+# PLOT RAW GRAPH AND WIRES
 ####################################################
 
 t = np.linspace(0,1,20)
@@ -132,11 +132,11 @@ ax[0].set_title('Raw graph', size = 12, weight = 'bold')
 
 
 cm = plt.get_cmap('Set2')#'rainbow')
-#cl = myc.random_pastels(len(Loops))
-cl = [cm(1.*i/len(Loops)) for i in range(len(Loops))]
+#cl = myc.random_pastels(len(Wires))
+cl = [cm(1.*i/len(Wires)) for i in range(len(Wires))]
 
-for il, loop in enumerate(Loops):
-    for iarc in loop.arc:
+for il, wire in enumerate(Wires):
+    for iarc in wire.arc:
         xya = np.matmul(np.transpose(cp[iarc,:,:]), b)
         ax[1].plot(xya[0], xya[1], '-', color=cl[il], lw=lwa)
         xym = 0.25*cp[iarc,0] + 0.5*cp[iarc,1] + 0.25*cp[iarc,2]
@@ -145,8 +145,8 @@ for il, loop in enumerate(Loops):
         ax[1].arrow(xym[0], xym[1], dxym[0], dxym[1],
                     fc=cl[il], ec=cl[il],
                     head_length=lq, head_width=2.0*wq, length_includes_head=True, shape="right")
-    ax[1].plot(xy[loop.nod,0], xy[loop.nod,1], 'k.', markersize=10)
-ax[1].set_title('Loops', size = 12, weight = 'bold')
+    ax[1].plot(xy[wire.nod,0], xy[wire.nod,1], 'k.', markersize=10)
+ax[1].set_title('Wires', size = 12, weight = 'bold')
 
 
 for a in ax:

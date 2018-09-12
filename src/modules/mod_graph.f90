@@ -68,29 +68,29 @@ contains
 
 
   
-  subroutine make_loops( &
+  subroutine make_wires( &
        arc2nod, &
        arc_angles, &
        narc, &
        nnod, &
-       nloops, &
-       looparc, &
-       !loopnod, &
-       lenloop )
+       nwires, &
+       wirearc, &
+       !wirenod, &
+       lenwire )
     use mod_util
     use mod_math
     implicit none
     integer,       intent(in)     :: narc, nnod
     integer,       intent(in)     :: arc2nod(2,narc)
     real(kind=fp), intent(in)     :: arc_angles(2,narc)
-    integer,       intent(out)    :: nloops
-    integer,       intent(out)    :: looparc(min(narc,nnod),min(narc,nnod))!, loopnod(min(narc,nnod),min(narc,nnod))
-    integer,       intent(out)    :: lenloop(min(narc,nnod))
+    integer,       intent(out)    :: nwires
+    integer,       intent(out)    :: wirearc(min(narc,nnod),min(narc,nnod))!, wirenod(min(narc,nnod),min(narc,nnod))
+    integer,       intent(out)    :: lenwire(min(narc,nnod))
     integer, dimension(nnod)      :: nin, nout
     integer, dimension(narc,nnod) :: nod2arc_in, nod2arc_out
     logical                       :: active_arc(narc), active_nod(nnod)
     real(kind=fp)                 :: angle, dangle, maxangle_in, maxangle_out
-    logical                       :: validloop
+    logical                       :: validwire
     integer                       :: inod, iarc, jarc, karc
 
     ! compute initial node -> arc incidence
@@ -109,7 +109,7 @@ contains
     active_arc(:) = .true.
     active_nod(:) = .true.
 
-    nloops = 0
+    nwires = 0
     do karc = 1,narc ! <-------------------------------------------------------------------------+
        ! remove dangling branches                                                                !
        call disable_dangling_branches( &                                                         !
@@ -125,17 +125,17 @@ contains
        !                                                                                         !
        if ( .not.active_arc(karc) ) cycle                                                        !
        !                                                                                         !
-       lenloop(nloops+1) = 1                                                                     !
-       looparc(1,nloops+1) = karc                                                                !
-       !loopnod(1,nloops+1) = arc2nod(1,karc)                                                     !
+       lenwire(nwires+1) = 1                                                                     !
+       wirearc(1,nwires+1) = karc                                                                !
+       !wirenod(1,nwires+1) = arc2nod(1,karc)                                                     !
        inod = arc2nod(2,karc)                                                                    !
-       validloop = .true.                                                                        !
-       while_loop : do ! <------------------------------------------------------------------+    !
-          angle = arc_angles(2,looparc(lenloop(nloops+1),nloops+1))                         !    !
+       validwire = .true.                                                                        !
+       while_wire : do ! <------------------------------------------------------------------+    !
+          angle = arc_angles(2,wirearc(lenwire(nwires+1),nwires+1))                         !    !
           ! find leftmost ingoing arc at current node                                       !    !
           maxangle_in = -CSTpi                                                              !    !
           do jarc = 1,nin(inod) ! <----------------------------------------------------+    !    !
-             if ( nod2arc_in(jarc,inod) == looparc(lenloop(nloops+1),nloops+1) ) cycle !    !    !
+             if ( nod2arc_in(jarc,inod) == wirearc(lenwire(nwires+1),nwires+1) ) cycle !    !    !
              dangle = diff_angle(arc_angles(2,nod2arc_in(jarc,inod)) + CSTpi, angle)   !    !    !
              maxangle_in = max(maxangle_in, dangle)                                    !    !    !
           end do ! <-------------------------------------------------------------------+    !    !
@@ -152,20 +152,20 @@ contains
           end do ! <----------------------------------------------------------+             !    !
           !                                                                                 !    !
           if ( maxangle_out < maxangle_in ) then ! <------------+                           !    !
-             validloop = .false.                                !                           !    !
-             exit while_loop                                    !                           !    !
+             validwire = .false.                                !                           !    !
+             exit while_wire                                    !                           !    !
           else ! -----------------------------------------------+                           !    !
-             if ( iarc == looparc(1,nloops+1) ) exit while_loop !                           !    !
-             lenloop(nloops+1) = lenloop(nloops+1) + 1          !                           !    !
-             looparc(lenloop(nloops+1),nloops+1) = iarc         !                           !    !
-             !loopnod(lenloop(nloops+1),nloops+1) = inod         !                           !    !
+             if ( iarc == wirearc(1,nwires+1) ) exit while_wire !                           !    !
+             lenwire(nwires+1) = lenwire(nwires+1) + 1          !                           !    !
+             wirearc(lenwire(nwires+1),nwires+1) = iarc         !                           !    !
+             !wirenod(lenwire(nwires+1),nwires+1) = inod         !                           !    !
              inod = arc2nod(2,iarc)                             !                           !    !
           end if ! <--------------------------------------------+                           !    !
-       end do while_loop ! <----------------------------------------------------------------+    !
+       end do while_wire ! <----------------------------------------------------------------+    !
        !                                                                                         !
-       if ( validloop ) then ! <----------------------------------+                              !
-          do jarc = 1,lenloop(nloops+1) ! <-------------------+   !                              !
-             iarc = looparc(jarc,nloops+1)                    !   !                              !
+       if ( validwire ) then ! <----------------------------------+                              !
+          do jarc = 1,lenwire(nwires+1) ! <-------------------+   !                              !
+             iarc = wirearc(jarc,nwires+1)                    !   !                              !
              active_arc(iarc) = .false.                       !   !                              !
              call remove_from_list( &                         !   !                              !
                   iarc, &                                     !   !                              !
@@ -176,12 +176,12 @@ contains
                   nod2arc_out(:,arc2nod(1,iarc)), &           !   !                              !
                   nout(arc2nod(1,iarc)) )                     !   !                              !
           end do ! <------------------------------------------+   !                              !
-          nloops = nloops + 1                                     !                              !
+          nwires = nwires + 1                                     !                              !
        end if ! <-------------------------------------------------+                              !
        !                                                                                         !
     end do ! <-----------------------------------------------------------------------------------+
     
-  end subroutine make_loops
+  end subroutine make_wires
 
   
 
@@ -190,37 +190,37 @@ contains
   subroutine make_faces( &
        nascendants, &
        ascendants, &
-       nloop, &
+       nwire, &
        outer, &
        inner, &
        ninner, &
        nfaces )
     implicit none
-    integer, intent(in)  :: nloop
-    integer, intent(in)  :: nascendants(nloop)
-    integer, intent(in)  :: ascendants(nloop,nloop)
-    integer, intent(out) :: outer(nloop)
-    integer, intent(out) :: inner(nloop,nloop)
-    integer, intent(out) :: ninner(nloop)
+    integer, intent(in)  :: nwire
+    integer, intent(in)  :: nascendants(nwire)
+    integer, intent(in)  :: ascendants(nwire,nwire)
+    integer, intent(out) :: outer(nwire)
+    integer, intent(out) :: inner(nwire,nwire)
+    integer, intent(out) :: ninner(nwire)
     integer, intent(out) :: nfaces
-    integer              :: nchildren(nloop), children(nloop,nloop)
+    integer              :: nchildren(nwire), children(nwire,nwire)
     integer              :: maxlevel, level
-    integer              :: iloop, jloop, kloop
+    integer              :: iwire, jwire, kwire
     
     maxlevel = 0
-    do iloop = 1,nloop
-       maxlevel = max(maxlevel, nascendants(iloop))
+    do iwire = 1,nwire
+       maxlevel = max(maxlevel, nascendants(iwire))
     end do
 
     nchildren(:) = 0
     do level = 0,maxlevel ! <------------------------------------------------+
-       do iloop = 1,nloop ! <---------------------------------------------+  !
-          if ( nascendants(iloop) == level ) then ! <------------------+  !  !
-             do kloop = 1,level ! <---------------------------------+  !  !  !
-                jloop = ascendants(kloop,iloop)                     !  !  !  !
-                if ( nascendants(jloop) == level - 1 ) then ! <--+  !  !  !  !
-                   nchildren(jloop) = nchildren(jloop) + 1       !  !  !  !  !
-                   children(nchildren(jloop),jloop) = iloop      !  !  !  !  !
+       do iwire = 1,nwire ! <---------------------------------------------+  !
+          if ( nascendants(iwire) == level ) then ! <------------------+  !  !
+             do kwire = 1,level ! <---------------------------------+  !  !  !
+                jwire = ascendants(kwire,iwire)                     !  !  !  !
+                if ( nascendants(jwire) == level - 1 ) then ! <--+  !  !  !  !
+                   nchildren(jwire) = nchildren(jwire) + 1       !  !  !  !  !
+                   children(nchildren(jwire),jwire) = iwire      !  !  !  !  !
                    exit                                          !  !  !  !  !
                 end if ! <---------------------------------------+  !  !  !  !
              end do ! <---------------------------------------------+  !  !  !
@@ -229,12 +229,12 @@ contains
     end do ! <---------------------------------------------------------------+
 
     nfaces = 0
-    do iloop = 1,nloop ! <----------------------------------------------------------+
-       if ( mod(nascendants(iloop),2) == 0 ) then ! <----------------------------+  !
+    do iwire = 1,nwire ! <----------------------------------------------------------+
+       if ( mod(nascendants(iwire),2) == 0 ) then ! <----------------------------+  !
           nfaces = nfaces + 1                                                    !  !
-          outer(nfaces) = iloop                                                  !  !
-          ninner(nfaces) = nchildren(iloop)                                      !  !
-          inner(1:nchildren(iloop),nfaces) = children(1:nchildren(iloop),iloop)  !  !
+          outer(nfaces) = iwire                                                  !  !
+          ninner(nfaces) = nchildren(iwire)                                      !  !
+          inner(1:nchildren(iwire),nfaces) = children(1:nchildren(iwire),iwire)  !  !
        end if ! <----------------------------------------------------------------+  !
     end do ! <----------------------------------------------------------------------+
 

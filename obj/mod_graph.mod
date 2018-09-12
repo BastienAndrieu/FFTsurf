@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_graph.f90
-MD5:67468d5eded513841ebf1b11ebb42896 -- If you edit this, you'll get what you deserve.
+MD5:f797eaf1c2ff611030ba6bc710a810d0 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -20,7 +20,7 @@ UNKNOWN ()) 3 0 (4 5 6 7 8 9 10 11 12) () 0 () () () 0 0)
 13 'make_faces' 'mod_graph' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 14 0 (15 16 17 18 19 20 21) () 0 () () () 0 0)
-22 'make_loops' 'mod_graph' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+22 'make_wires' 'mod_graph' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0 UNKNOWN ()) 23 0 (24 25 26
 27 28 29 30) () 0 () () () 0 0)
 31 'mod_graph' 'mod_graph' '' 1 ((MODULE UNKNOWN-INTENT UNKNOWN-PROC
@@ -70,7 +70,7 @@ DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (2 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (VARIABLE (INTEGER 4 0 0 0
 INTEGER ()) 0 17 ()) (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (
 VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 17 ())) 0 () () () 0 0)
-17 'nloop' '' '' 14 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+17 'nwire' '' '' 14 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
 (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 18 'outer' '' '' 14 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0 EXPLICIT (
@@ -101,9 +101,9 @@ INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ())
 (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 27 'nnod' '' '' 23 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
 (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-28 'nloops' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+28 'nwires' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-29 'looparc' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+29 'wirearc' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (2 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (FUNCTION (INTEGER 4 0 0 0
 INTEGER ()) 0 32 (('' (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 26 ())) (
@@ -112,7 +112,7 @@ INTEGER ()) 0 32 (('' (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 26 ())) (
 INTEGER ()) 0 32 (('' (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 26 ())) (
 '' (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 27 ()))) '__min_i4' 0 'min'))
 0 () () () 0 0)
-30 'lenloop' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+30 'lenwire' '' '' 23 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (FUNCTION (INTEGER 4 0 0 0
 INTEGER ()) 0 32 (('' (VARIABLE (INTEGER 4 0 0 0 INTEGER ()) 0 26 ())) (
@@ -123,5 +123,5 @@ UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 32
 () () () 0 0)
 )
 
-('disable_dangling_branches' 0 2 'make_faces' 0 13 'make_loops' 0 22
+('disable_dangling_branches' 0 2 'make_faces' 0 13 'make_wires' 0 22
 'mod_graph' 0 31)

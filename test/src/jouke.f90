@@ -626,7 +626,7 @@ contains
     integer                                :: npf, np, ntrif
     integer                                :: ifirstedge, ifirstpoint, sens, ifirst, ilast
     type(type_path)                        :: pathtmp
-    integer                                :: iface, iloop, ihedg(2), ivert, ihype, iedge, i
+    integer                                :: iface, iwire, ihedg(2), ivert, ihype, iedge, i
 
     ! write 'info' file (common to all faces)
     call get_free_unit(finf)
@@ -652,17 +652,17 @@ contains
        open(unit=fedg, file='tmp/bedg.dat', action='write')
        !
        npf = 0
-       loops : do iloop = 0,brep%faces(iface)%ninner ! <-----------------------------------+
-          ! first halfedge of the loop                                                     !
-          if ( iloop == 0 ) then ! <-------------------+                                   !
+       wires : do iwire = 0,brep%faces(iface)%ninner ! <-----------------------------------+
+          ! first halfedge of the wire                                                     !
+          if ( iwire == 0 ) then ! <-------------------+                                   !
              ihedg = brep%faces(iface)%outer           !                                   !
           else ! --------------------------------------+                                   !
-             ihedg = brep%faces(iface)%inner(:,iloop)  !                                   !
+             ihedg = brep%faces(iface)%inner(:,iwire)  !                                   !
           end if ! <-----------------------------------+                                   !
           ifirstedge = ihedg(1)                                                            !
           !                                                                                !
           ifirstpoint = npf + 1                                                            !
-          ! traverse the loop                                                              !
+          ! traverse the wire                                                              !
           halfedges : do ! <------------------------------------------------------------+  !
              ! get polyline points                                                      !  !
              call get_polyline_endpoints( &
@@ -790,11 +790,11 @@ contains
              !
              npf = npf + np - 1
              !
-             ! move on to the next halfedge on the loop
+             ! move on to the next halfedge on the wire
              ihedg = get_next(brep, ihedg)
              !
              if ( ihedg(1) == ifirstedge ) then ! <------+
-                ! the loop is complete                   !
+                ! the wire is complete                   !
                 write (fedg,*) npf, ifirstpoint          !
                 exit                                     !
              else ! -------------------------------------+
@@ -802,7 +802,7 @@ contains
              end if ! <----------------------------------+
              !           
           end do halfedges
-       end do loops
+       end do wires
        !
        ! close files
        close(fpts)

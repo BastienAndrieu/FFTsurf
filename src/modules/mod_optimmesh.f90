@@ -37,8 +37,8 @@ contains
     integer                                :: stat
     logical                                :: singular
     real(kind=fp), dimension(4)            :: lowerb, upperb
-    real(kind=fp)                          :: uvtmp(2,2), xyztmp(3)
-    integer                                :: ipass, ivert, ivar
+    real(kind=fp)                          :: uvtmp(2,2), xyztmp(3), dxyz(3)
+    integer                                :: ipass, ivert, jvert, ivar, ihedg(2), jhedg(2), iface, jface, iwire
 
     lowerb(:) = -2._fp
     upperb(:) = 2._fp
@@ -112,8 +112,43 @@ contains
                   matmul(matmul(transpose(tng), hess(:,:,ivert)), tng), &   !
                   -matmul(transpose(tng), grad(:,ivert)), &                 !
                   singular )                                                !
+             dxyz = matmul(tng, duv(:,1,ivert))
              !
              ! handle passing to an adjacent face (crossing of a smooth edge...)
+             ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
+             iface = mesh%ids(ivert)   ! brep face index
+             adjacent_verts : do
+                exit ! WIP
+                jvert = get_dest(mesh, ihedg) ! mesh vertex index
+                jface = mesh%ids(jvert)       ! brep face index
+                if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then
+                   ! this adjacent vertex is supported by another brep face (in the same hyperface)
+                   if ( dot_product(dxyz, mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then
+                      ! check if the displacement crosses an edge
+                      brep_wires : do iwire = 0,brep%faces(iface)%ninner
+                         ! get brep halfedge index
+                         if ( iwire == 0 ) then ! <-------------------+
+                            jhedg = brep%faces(iface)%outer           !
+                         else ! --------------------------------------+
+                            jhedg = brep%faces(iface)%inner(:,iwire)  !
+                         end if ! <-----------------------------------+
+
+                         brep_halfedges : do
+                            if ( get_face(brep, get_twin(jhedg)) == jface ) then
+                               ! ...
+                               exit adjacent_verts
+                            end if
+                         end do brep_halfedges
+                      end do brep_wires
+                   end if
+                end if
+
+                ! move on to next adjacent vertex
+                ihedg = get_prev(ihedg)       ! outgoing mesh halfedge
+                ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge
+                if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit
+             end do adjacent_verts
+             
              mesh%uv(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
              call eval( &
                   mesh%xyz(:,ivert), &

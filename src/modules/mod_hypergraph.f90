@@ -199,7 +199,7 @@ contains
     type(type_hyperface), intent(inout) :: hf
     logical,              intent(inout) :: visited(brep%nf)
     integer                             :: iedge(2)
-    integer                             :: iloop, istart, jfa
+    integer                             :: iwire, istart, jfa
 
     if ( visited(ifa) ) return
     
@@ -211,13 +211,13 @@ contains
     
     visited(ifa) = .true.
 
-    do iloop = 1,1 + brep%faces(ifa)%ninner ! <---------------------------------------+
-       if ( iloop == 1 ) then ! <--------------------------------------+              !
-          ! traverse outer loop                                        !              !
+    do iwire = 1,1 + brep%faces(ifa)%ninner ! <---------------------------------------+
+       if ( iwire == 1 ) then ! <--------------------------------------+              !
+          ! traverse outer wire                                        !              !
           iedge = brep%faces(ifa)%outer                                !              !
        else ! ---------------------------------------------------------+              !
-          ! traverse potential inner loops                             !              !
-          iedge = brep%faces(ifa)%inner(:,iloop-1)                     !              !
+          ! traverse potential inner wires                             !              !
+          iedge = brep%faces(ifa)%inner(:,iwire-1)                     !              !
        end if ! <------------------------------------------------------+              !
        istart = iedge(1)                                                              !
        do ! <-------------------------------------------------------------------+     !

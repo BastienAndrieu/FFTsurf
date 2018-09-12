@@ -77,7 +77,7 @@ contains
     integer                     :: npts, nedg
     real(kind=fp), allocatable  :: uv(:,:)
     integer, allocatable        :: edg(:,:)
-    integer                     :: iloop, fid, ipt, ied
+    integer                     :: iwire, fid, ipt, ied
     
     ! write polynomial parametric surface 
     call write_polynomial(brep%faces(iface)%surface%x, filec)
@@ -86,17 +86,17 @@ contains
     allocate(uv(2,1000), edg(2,1000))
     npts = 0
     nedg = 0
-    call get_loop_uv_polyline( &
+    call get_wire_uv_polyline( &
          brep, &
          brep%faces(iface)%outer, &
          npts, &
          uv, &
          nedg, &
          edg )
-    do iloop = 1,brep%faces(iface)%ninner
-       call get_loop_uv_polyline( &
+    do iwire = 1,brep%faces(iface)%ninner
+       call get_wire_uv_polyline( &
          brep, &
-         brep%faces(iface)%inner(:,iloop), &
+         brep%faces(iface)%inner(:,iwire), &
          npts, &
          uv, &
          nedg, &
@@ -134,7 +134,7 @@ contains
 
 
   
-  subroutine get_loop_uv_polyline( &
+  subroutine get_wire_uv_polyline( &
        brep, &
        ifirstedge, &
        npts, &
@@ -188,7 +188,7 @@ contains
        end if ! <--------------------------------------------+          !
     end do ! <----------------------------------------------------------+
     
-  end subroutine get_loop_uv_polyline
+  end subroutine get_wire_uv_polyline
   
 
 
@@ -241,13 +241,13 @@ contains
     integer                                     :: point2nod(interdata%np), nod2point(interdata%np)
     real(kind=fp)                               :: nod_uv(2,interdata%np)
     integer                                     :: narc, nnod
-    integer                                     :: nloops
-    integer, allocatable                        :: loop2arc(:,:), lenloop(:)
+    integer                                     :: nwires
+    integer, allocatable                        :: wire2arc(:,:), lenwire(:)
     logical                                     :: inside
     integer, allocatable                        :: nsuper(:), super(:,:)
     integer                                     :: nfaces
     integer, allocatable                        :: outer(:), inner(:,:), ninner(:)
-    integer                                     :: isurf, iloop, jloop, iface, jface, iedge, ihedg, ivert
+    integer                                     :: isurf, iwire, jwire, iface, jface, iedge, ihedg, ivert
     INTEGER :: FID, IARC, INOD
     CHARACTER(3) :: STRNUM
 
@@ -267,69 +267,69 @@ contains
             nod_uv, &
             nnod )
 
-       ! make loops
-       nloops = min(nnod, narc)
-       allocate(lenloop(nloops), loop2arc(nloops,nloops))
-       call make_loops( &
+       ! make wires
+       nwires = min(nnod, narc)
+       allocate(lenwire(nwires), wire2arc(nwires,nwires))
+       call make_wires( &
             arc2nod(1:2,1:narc), &
             arc_angles(1:2,1:narc), &
             narc, &
             nnod, &
-            nloops, &
-            loop2arc, &
-            lenloop )
+            nwires, &
+            wire2arc, &
+            lenwire )
 
-       if ( nloops < 1 ) then
-          deallocate(lenloop, loop2arc)
+       if ( nwires < 1 ) then
+          deallocate(lenwire, wire2arc)
           cycle
        end if
 
-       ! compute inclusion relationships between nested loops
-       allocate(nsuper(nloops), super(nloops,nloops))
+       ! compute inclusion relationships between nested wires
+       allocate(nsuper(nwires), super(nwires,nwires))
        nsuper(:) = 0
-       do iloop = 1,nloops-1 ! <---------------------------------------------+
-          do jloop = iloop+1,nloops ! <----------------------------------+   !
-             ! get a point on loop #jloop, and test whether it is        !   !
-             ! inside the polygon of loop #iloop                         !   !
-             call point_in_loop( &                                       !   !
-                  nod_uv(:,arc2nod(1,loop2arc(1,jloop))), &              !   !
+       do iwire = 1,nwires-1 ! <---------------------------------------------+
+          do jwire = iwire+1,nwires ! <----------------------------------+   !
+             ! get a point on wire #jwire, and test whether it is        !   !
+             ! inside the polygon of wire #iwire                         !   !
+             call point_in_wire( &                                       !   !
+                  nod_uv(:,arc2nod(1,wire2arc(1,jwire))), &              !   !
                   interdata, &                                           !   !
-                  lenloop(iloop), &                                      !   !
-                  arc2curve(loop2arc(1:lenloop(iloop),iloop)), &         !   !
-                  arc2split(loop2arc(1:lenloop(iloop),iloop)), &         !   !
-                  arc_sens(loop2arc(1:lenloop(iloop),iloop)), &          !   !
+                  lenwire(iwire), &                                      !   !
+                  arc2curve(wire2arc(1:lenwire(iwire),iwire)), &         !   !
+                  arc2split(wire2arc(1:lenwire(iwire),iwire)), &         !   !
+                  arc_sens(wire2arc(1:lenwire(iwire),iwire)), &          !   !
                   inside )                                               !   !
              if ( inside ) then ! <----------------------------------+   !   !
-                ! loop #jloop is nested inside loop #iloop           !   !   !
-                nsuper(jloop) = nsuper(jloop) + 1                    !   !   !
-                super(nsuper(jloop),jloop) = iloop                   !   !   !
+                ! wire #jwire is nested inside wire #iwire           !   !   !
+                nsuper(jwire) = nsuper(jwire) + 1                    !   !   !
+                super(nsuper(jwire),jwire) = iwire                   !   !   !
                 cycle                                                !   !   !
              else ! -------------------------------------------------+   !   !
-                ! get a point on loop #iloop, and test whether it is !   !   !
-                ! inside the polygon of loop #jloop                  !   !   !
-                call point_in_loop( &                                !   !   !
-                     nod_uv(:,arc2nod(1,loop2arc(1,iloop))), &       !   !   !
+                ! get a point on wire #iwire, and test whether it is !   !   !
+                ! inside the polygon of wire #jwire                  !   !   !
+                call point_in_wire( &                                !   !   !
+                     nod_uv(:,arc2nod(1,wire2arc(1,iwire))), &       !   !   !
                      interdata, &                                    !   !   !
-                     lenloop(jloop), &                               !   !   !
-                     arc2curve(loop2arc(1:lenloop(jloop),jloop)), &  !   !   !
-                     arc2split(loop2arc(1:lenloop(jloop),jloop)), &  !   !   !
-                     arc_sens(loop2arc(1:lenloop(jloop),jloop)), &   !   !   !
+                     lenwire(jwire), &                               !   !   !
+                     arc2curve(wire2arc(1:lenwire(jwire),jwire)), &  !   !   !
+                     arc2split(wire2arc(1:lenwire(jwire),jwire)), &  !   !   !
+                     arc_sens(wire2arc(1:lenwire(jwire),jwire)), &   !   !   !
                      inside )                                        !   !   !
                 if ( inside ) then ! <---------------------------+   !   !   !
-                   ! loop #iloop is nested inside loop #jloop    !   !   !   !
-                   nsuper(iloop) = nsuper(iloop) + 1             !   !   !   !
-                   super(nsuper(iloop),iloop) = jloop            !   !   !   !
+                   ! wire #iwire is nested inside wire #jwire    !   !   !   !
+                   nsuper(iwire) = nsuper(iwire) + 1             !   !   !   !
+                   super(nsuper(iwire),iwire) = jwire            !   !   !   !
                 end if ! <---------------------------------------+   !   !   !
              end if ! <----------------------------------------------+   !   !
           end do ! <-----------------------------------------------------+   !
        end do ! <------------------------------------------------------------+
 
        !! Make faces
-       allocate(outer(nloops), inner(nloops,nloops), ninner(nloops))
+       allocate(outer(nwires), inner(nwires,nwires), ninner(nwires))
        call make_faces( &                                           
-            nsuper(1:nloops), &                                
-            super(1:nloops,1:nloops), &                        
-            nloops, &                                               
+            nsuper(1:nwires), &                                
+            super(1:nwires,1:nwires), &                        
+            nwires, &                                               
             outer, &                                                
             inner, &                                                
             ninner, &                                               
@@ -354,11 +354,11 @@ contains
           CLOSE(FID)
 
           CALL GET_FREE_UNIT(FID)
-          OPEN(UNIT=FID, FILE='Jouke/graph/loops_'//strnum//'.dat', ACTION='WRITE')
-          WRITE (FID,*) NLOOPS
-          DO ILOOP = 1,NLOOPS
-             WRITE (FID,*) LOOP2ARC(1:LENLOOP(ILOOP),ILOOP)
-             WRITE (FID,*) ARC2NOD(1,LOOP2ARC(1:LENLOOP(ILOOP),ILOOP))!LOOPNOD(1:LENLOOP(ILOOP),ILOOP)
+          OPEN(UNIT=FID, FILE='Jouke/graph/wires_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NWIRES
+          DO IWIRE = 1,NWIRES
+             WRITE (FID,*) WIRE2ARC(1:LENWIRE(IWIRE),IWIRE)
+             WRITE (FID,*) ARC2NOD(1,WIRE2ARC(1:LENWIRE(IWIRE),IWIRE))!WIRENOD(1:LENWIRE(IWIRE),IWIRE)
           END DO
           CLOSE(FID)
           
@@ -367,10 +367,10 @@ contains
           OPEN(UNIT=FID, FILE='Jouke/graph/faces_'//strnum//'.dat', ACTION='WRITE')
           WRITE (FID,*) NFACES
           DO IFACE = 1,NFACES
-             WRITE (FID,*) LOOP2ARC(1:LENLOOP(OUTER(IFACE)),OUTER(IFACE))
+             WRITE (FID,*) WIRE2ARC(1:LENWIRE(OUTER(IFACE)),OUTER(IFACE))
              WRITE (FID,*) NINNER(IFACE)
-             DO ILOOP = 1,NINNER(IFACE)
-                WRITE (FID,*) LOOP2ARC(1:LENLOOP(INNER(ILOOP,IFACE)),INNER(ILOOP,IFACE))
+             DO IWIRE = 1,NINNER(IFACE)
+                WRITE (FID,*) WIRE2ARC(1:LENWIRE(INNER(IWIRE,IFACE)),INNER(IWIRE,IFACE))
              END DO
           END DO
           CLOSE(FID)
@@ -391,15 +391,15 @@ contains
           brep%nf = brep%nf + 1                              !
           brep%faces(brep%nf)%surface => surf(isurf)         !
           !                                                  !
-          ! add outer loop                                   !
-          iloop = outer(jface)                               !
-          call insert_loop_in_brep( &                        !
+          ! add outer wire                                   !
+          iwire = outer(jface)                               !
+          call insert_wire_in_brep( &                        !
                interdata, &                                  !
                brep, &                                       !
                iface, &                                      !
                .true., &                                     !
-               loop2arc(1:lenloop(iloop),iloop), &           !
-               lenloop(iloop), &                             !
+               wire2arc(1:lenwire(iwire),iwire), &           !
+               lenwire(iwire), &                             !
                arc2curve(1:narc), &                          !
                arc2split(1:narc), &                          !
                arc2nod(1:2,1:narc), &                        !
@@ -408,16 +408,16 @@ contains
                nod2point(1:nnod), &                          !
                nnod )                                        !
           !                                                  !
-          ! add potential inner loops                        !
-          do jloop = 1,ninner(jface) ! <-----------------+   !
-             iloop = inner(jloop,jface)                  !   !
-             call insert_loop_in_brep( &                 !   !
+          ! add potential inner wires                        !
+          do jwire = 1,ninner(jface) ! <-----------------+   !
+             iwire = inner(jwire,jface)                  !   !
+             call insert_wire_in_brep( &                 !   !
                   interdata, &                           !   !
                   brep, &                                !   !
                   iface, &                               !   !
                   .false., &                             !   !
-                  loop2arc(1:lenloop(iloop),iloop), &    !   !
-                  lenloop(iloop), &                      !   !
+                  wire2arc(1:lenwire(iwire),iwire), &    !   !
+                  lenwire(iwire), &                      !   !
                   arc2curve(1:narc), &                   !   !
                   arc2split(1:narc), &                   !   !
                   arc2nod(1:2,1:narc), &                 !   !
@@ -429,7 +429,7 @@ contains
           !                                                  !
        end do ! <--------------------------------------------+
 
-       deallocate(lenloop, loop2arc, nsuper, super, outer, inner, ninner)
+       deallocate(lenwire, wire2arc, nsuper, super, outer, inner, ninner)
     end do
 
     ! finally, set halfedge record for BREPvertices
@@ -566,13 +566,13 @@ contains
   
   
 
-  subroutine insert_loop_in_brep( &
+  subroutine insert_wire_in_brep( &
        interdata, &
        brep, &
        iface, &
-       is_outer_loop, &
-       loop2arc, &
-       lenloop, &
+       is_outer_wire, &
+       wire2arc, &
+       lenwire, &
        arc2curve, &
        arc2split, &
        arc2nod, &
@@ -585,9 +585,9 @@ contains
     type(type_intersection_data), target, intent(inout) :: interdata
     type(type_BREP),                      intent(inout) :: brep
     integer,                              intent(in)    :: iface
-    logical,                              intent(in)    :: is_outer_loop
-    integer,                              intent(in)    :: lenloop
-    integer,                              intent(in)    :: loop2arc(lenloop)
+    logical,                              intent(in)    :: is_outer_wire
+    integer,                              intent(in)    :: lenwire
+    integer,                              intent(in)    :: wire2arc(lenwire)
     integer,                              intent(in)    :: narc
     integer,                              intent(in)    :: arc2curve(narc)
     integer,                              intent(in)    :: arc2split(narc)
@@ -595,11 +595,11 @@ contains
     integer,                              intent(in)    :: arc_sens(narc)
     integer,                              intent(in)    :: nnod
     integer,                              intent(in)    :: nod2point(nnod)
-    integer                                             :: ihedg(2,lenloop)
+    integer                                             :: ihedg(2,lenwire)
     integer                                             :: iarc, jarc, icurve, isplit, ipoint, ivert
 
-    do jarc = 1,lenloop ! <------------------------------------------------+
-       iarc = loop2arc(jarc)                                               !
+    do jarc = 1,lenwire ! <------------------------------------------------+
+       iarc = wire2arc(jarc)                                               !
        !                                                                   !
        icurve = arc2curve(iarc)                                            !
        isplit = arc2split(iarc)                                            !
@@ -647,15 +647,15 @@ contains
     end do ! <-------------------------------------------------------------+
 
     ! set prev/next records for new halfedges
-    do jarc = 1,lenloop ! <-----------------------------------------+
+    do jarc = 1,lenwire ! <-----------------------------------------+
        brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%prev = &  !
-            ihedg(:,1 + mod(jarc + lenloop - 2,lenloop))            !
+            ihedg(:,1 + mod(jarc + lenwire - 2,lenwire))            !
        brep%edges(ihedg(1,jarc))%halfedges(ihedg(2,jarc))%next = &  !
-            ihedg(:,1 + mod(jarc,lenloop))                          !
+            ihedg(:,1 + mod(jarc,lenwire))                          !
     end do ! <------------------------------------------------------+
 
     ! set outer/inner record for current face
-    if ( is_outer_loop ) then ! <-----------+
+    if ( is_outer_wire ) then ! <-----------+
        brep%faces(iface)%outer = ihedg(:,1) !
     else ! ---------------------------------+
        call insert_column_after( &          !
@@ -666,30 +666,30 @@ contains
             brep%faces(iface)%ninner )      !
     end if ! <------------------------------+
     
-  end subroutine insert_loop_in_brep
+  end subroutine insert_wire_in_brep
 
 
 
   
   
-  subroutine point_in_loop( &
+  subroutine point_in_wire( &
        uv, &
        interdata, &
-       lenloop, &
+       lenwire, &
        arc2curve, &
        arc2split, &
        arc_sens, &
        inside )
-    ! tests whether a point lies inside the region outlined by a loop of
+    ! tests whether a point lies inside the region outlined by a wire of
     ! intersection curves
     implicit none
     real(kind=fp), parameter                  :: M = 10._fp
     real(kind=fp),                intent(in)  :: uv(2)
     type(type_intersection_data), intent(in)  :: interdata
-    integer,                      intent(in)  :: lenloop
-    integer,                      intent(in)  :: arc2curve(lenloop)
-    integer,                      intent(in)  :: arc2split(lenloop)
-    integer,                      intent(in)  :: arc_sens(lenloop)
+    integer,                      intent(in)  :: lenwire
+    integer,                      intent(in)  :: arc2curve(lenwire)
+    integer,                      intent(in)  :: arc2split(lenwire)
+    integer,                      intent(in)  :: arc_sens(lenwire)
     logical,                      intent(out) :: inside
     real(kind=fp), pointer                    :: poly(:,:) => null()
     real(kind=fp)                             :: a, c, s, ub, vb
@@ -705,7 +705,7 @@ contains
     ub = uv(1) + M*c
     vb = uv(2) + M*s
 
-    do iarc = 1,lenloop
+    do iarc = 1,lenwire
        sens   = arc_sens(iarc)
        icurv  = arc2curve(iarc)
        isplit = arc2split(iarc) + 2 - sens
@@ -729,7 +729,7 @@ contains
        nullify(poly)
     end do
     
-  end subroutine point_in_loop
+  end subroutine point_in_wire
 
 
 
