@@ -60,8 +60,8 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ener, ...
 %     'specularstrength', 0, 'edgecolor', 'none');
 
-l = 1:65;
-plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', 'r', 'markersize', 6);
+l = 1936:2044;%1:65;
+plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', 'g', 'markersize', 6);
 
 if 0
     for iface = 1:nfaces
