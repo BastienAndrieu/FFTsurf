@@ -1,0 +1,15 @@
+#!MC 1410
+$!VarSet |MFBD| = '/d/bandrieu'
+$!EXPORTSETUP USESUPERSAMPLEANTIALIASING = YES
+$!EXPORTSETUP SUPERSAMPLEFACTOR = 3
+$!EXPORTSETUP EXPORTFORMAT = PNG
+$!EXPORTSETUP IMAGEWIDTH = 1200
+
+$!Loop 22 
+  $!ACTIVEFIELDMAPS = [|loop|]
+  $!EXPORTSETUP EXPORTFNAME = '/d/bandrieu/GitHub/FFTsurf/test/Jouke/meshgen/brepmesh/seq/im_|loop|.png'
+  $!EXPORT 
+    EXPORTREGION = CURRENTFRAME
+
+$!EndLoop
+$!RemoveVar |MFBD|

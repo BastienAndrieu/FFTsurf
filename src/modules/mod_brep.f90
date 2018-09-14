@@ -230,7 +230,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .TRUE.
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata

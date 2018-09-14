@@ -253,7 +253,7 @@ contains
     type(type_hyperedge), allocatable, intent(inout) :: hyperedges(:)
     integer,                           intent(out)   :: nhe
     logical                                          :: visited(brep%ne)
-    integer                                          :: ivert, iedge, ihe, ihedg(2)
+    integer                                          :: ivert, iedge, ihe, ihedg(2), ied
 
     visited(:) = .false.
     nhe = 0
@@ -320,6 +320,13 @@ contains
        hyperedges(ihe)%hyperfaces(1) = brep%faces(get_face(brep, ihedg))%hyperface
        ihedg = get_twin(ihedg)
        hyperedges(ihe)%hyperfaces(2) = brep%faces(get_face(brep, ihedg))%hyperface
+    end do
+
+    ! set edge -> hyperedge
+    do ihe = 1,nhe
+       do ied = 1,hyperedges(ihe)%ne
+          brep%edges(hyperedges(ihe)%halfedges(1,ied))%hyperedge = ihe
+       end do
     end do
     
   end subroutine get_hyperedges

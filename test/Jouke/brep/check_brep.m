@@ -247,7 +247,7 @@ end
 
 
 if 1 % plot hyperedges
-    for ihe = 1:nhe
+    for ihe = 1%:nhe
         for i = 1:hyperedge(ihe).ne
             iedge = hyperedge(ihe).edges(i,:);
             ih = 2*(iedge(1) - 1) + iedge(2);
@@ -258,6 +258,9 @@ if 1 % plot hyperedges
             %             quiver3(vxyz(l(1),1), vxyz(l(1),2), vxyz(l(1),3), ...
             %                 vxyz(l(2),1) - vxyz(l(1),1), vxyz(l(2),2) - vxyz(l(1),2), vxyz(l(2),3) - vxyz(l(1),3), ...
             %                 0, 'color', clhe(ihe,:), 'linewidth', 1 );
+            if i == 1
+                plot3(heq(1,ih), heq(2,ih), heq(3,ih), '*', 'color', clhe(ihe,:));
+            end
             quiver3( heq(1,ih), heq(2,ih), heq(3,ih), ...
                 heq(4,ih), heq(5,ih), heq(6,ih), 0, ...
                 'color', clhe(ihe,:), 'linewidth', 1.4, 'MaxHeadSize', 100 );

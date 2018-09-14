@@ -209,6 +209,14 @@ program jouke
 
 
 
+  
+  !PRINT *,'EDGE -> HYPEREDGE'
+  !DO I = 1,BREP%NE
+  !   IF ( FEAT_EDGE(I) ) PRINT *, I, BREP%EDGES(I)%HYPEREDGE
+  !END DO
+  !PAUSE
+  
+
   ! surface -> incident intersection curves (brute force)
   call get_free_unit( fid )
   open(unit=fid, file='Jouke/result/interdata_surf2curv.dat', action='write')
@@ -310,7 +318,7 @@ program jouke
         case (0)
         case (1)
            do j = 1,2
-              iface = brep%edges(mesh%ids(i))%halfedges(j)%face
+              iface = brep%edges(mesh%ids(i))%halfedges(1+mod(j,2))%face
               call eval( &
                    xyzverif(:,j), &
                    brep%faces(iface)%surface, &
@@ -328,20 +336,35 @@ program jouke
         end select
      end do
   END IF
-
-
+  
   
   IF ( .TRUE. ) THEN
+     !call write_tecplot_mesh( &
+     !     mesh, &
+     !     'Jouke/meshgen/brepmesh/brepmesh_optim_00.dat', &
+     !     'pass_00' )
+     call write_obj_mesh( &
+          mesh, &
+          'Jouke/meshgen/brepmesh/brepmesh_optim_00.obj' )
      call optim_jiao( &
-       brep, &
-       mesh, &
-       1, &
-       1.0_fp, &
-       PARAM_hmin, &
-       PARAM_hmax )
+          brep, &
+          hyperedges(1:nhe), &
+          nhe, &
+          mesh, &
+          20, &
+          0.5_fp, &
+          PARAM_hmin, &
+          PARAM_hmax )
      call write_inria_mesh( &
+          mesh, &
+          'Jouke/meshgen/brepmesh/brepmesh_optim.mesh' )
+     call write_mesh_files( &
        mesh, &
-       'Jouke/meshgen/brepmesh/brepmesh_optim.mesh' )
+       'Jouke/meshgen/brepmesh/tri.dat', &
+       'Jouke/meshgen/brepmesh/xyz_smooth.dat', &
+       'Jouke/meshgen/brepmesh/uv_smooth.dat', &
+       'Jouke/meshgen/brepmesh/idstyp_smooth.dat', &
+       'Jouke/meshgen/brepmesh/paths.dat' )
   ELSE
      allocate(wei(mesh%nt), hve(mesh%nv), ener(mesh%nt), grad(3,mesh%nv), hess(3,3,mesh%nv))
      wei(:) = 1._fp
@@ -376,6 +399,36 @@ program jouke
      end do
      close(13)
   END IF
+
+! CHECK UVs
+  IF ( .true. ) THEN
+     PRINT *,'CHECK UVs'
+     do i = 1,mesh%nv
+        select case(mesh%typ(i))
+        case (0)
+        case (1)
+           do j = 1,2
+              iface = brep%edges(mesh%ids(i))%halfedges(1+mod(j,2))%face
+              call eval( &
+                   xyzverif(:,j), &
+                   brep%faces(iface)%surface, &
+                   mesh%uv(:,j,i) )
+           end do
+           IF ( max(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) > 1.D-13 ) THEN
+              PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
+           END IF
+        case (2)
+           call eval( &
+                xyzverif(:,1), &
+                brep%faces(mesh%ids(i))%surface, &
+                mesh%uv(:,1,i) )
+           IF ( norm2(mesh%xyz(:,i) - xyzverif(:,1)) > 1.D-13 ) THEN
+              PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1))
+           END IF
+        end select
+     end do
+  END IF
+  
   
   STOP
 
@@ -627,7 +680,11 @@ contains
     integer                                :: ifirstedge, ifirstpoint, sens, ifirst, ilast
     type(type_path)                        :: pathtmp
     integer                                :: iface, iwire, ihedg(2), ivert, ihype, iedge, i
-
+    character(3)                           :: strnum
+    type(type_surface_mesh)                :: meshvisu
+    integer, allocatable                   :: t2bf(:)
+    integer                                :: nt
+    
     ! write 'info' file (common to all faces)
     call get_free_unit(finf)
     open(unit=finf, file='tmp/info.dat', action='write')
@@ -641,6 +698,7 @@ contains
     mesh%nt = 0
     bv2mv(:) = 0
     be2mv(:,:) = 0
+    NT = 0
     faces : do iface = 1,brep%nf
        ! write polynomial parametric surface 
        call write_polynomial(brep%faces(iface)%surface%x, 'tmp/c.cheb')
@@ -732,6 +790,14 @@ contains
                      idsf(npf+1), &                                              !
                      typf(npf+1), &                                              !
                      1 )                                                         !
+             else
+                if ( feat_edge(ihedg(1)) ) then
+                   if ( mesh%typ(bv2mv(ivert)) == 2 ) then
+                      mesh%ids(bv2mv(ivert)) = ihedg(1)
+                      mesh%typ(bv2mv(ivert)) = 1
+                      mesh%uv(1:2,1:2,bv2mv(ivert)) = uvf(1:2,1:2,1)
+                   end if
+                end if
              end if ! <----------------------------------------------------------+
              loc2glob(npf+1) = bv2mv(ivert)
              !
@@ -796,6 +862,7 @@ contains
              if ( ihedg(1) == ifirstedge ) then ! <------+
                 ! the wire is complete                   !
                 write (fedg,*) npf, ifirstpoint          !
+                PRINT *,
                 exit                                     !
              else ! -------------------------------------+
                 write (fedg,*) npf, npf+1                !
@@ -810,6 +877,12 @@ contains
        !
        ! run mesher
        PRINT *,'MESH FACE #',IFACE
+       !IF ( IFACE == 5 .OR. IFACE == 48 ) THEN
+       !   PRINT *,'NPF =',NPF
+       !   DO I = 1,NPF
+       !      PRINT *,LOC2GLOB(I)
+       !   END DO
+       !END IF
        call system('/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
             & tmp/c.cheb &
             & tmp/bpts.dat &
@@ -818,6 +891,10 @@ contains
             & tmp/tri.dat &
             & tmp/uv.dat &
             & tmp/xyz.dat' )
+       write (strnum,'(i3.3)') iface
+       call system('cp tmp/c.cheb Jouke/meshgen/coeffs/c_'//strnum//'.cheb')
+       call system('cp tmp/tri.dat Jouke/meshgen/brepmesh/uv/tri_'//strnum//'.dat')
+       call system('cp tmp/uv.dat Jouke/meshgen/brepmesh/uv/uv_'//strnum//'.dat')
        !
        ! read face submesh                                                                     !
        call read_triangles( &                                                                  !
@@ -840,11 +917,9 @@ contains
             3, &                                                                               !
             np )     
        !
+       
        if ( size(loc2glob) < np ) call reallocate_list(loc2glob, np)
        loc2glob(npf+1:np) = mesh%nv + [(i, i=1,np-npf)]
-       do i = 1,3 ! <----------------------------------+
-          trif(i,1:ntrif) = loc2glob(trif(i,1:ntrif))  !
-       end do ! <--------------------------------------+                                       !
        !                                                                                       !
        if ( size(idsf) < np ) call reallocate_list(idsf, np)                                   !
        idsf(npf+1:np) = iface                                                                  !
@@ -852,6 +927,23 @@ contains
        if ( size(typf) < np ) call reallocate_list(typf, np)                                   !
        typf(npf+1:np) = 2                                                                      !
        !                                                                                       !
+       ! ****************************
+       call append_triangles( &
+            meshvisu, &
+            trif(1:3,1:ntrif) + meshvisu%nv, &
+            ntrif )
+       call append_vertices( &
+            meshvisu, &
+            xyzf(1:3,1:np), &
+            spread(spread([0._fp,0._fp],dim=2,ncopies=2), dim=3, ncopies=np), &
+            idsf(1:np), &
+            typf(1:np), &
+            np )
+       ! ****************************
+       
+       do i = 1,3 ! <----------------------------------+                                       !
+          trif(i,1:ntrif) = loc2glob(trif(i,1:ntrif))  !                                       !
+       end do ! <--------------------------------------+                                       !
        ! add new triangles                                                                     !
        call append_triangles( &                                                                !
             mesh, &                                                                            !
@@ -867,6 +959,13 @@ contains
             typf(npf+1:np), &                                                                  !
             np-npf )
        !
+       
+       CALL INSERT_N_AFTER( &
+            T2BF, &
+            NT, &
+            NTRIF, &
+            SPREAD([IFACE], DIM=1, NCOPIES=NTRIF), &
+            NT )
     end do faces
 
     ! create a path for each hyperedge
@@ -930,6 +1029,14 @@ contains
        end do ! <------------------------------------------------------------+
        !
     end do
+
+
+    call write_tecplot_mesh_iface( &
+         meshvisu, &
+         'Jouke/meshgen/brepmesh/brepmesh.dat', &
+         'mesh_brep', &
+         t2bf )
+   
     
   end subroutine generate_brep_mesh
 
@@ -1016,6 +1123,58 @@ contains
 
   end subroutine read_points
 
+
+
+
+
+
+  subroutine write_tecplot_mesh_iface( &
+       mesh, &
+       filename, &
+       zonename, &
+       iface )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    character(*),            intent(in) :: zonename
+    integer,                 intent(in) :: iface(mesh%nt)
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+
+    write (fid,*) 'VARIABLES = "X" "Y" "Z" "IFACE"'
+
+    write (fid,*) 'ZONE T="' // zonename // '"'
+    write (fid,'(A2,I5,A3,I5)') 'N=',mesh%nv,' E=',mesh%nt
+    write (fid,*) 'ZONETYPE=FETriangle'
+    write (fid,*) 'DATAPACKING=BLOCK'
+
+    write (fid,*) 'VARLOCATION = ([1-3]=NODAL, [4]=CELLCENTERED)'
+
+    do i = 1,3
+       write (fid,*) ''
+       do j = 1,mesh%nv
+          write (fid,'(ES22.15)') mesh%xyz(i,j)
+       end do
+    end do
+
+    write (fid,*) ''
+
+    do j = 1,mesh%nt
+       write (fid,'(I0)') iface(j)
+    end do
+
+    write (fid,*) ''
+
+    do j = 1,mesh%nt
+       write (fid,'(3I7)') mesh%tri(:,j)
+    end do
+
+    close(fid)
+    
+  end subroutine write_tecplot_mesh_iface
 
 
 end program jouke

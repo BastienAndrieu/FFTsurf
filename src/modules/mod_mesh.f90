@@ -95,6 +95,56 @@ contains
 
   end function hash_integer_pair
 
+
+  
+
+  
+
+  subroutine write_tecplot_mesh( &
+       mesh, &
+       filename, &
+       zonename )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    character(*),            intent(in) :: zonename
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+
+    write (fid,*) 'VARIABLES = "X" "Y" "Z"'
+
+    write (fid,*) 'ZONE T="' // zonename // '"'
+    write (fid,'(A2,I5,A3,I5)') 'N=',mesh%nv,' E=',mesh%nt
+    write (fid,*) 'ZONETYPE=FETriangle'
+    write (fid,*) 'DATAPACKING=BLOCK'
+
+    write (fid,*) 'VARLOCATION = ([1-3]=NODAL)'
+    write (fid,*) 'DT=(DOUBLE DOUBLE DOUBLE)'
+
+    do i = 1,3
+       write (fid,*) ''
+       do j = 1,mesh%nv
+          write (fid,'(ES22.15)') mesh%xyz(i,j)
+       end do
+    end do
+
+    write (fid,*) ''
+
+    do j = 1,mesh%nt
+       write (fid,'(3I7)') mesh%tri(:,j)
+    end do
+
+    close(fid)
+    
+  end subroutine write_tecplot_mesh
+
+
+
+  
+
   
 
   subroutine write_inria_mesh( &
@@ -135,6 +185,34 @@ contains
 
 
 
+  subroutine write_obj_mesh( &
+       mesh, &
+       filename )
+    use mod_util
+    implicit none
+    character(7), parameter :: fmt = 'ES13.6'
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+    
+    do j = 1,mesh%nv
+       write (fid,'(A1,1x)', advance='no') 'v'
+       do i = 1,3
+          write (fid,'('//fmt//',1x)', advance='no') mesh%xyz(i,j)
+       end do
+       write (fid,*)
+    end do
+
+    do j = 1,mesh%nt
+       write (fid,'(A1,1x,I0,1x,I0,1x,I0)') 'f', mesh%tri(1:3,j)
+    end do
+    
+    close(fid)
+
+  end subroutine write_obj_mesh
   
 
 

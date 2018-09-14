@@ -9,19 +9,27 @@ contains
 
   subroutine optim_jiao( &
        brep, &
+       hyperedges, &
+       nhe, &
        mesh, &
        passmax, &
        frac_conf, &
        hmin, &
        hmax )
+    USE MOD_UTIL
     use mod_diffgeom
     use mod_intersection
+    use mod_hypergraph
     use mod_types_brep
+    use mod_brep
     use mod_mesh
     use mod_halfedge
     use mod_linalg
+    use mod_projection
     implicit none
     type(type_brep),         intent(in)    :: brep
+    integer,                 intent(in)    :: nhe
+    type(type_hyperedge),    intent(in)    :: hyperedges(nhe)
     type(type_surface_mesh), intent(inout) :: mesh
     integer,                 intent(in)    :: passmax
     real(kind=fp),           intent(in)    :: frac_conf
@@ -37,15 +45,23 @@ contains
     integer                                :: stat
     logical                                :: singular
     real(kind=fp), dimension(4)            :: lowerb, upperb
-    real(kind=fp)                          :: uvtmp(2,2), xyztmp(3), dxyz(3)
+    real(kind=fp)                          :: uvtmp(2,2), dxyz(3)
     integer, dimension(mesh%nv)            :: idsnew, typnew
     real(kind=fp)                          :: uvnew(2,2,mesh%nv)
-    integer                                :: ipass, ivert, jvert, ivar, ihedg(2), jhedg(2), iface, jface, iwire, ifirst
+    integer                                :: ivert, jvert, ihedg(2)
+    integer                                :: iedge, ihype
+    integer                                :: iface, jface
+    integer                                :: ipass, ivar
+    CHARACTER(2) :: STRNUM
+    INTEGER :: FID
 
+    CALL GET_FREE_UNIT(FID)
+    
     lowerb(:) = -2._fp
     upperb(:) = 2._fp
 
     do ipass = 1,passmax
+       PRINT *,'OPTIM PASS',IPASS,'/',PASSMAX
        ! compute target edge lengths at vertices
        hve(:) = 1._fp
        ! ...
@@ -66,12 +82,15 @@ contains
             hess )
        !
        ! compute vertex displacements
+       !OPEN(UNIT=FID, FILE='Jouke/meshgen/brepmesh/debug_dxyz.dat', ACTION='WRITE')
        compute_duv : do ivert = 1,mesh%nv
+          !PRINT *,IVERT
           select case ( mesh%typ(ivert) ) ! <-------------------------------+
           case (0) ! -------------------------------------------------------+
              uvnew(:,:,ivert) = mesh%uv(:,:,ivert)                          !
              idsnew(ivert) = mesh%ids(ivert)
              typnew(ivert) = 0
+             DXYZ(:) = 0._FP
           case (1) ! -------------------------------------------------------+
              call diffgeom_intersection( &                                  !
                   brep%edges(mesh%ids(ivert))%curve%surf, &                 !
@@ -82,120 +101,120 @@ contains
              ds = - dot_product(tng(:,1), grad(:,ivert)) / &                !
                   dot_product(tng(:,1), matmul(hess(:,:,ivert), tng(:,1)))  !
              duv(:,:,ivert) = ds * duv_ds(:,1,:)                            !
-             !
-             ! reproject onto exact intersection & handle passing to prev/next edge (w out of bounds..)
-             uvtmp = mesh%uv(:,:,ivert) + duv(:,:,ivert)
-             IF (.FALSE.) THEN
-                call newton_intersection_polyline( &
-                     brep%edges(mesh%ids(ivert))%curve%surf, &
-                     lowerb, &
-                     upperb, &
-                     mesh%xyz(:,ivert), &
-                     ds**2, &
-                     stat, &
-                     uvtmp, &
-                     xyztmp )
-                if ( stat > 0 ) then
-                   PRINT *,'failed to reproject onto transversal intersection curve'
-                   PAUSE
-                end if
-                uvnew(:,:,ivert) = uvtmp
-             END IF
-             uvnew(:,:,ivert) = mesh%uv(:,:,ivert)
-             idsnew(ivert) = mesh%ids(ivert)
+             dxyz = ds * tng(:,1)
+             !!
              typnew(ivert) = 1
+             uvnew(:,:,ivert) = mesh%uv(:,:,ivert)!uvtmp
+             iedge = mesh%ids(ivert)   ! brep edge index
+             ihype = brep%edges(iedge)%hyperedge ! hyperedge index
+             !PRINT *,''; PRINT *,'';
+             !PRINT *, IVERT!, ihype
+             call projection_hyperedge( &
+                  brep, &
+                  hyperedges(ihype), &
+                  iedge, &
+                  mesh%uv(:,:,ivert), &
+                  mesh%xyz(:,ivert), &
+                  duv(:,:,ivert), &
+                  dxyz, &
+                  idsnew(ivert), &
+                  uvtmp )
+             uvnew(:,:,ivert) = uvtmp
              !
-          case (2) ! -------------------------------------------------------+
-             do ivar = 1,2 ! <-------------------------------+              !
-                call evald1( &                               !              !
-                     tng(:,ivar), &                          !              !
-                     brep%faces(mesh%ids(ivert))%surface, &  !              !
-                     mesh%uv(:,1,ivert), &                   !              !
-                     ivar )                                  !              !
-             end do ! <--------------------------------------+              !
-             call solve_NxN( &                                              !
-                  duv(:,1,ivert), &                                         !
-                  matmul(matmul(transpose(tng), hess(:,:,ivert)), tng), &   !
-                  -matmul(transpose(tng), grad(:,ivert)), &                 !
-                  singular )                                                !
+          case (2) ! -------------------------------------------------------
+             do ivar = 1,2 ! <-------------------------------+
+                call evald1( &                               !
+                     tng(:,ivar), &                          !
+                     brep%faces(mesh%ids(ivert))%surface, &  !
+                     mesh%uv(:,1,ivert), &                   !
+                     ivar )                                  !
+             end do ! <--------------------------------------+
+             call solve_NxN( &
+                  duv(:,1,ivert), &
+                  matmul(matmul(transpose(tng), hess(:,:,ivert)), tng), &
+                  -matmul(transpose(tng), grad(:,ivert)), &
+                  singular )
              dxyz = matmul(tng, duv(:,1,ivert))
              !
              ! handle passing to an adjacent face (crossing of a smooth edge...)
-             ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
-             iface = mesh%ids(ivert)   ! brep face index
-             adjacent_verts : do
-                jvert = get_dest(mesh, ihedg) ! mesh vertex index
-                jface = mesh%ids(jvert)       ! brep face index
-                if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then
-                   ! this adjacent vertex is supported by another brep face (in the same hyperface)
-                   if ( dot_product(dxyz, mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then
-                      ! check if the uv displacement crosses a smooth edge incident to #jface
-                      brep_wires : do iwire = 0,brep%faces(iface)%ninner
-                         ! get brep halfedge index
-                         if ( iwire == 0 ) then ! <-------------------+
-                            jhedg = brep%faces(iface)%outer           !
-                         else ! --------------------------------------+
-                            jhedg = brep%faces(iface)%inner(:,iwire)  !
-                         end if ! <-----------------------------------+
-                         ifirst = get_orig(brep, jhedg)
-                         ! traverse the wire to find an edge incident to brep face #jface
-                         brep_halfedges : do
-                            if ( get_face(brep, get_twin(jhedg)) == jface ) then
-                               ! ...
-                               PRINT *,'IVERT, JVERT, EDGE, DXYZ =',IVERT, JVERT, JHEDG(1), real(DXYZ)
-                               !exit 
-                            end if
-                            ! move on to the next halfedge on the wire
-                            jhedg = get_next(brep, jhedg)
-                            if ( get_orig(brep, jhedg) == ifirst ) exit brep_halfedges
-                         end do brep_halfedges
-                      end do brep_wires
-                   end if
-                end if
-
-                ! move on to next adjacent vertex
-                ihedg = get_prev(ihedg)       ! outgoing mesh halfedge
-                ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge
-                if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit
-             end do adjacent_verts
-             uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
              idsnew(ivert) = mesh%ids(ivert)
              typnew(ivert) = 2
-             !mesh%uv(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
-             !call eval( &
-             !     mesh%xyz(:,ivert), &
-             !     brep%faces(mesh%ids(ivert))%surface, &
-             !     mesh%uv(:,1,ivert) )
+             uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
+             ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
+             iface = mesh%ids(ivert)   ! brep face index
+             adjacent_verts2 : do ! <-----------------------------------------------------+
+                jvert = get_dest(mesh, ihedg) ! mesh vertex index                         !
+                jface = mesh%ids(jvert)       ! brep face index                           !
+                ! (quasi) necessary conditions for a change of supporting brep face:      !
+                ! - at least one adjacent vertex is supported by a different brep face;   !
+                ! - this vertex is in the halfspace pointed by the xyz displacement.      !
+                if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then ! <--------------+  !
+                   if ( dot_product(dxyz, &                                            !  !
+                        mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then ! <---+  !  !
+                      call projection_hyperface( &                                  !  !  !
+                           brep, &                                                  !  !  !
+                           iface, &                                                 !  !  !
+                           mesh%uv(:,1,ivert), &                                    !  !  !
+                           mesh%xyz(:,ivert), &                                     !  !  !
+                           duv(:,1,ivert), &                                        !  !  !
+                           dxyz, &                                                  !  !  !
+                           idsnew(ivert), &                                         !  !  !
+                           uvtmp(:,1) )                                             !  !  !
+                      uvnew(:,1,ivert) = uvtmp(:,1)                                 !  !  !
+                      exit adjacent_verts2                                          !  !  !
+                   end if ! <-------------------------------------------------------+  !  !
+                end if ! <-------------------------------------------------------------+  !
+                ! move on to next adjacent vertex                                         !
+                ihedg = get_prev(ihedg)       ! outgoing mesh halfedge                    !
+                ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge                     !
+                if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit              !
+             end do adjacent_verts2 ! <---------------------------------------------------+
              !
           end select ! <----------------------------------------------------+
 
-
+          !WRITE (FID,*) DXYZ
        end do compute_duv
+       !CLOSE(FID)
 
-       ! update vertices
+       ! update vertices coordinates
        mesh%ids(1:mesh%nv) = idsnew(1:mesh%nv)
        mesh%typ(1:mesh%nv) = typnew(1:mesh%nv)
        mesh%uv(1:2,1:2,1:mesh%nv) = uvnew(1:2,1:2,1:mesh%nv)
-       do ivert = 1,mesh%nv
-          select case ( mesh%typ(ivert) ) ! <-------------------------------+
-          case (0) ! -------------------------------------------------------+
-             mesh%xyz(:,ivert) = brep%verts(mesh%ids(ivert))%point%xyz      !
-          case (1) ! -------------------------------------------------------+
-             iface = brep%edges(mesh%ids(ivert))%halfedges(2)%face          !
-             call eval( &                                                   !
-                  mesh%xyz(:,ivert), &                                      !
-                  brep%faces(iface)%surface, &                              !
-                  mesh%uv(:,1,ivert) )                                      !
-          case (2) ! -------------------------------------------------------+
-             iface = mesh%ids(ivert)                                        !
-             call eval( &                                                   !
-                  mesh%xyz(:,ivert), &                                      !
-                  brep%faces(iface)%surface, &                              !
-                  mesh%uv(:,1,ivert) )                                      !
-          end select ! <----------------------------------------------------+
-       end do
+       update_uvxyz : do ivert = 1,mesh%nv ! <----------------------------------+
+          select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
+          case (0) ! -------------------------------------------------------+   !
+             mesh%xyz(:,ivert) = brep%verts(mesh%ids(ivert))%point%xyz      !   !
+          case (1) ! -------------------------------------------------------+   !
+             iface = brep%edges(mesh%ids(ivert))%halfedges(2)%face          !   !
+             call eval( &                                                   !   !
+                  mesh%xyz(:,ivert), &                                      !   !
+                  brep%faces(iface)%surface, &                              !   !
+                  mesh%uv(:,1,ivert) )                                      !   !
+          case (2) ! -------------------------------------------------------+   !
+             iface = mesh%ids(ivert)                                        !   !
+             call eval( &                                                   !   !
+                  mesh%xyz(:,ivert), &                                      !   !
+                  brep%faces(iface)%surface, &                              !   !
+                  mesh%uv(:,1,ivert) )                                      !   !
+          end select ! <----------------------------------------------------+   !
+       end do update_uvxyz ! <--------------------------------------------------+
 
-       
+
+       IF ( .TRUE. ) THEN
+          WRITE (STRNUM, '(I2.2)') IPASS
+          !call write_inria_mesh( &
+          !     mesh, &
+          !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.mesh' )
+          !call write_tecplot_mesh( &
+          !     mesh, &
+          !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.dat', &
+          !     'pass_'//strnum )
+          call write_obj_mesh( &
+               mesh, &
+               'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.obj' )
+       END IF
+
+       !PAUSE
     end do
     
   end subroutine optim_jiao

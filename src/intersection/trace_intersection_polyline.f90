@@ -160,13 +160,6 @@ subroutine trace_intersection_polyline( &
                    dxyz_ds, &                                          !  !   !  !
                    stat_tangent, &                                     !  !   !  !
                    curvature )                                         !  !   !  !
-              !call diffgeom_intersection_curve( &                      !  !   !  !
-              !     surf, &                                             !  !   !  !
-              !     uv, &                                               !  !   !  !
-              !     duv_ds, &                                           !  !   !  !
-              !     dxyz_ds, &                                          !  !   !  !
-              !     stat_tangent, &                                     !  !   !  !
-              !     curvature )                                         !  !   !  !
               IF ( DEBUG ) PRINT *,'CURVATURE RADIUS = ',1._FP/CURVATURE(1)
               if ( stat_tangent < 0 ) then ! <--------------------+    !  !   !  !
                  stat = stat_tangent                              !    !  !   !  !

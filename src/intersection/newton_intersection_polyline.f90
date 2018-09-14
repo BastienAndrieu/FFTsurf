@@ -31,8 +31,8 @@ subroutine newton_intersection_polyline( &
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_INTERSECTION_POLYLINE'
      PRINT *,'HTARGETSQR =',htargetsqr
-     PRINT *,'LOWERB =',LOWERB
-     PRINT *,'UPPERB =',UPPERB
+     !PRINT *,'LOWERB =',LOWERB
+     !PRINT *,'UPPERB =',UPPERB
   END IF
 
   stat = 1
@@ -40,8 +40,8 @@ subroutine newton_intersection_polyline( &
   cond = 1._fp
 
   do it = 1,itmax
-     IF ( DEBUG ) PRINT *,'NEWTON_INTERSECTION_POLYLINE, IT#',IT
-     IF ( DEBUG ) PRINT *,'UV =',UV
+     !IF ( DEBUG ) PRINT *,'NEWTON_INTERSECTION_POLYLINE, IT#',IT
+     !IF ( DEBUG ) PRINT *,'UV =',UV
      !! compute residual
      do isurf = 1,2
         call eval( &
@@ -49,6 +49,10 @@ subroutine newton_intersection_polyline( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
+     IF ( IT == 1 ) THEN
+        !PRINT *,'XYZ1 =',xyz(:,1)
+        !PRINT *,'XYZ2 =',xyz(:,2)
+     END IF
      r1 = xyz(:,1) - xyz(:,2)
      r2 = xyz(:,1) - xyzp_prev
      resh = sum(r2**2) - htargetsqr

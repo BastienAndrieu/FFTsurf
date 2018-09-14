@@ -22,6 +22,8 @@ for i in range(2):
     print 'polyline #',i
     xy = np.loadtxt( 'xy'+str(i+1)+'.dat', dtype=float, skiprows=1 )
     plt.plot(xy[:,0], xy[:,1], '.-', color=clr[i], markersize=5)
+    for j in range(len(xy)):
+        plt.text(xy[j,0], xy[j,1], str(j+1), color=clr[i])
     y = np.zeros((n,2))
     for j in range(n):
         z = (1.0 - lambd[i,j])*xy[isegm[i,j],:] + lambd[i,j]*xy[isegm[i,j]+1,:]
