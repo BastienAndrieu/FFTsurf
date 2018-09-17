@@ -16,7 +16,8 @@ contains
        duv, &
        dxyz, &
        iedgetmp, &
-       uvtmp )
+       uvtmp, &
+       debug )
     use mod_linalg
     use mod_types_brep
     use mod_brep
@@ -26,6 +27,7 @@ contains
     use mod_tolerances
     use mod_hypergraph
     implicit none
+    logical, intent(in) :: debug
     type(type_brep),      intent(in), target  :: brep
     type(type_hyperedge), intent(in)          :: hyperedge
     integer,              intent(in)          :: iedge
@@ -66,8 +68,16 @@ contains
     uvtmp = uv
     duvtmp = duv
     xyztmp = xyz
-    dxyztmp = dxyz    
+    dxyztmp = dxyz
 
+    IF ( DEBUG ) THEN
+       PRINT *,'IHEDGE =', IHEDG
+       PRINT *,' FACES =', get_face(brep, [iedgetmp,1]), get_face(brep, [iedgetmp,2])
+       PRINT *,'    UV =', UV
+       PRINT *,'   XYZ =', XYZ
+       PRINT *,'  DXYZ =', DXYZ
+    END IF
+    
     do k = 1,hyperedge%ne
        xyztarget = xyztmp + dxyztmp
        
@@ -93,6 +103,13 @@ contains
              PRINT *,'projection_hyperedge : failed to reproject onto transversal intersection curve, k =',k
              PAUSE
           else
+             IF ( DEBUG ) THEN
+                PRINT *,'CONVERGED :'
+                PRINT *,'IHEDGE =', IHEDG
+                PRINT *,' FACES =', get_face(brep, [iedgetmp,1]), get_face(brep, [iedgetmp,2])
+                PRINT *,'    UV =', UVTMP
+                PRINT *,'   XYZ =', XYZTMP
+             END IF
              return
           end if
        else
@@ -138,7 +155,7 @@ contains
 
        end if
     end do
-    STOP 'projection_hyperedge : failed to reproject onto hyperedge'
+    STOP 'projection_hyperedge : failed to reproject'
     
   end subroutine projection_hyperedge
 
@@ -192,8 +209,6 @@ contains
     real(kind=fp)                             :: det, w, jac(3,2)
     logical                                   :: changeface, singular
     integer                                   :: iwire, ihedg(2), istart, it, ivar, iinter
-    real(kind=fp) :: uv2(2,2), duv_ds(2,2,2), dxyz_ds(3,2)
-    integer :: stat
 
     xyztmp = xyz
     uvtmp = uv
@@ -253,10 +268,6 @@ contains
                 i1 = i1 + isegments(2,iinter) - 1                                           !  !  !  !
                 i2 = i1 + 1                                                                 !  !  !  !
                 ! on which side of the polyline lies the target point?                      !  !  !  !
-                !det = real((-1)**sens, kind=fp) * distance_from_line( &                     !  !  !  !
-                !     uvpoly(1)%mat(:,2), &                                                  !  !  !  !
-                !     uvpoly(2)%mat(:,i1), &                                                 !  !  !  !
-                !     uvpoly(2)%mat(:,i2) )                                                  !  !  !  !
                 det = real((-1)**sens, kind=fp) * ( &
                      (uvpoly(1)%mat(2,2) - uvpoly(2)%mat(2,isegments(2,iinter)))*&
                      (uvpoly(2)%mat(1,isegments(2,iinter)+1) - uvpoly(2)%mat(1,isegments(2,iinter))) - &
@@ -296,27 +307,6 @@ contains
                    xyztmp = (1._fp - w) * polyline%xyz(1:3,i1) + w * polyline%xyz(1:3,i2)      !  !  !  !
                    uvtmp = (1._fp - w) * polyline%uv(1:2,ihedg(2),i1) + &                      !  !  !  !
                         w * polyline%uv(1:2,ihedg(2),i2)                                       !  !  !  !
-
-                   uv2 = (1._fp - w) * polyline%uv(1:2,1:2,i1) + &
-                        w * polyline%uv(1:2,1:2,i2)
-                   IF ( .false. ) THEN
-                      call simultaneous_point_inversions( &
-                           brep%edges(ihedg(1))%curve%surf, &
-                           spread([-1._fp - EPSuv], dim=1, ncopies=4), &
-                           spread([ 1._fp + EPSuv], dim=1, ncopies=4), &
-                           stat, &
-                           uv2, &
-                           xyztmp )
-                      call diffgeom_intersection( &
-                           brep%edges(ihedg(1))%curve%surf, &
-                           uv2, &
-                           duv_ds, &
-                           dxyz_ds, &
-                           stat )
-                      PRINT *,'STAT =',STAT
-                      IF ( DEBUG ) CALL PRINT_MAT(DUV_DS(1:2,1,1:2))
-                   END IF
-
                    IF ( DEBUG ) THEN
                       PRINT *,'XYZTMP   =',xyztmp
                       PRINT *,'UVTMP    =',uvtmp

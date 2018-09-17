@@ -52,16 +52,15 @@ for i in range(len(idstyp)):
         isonface[i] = True
         x[i] = uv[i,0:2]
     elif idstyp[i,1] == 1:
-        iedge = idstyp[i,0]
+        iedge = idstyp[i,0] - 1
         for j in range(2):
-            ih = 2*(iedge - 1) + j
-            #if i == 2044:
-            #    print edges[ih-1,0]
-            if edges[ih-1,0] == iface:
-                ax.plot(uv[i,2*j], uv[i,2*j+1], '.', markersize=5, color='r')
-                ax.text(uv[i,2*j], uv[i,2*j+1], str(i+1))
+            ih = 2*iedge + j
+            if edges[ih,0] == iface:
+                k = (j+1)%2
+                ax.plot(uv[i,2*k], uv[i,2*k+1], '.', markersize=5, color='r')
+                #ax.text(uv[i,2*k], uv[i,2*k+1], str(i+1))
                 isonface[i] = True
-                x[i] = uv[i,2*j:2*(j+1)]
+                x[i] = uv[i,2*k:2*(k+1)]
 """
 for j in range(len(tri)):
     if all(isonface[tri[j]]):
@@ -69,6 +68,7 @@ for j in range(len(tri)):
                  fc='none', ec='b', lw=0.5)
     ax.add_artist(tj)
 """
+
 ax.set_xlim(-hw, hw)
 ax.set_ylim(-hw, hw)
 ax.set_aspect('equal')

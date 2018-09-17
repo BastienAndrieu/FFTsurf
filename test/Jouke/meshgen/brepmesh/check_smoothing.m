@@ -8,8 +8,8 @@ idstyp = importdata('idstyp.dat');
 
 xyzs = importdata('xyz_smooth.dat');
 
-% xyz = importdata('xyz_smooth.dat');
-% idstyp = importdata('idstyp_smooth.dat');
+xyz = importdata('xyz_smooth.dat');
+idstyp = importdata('idstyp_smooth.dat');
 
 % vertex displacement
 dxyz = importdata('debug_dxyz.dat');
@@ -31,7 +31,7 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % l = 4243;
 % l = 19408;
 % l = 13887;%2045;
-l = 491;
+l = 2045;
 plot3( xyz(l,1), xyz(l,2), xyz(l,3), 'r*' );
 quiver3(xyz(l,1), xyz(l,2), xyz(l,3), ...
     dxyz(l,1), dxyz(l,2), dxyz(l,3), ...
@@ -71,7 +71,7 @@ norm( xyz(l,:) - xyzs(l,:) )
 
 uv(l,1:2)
 
-
+return
 
 figure('units','normalized','position',[.15 .15 .7 .7]);
 hold on

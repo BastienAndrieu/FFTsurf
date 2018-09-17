@@ -413,6 +413,7 @@ program jouke
                    xyzverif(:,j), &
                    brep%faces(iface)%surface, &
                    mesh%uv(:,j,i) )
+              IF ( I == 2045 ) PRINT *,'IFACE =',IFACE, norm2(mesh%xyz(:,i) - xyzverif(:,j))
            end do
            IF ( max(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) > 1.D-13 ) THEN
               PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))

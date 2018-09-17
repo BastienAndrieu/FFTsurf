@@ -7,6 +7,9 @@ idstyp = importdata('idstyp.dat');
 v2h = importdata('mv2h.dat');
 twin = importdata('mtwin.dat');
 
+xyz = importdata('xyz_smooth.dat');
+idstyp = importdata('idstyp_smooth.dat');
+
 nt = size(tri,1);
 nv = size(xyz,1);
 
@@ -50,6 +53,19 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 %     1.0006582472848098      -0.10436811035834220       0.25981874645354314
 %     1.0006579779595062      -0.10436670244456078       0.25982126981844800
 %     ];
+
+
+l = 2045;
+ie = 33;
+2*(ie - 1) + [1,2]
+faces = edges(2*(ie - 1) + [1,2],1)
+
+
+return
+
+
+
+
 
 
 l = 1989;

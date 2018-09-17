@@ -121,7 +121,8 @@ contains
                   duv(:,:,ivert), &
                   dxyz, &
                   idsnew(ivert), &
-                  uvtmp )
+                  uvtmp, &
+                  .false. )!(ivert == 2045) )
              uvnew(:,:,ivert) = uvtmp
              !
           case (2) ! -------------------------------------------------------
@@ -138,8 +139,6 @@ contains
                   -matmul(transpose(tng), grad(:,ivert)), &
                   singular )
              dxyz = matmul(tng, duv(:,1,ivert))
-             !IF ( IVERT == 491 ) PRINT *, IVERT, DXYZ
-             !IF ( IVERT == 17913 ) CALL PRINT_MAT(TRANSPOSE(TNG))
              !
              ! handle passing to an adjacent face (crossing of a smooth edge...)
              idsnew(ivert) = mesh%ids(ivert)
@@ -147,12 +146,9 @@ contains
              uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
              ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
              iface = mesh%ids(ivert)   ! brep face index
-
-             !!check_change = ( maxval(abs(mesh%uv(:,1,ivert))) > 1._fp - TOLchange .or. &
-             !!     maxval(abs(uvnew(:,1,ivert))) > 1._fp - TOLchange )
+             !
              check_change = ( maxval(abs(duv(:,1,ivert))) > &
                   1._fp + EPSuv - maxval(abs(mesh%uv(:,1,ivert))) )
-             
              if ( .not.check_change ) then
                 adjacent_verts2 : do ! <-----------------------------------------------------+
                    jvert = get_dest(mesh, ihedg) ! mesh vertex index                         !
@@ -160,7 +156,6 @@ contains
                    ! (quasi) necessary conditions for a change of supporting brep face:      !
                    ! - at least one adjacent vertex is supported by a different brep face;   !
                    ! - this vertex is in the halfspace pointed by the xyz displacement.      !
-                   !!if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then ! <--------------+  !
                    if ( mesh%typ(jvert) /= 2 .or. jface /= iface ) then ! <---------------+  !
                       if ( dot_product(dxyz, &                                            !  !
                            mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then ! <---+  !  !
@@ -176,7 +171,6 @@ contains
              end if
 
              if ( check_change ) then
-                !PRINT *,IVERT
                 call projection_hyperface( &
                      brep, &
                      iface, &
@@ -186,10 +180,8 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp(:,1), &
-                     .false. )!(ivert == 491) )
-                !IF ( IVERT == 14 ) PRINT *, NORM2(uvtmp(:,1) - mesh%uv(:,1,ivert))
+                     .false. )
                 uvnew(:,1,ivert) = uvtmp(:,1)
-                !IF ( IVERT == 491 ) PRINT *, 'OUT', IDSNEW(IVERT), uvnew(:,1,ivert)
              end if
              !
           end select ! <----------------------------------------------------+
