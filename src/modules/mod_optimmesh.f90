@@ -26,7 +26,9 @@ contains
     use mod_halfedge
     use mod_linalg
     use mod_projection
+    USE MOD_TOLERANCES
     implicit none
+    !real(kind=fp), parameter :: TOLchange = 1.d-3
     type(type_brep),         intent(in)    :: brep
     integer,                 intent(in)    :: nhe
     type(type_hyperedge),    intent(in)    :: hyperedges(nhe)
@@ -52,6 +54,7 @@ contains
     integer                                :: iedge, ihype
     integer                                :: iface, jface
     integer                                :: ipass, ivar
+    logical                                :: check_change
     CHARACTER(2) :: STRNUM
     INTEGER :: FID
 
@@ -84,7 +87,7 @@ contains
        ! compute vertex displacements
        !OPEN(UNIT=FID, FILE='Jouke/meshgen/brepmesh/debug_dxyz.dat', ACTION='WRITE')
        compute_duv : do ivert = 1,mesh%nv
-          !PRINT *,IVERT
+          !PRINT *,'IVERT =', IVERT
           select case ( mesh%typ(ivert) ) ! <-------------------------------+
           case (0) ! -------------------------------------------------------+
              uvnew(:,:,ivert) = mesh%uv(:,:,ivert)                          !
@@ -135,6 +138,8 @@ contains
                   -matmul(transpose(tng), grad(:,ivert)), &
                   singular )
              dxyz = matmul(tng, duv(:,1,ivert))
+             !IF ( IVERT == 491 ) PRINT *, IVERT, DXYZ
+             !IF ( IVERT == 17913 ) CALL PRINT_MAT(TRANSPOSE(TNG))
              !
              ! handle passing to an adjacent face (crossing of a smooth edge...)
              idsnew(ivert) = mesh%ids(ivert)
@@ -142,36 +147,54 @@ contains
              uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
              ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
              iface = mesh%ids(ivert)   ! brep face index
-             adjacent_verts2 : do ! <-----------------------------------------------------+
-                jvert = get_dest(mesh, ihedg) ! mesh vertex index                         !
-                jface = mesh%ids(jvert)       ! brep face index                           !
-                ! (quasi) necessary conditions for a change of supporting brep face:      !
-                ! - at least one adjacent vertex is supported by a different brep face;   !
-                ! - this vertex is in the halfspace pointed by the xyz displacement.      !
-                if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then ! <--------------+  !
-                   if ( dot_product(dxyz, &                                            !  !
-                        mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then ! <---+  !  !
-                      call projection_hyperface( &                                  !  !  !
-                           brep, &                                                  !  !  !
-                           iface, &                                                 !  !  !
-                           mesh%uv(:,1,ivert), &                                    !  !  !
-                           mesh%xyz(:,ivert), &                                     !  !  !
-                           duv(:,1,ivert), &                                        !  !  !
-                           dxyz, &                                                  !  !  !
-                           idsnew(ivert), &                                         !  !  !
-                           uvtmp(:,1) )                                             !  !  !
-                      uvnew(:,1,ivert) = uvtmp(:,1)                                 !  !  !
-                      exit adjacent_verts2                                          !  !  !
-                   end if ! <-------------------------------------------------------+  !  !
-                end if ! <-------------------------------------------------------------+  !
-                ! move on to next adjacent vertex                                         !
-                ihedg = get_prev(ihedg)       ! outgoing mesh halfedge                    !
-                ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge                     !
-                if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit              !
-             end do adjacent_verts2 ! <---------------------------------------------------+
+
+             !!check_change = ( maxval(abs(mesh%uv(:,1,ivert))) > 1._fp - TOLchange .or. &
+             !!     maxval(abs(uvnew(:,1,ivert))) > 1._fp - TOLchange )
+             check_change = ( maxval(abs(duv(:,1,ivert))) > &
+                  1._fp + EPSuv - maxval(abs(mesh%uv(:,1,ivert))) )
+             
+             if ( .not.check_change ) then
+                adjacent_verts2 : do ! <-----------------------------------------------------+
+                   jvert = get_dest(mesh, ihedg) ! mesh vertex index                         !
+                   jface = mesh%ids(jvert)       ! brep face index                           !
+                   ! (quasi) necessary conditions for a change of supporting brep face:      !
+                   ! - at least one adjacent vertex is supported by a different brep face;   !
+                   ! - this vertex is in the halfspace pointed by the xyz displacement.      !
+                   !!if ( mesh%typ(jvert) == 2 .and. jface /= iface ) then ! <--------------+  !
+                   if ( mesh%typ(jvert) /= 2 .or. jface /= iface ) then ! <---------------+  !
+                      if ( dot_product(dxyz, &                                            !  !
+                           mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then ! <---+  !  !
+                         check_change = .true.                                         !  !  !
+                         exit adjacent_verts2                                          !  !  !
+                      end if ! <-------------------------------------------------------+  !  !
+                   end if ! <-------------------------------------------------------------+  !
+                   ! move on to next adjacent vertex                                         !
+                   ihedg = get_prev(ihedg)       ! outgoing mesh halfedge                    !
+                   ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge                     !
+                   if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit              !
+                end do adjacent_verts2 ! <---------------------------------------------------+
+             end if
+
+             if ( check_change ) then
+                !PRINT *,IVERT
+                call projection_hyperface( &
+                     brep, &
+                     iface, &
+                     mesh%uv(:,1,ivert), &
+                     mesh%xyz(:,ivert), &
+                     duv(:,1,ivert), &
+                     dxyz, &
+                     idsnew(ivert), &
+                     uvtmp(:,1), &
+                     .false. )!(ivert == 491) )
+                !IF ( IVERT == 14 ) PRINT *, NORM2(uvtmp(:,1) - mesh%uv(:,1,ivert))
+                uvnew(:,1,ivert) = uvtmp(:,1)
+                !IF ( IVERT == 491 ) PRINT *, 'OUT', IDSNEW(IVERT), uvnew(:,1,ivert)
+             end if
              !
           end select ! <----------------------------------------------------+
-
+          !
+          IF ( MAXVAL(ABS(UVNEW(:,:,IVERT))) > 1._FP + EPSUV ) PRINT *, IVERT, TYPNEW(IVERT), IDSNEW(IVERT), UVNEW(:,:,IVERT)
           !WRITE (FID,*) DXYZ
        end do compute_duv
        !CLOSE(FID)
@@ -205,13 +228,13 @@ contains
           !call write_inria_mesh( &
           !     mesh, &
           !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.mesh' )
-          !call write_tecplot_mesh( &
-          !     mesh, &
-          !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.dat', &
-          !     'pass_'//strnum )
-          call write_obj_mesh( &
+          call write_tecplot_mesh( &
                mesh, &
-               'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.obj' )
+               'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.dat', &
+               'pass_'//strnum )
+          !call write_obj_mesh( &
+          !     mesh, &
+          !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.obj' )
        END IF
 
        !PAUSE

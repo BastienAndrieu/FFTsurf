@@ -15,12 +15,13 @@ strnum = format(iface, "03")
 trif = np.loadtxt("uv/tri_" + strnum + ".dat", dtype=int) - 1
 uvf = np.loadtxt("uv/uv_" + strnum + ".dat", dtype=float)
 
-"""
+
 idstyp = np.loadtxt("idstyp_smooth.dat", dtype=int)
 uv = np.loadtxt("uv_smooth.dat", dtype=float)
 """
 idstyp = np.loadtxt("idstyp.dat", dtype=int)
 uv = np.loadtxt("uv.dat", dtype=float)
+"""
 
 tri = np.loadtxt("tri.dat", dtype=int) - 1
 
@@ -54,10 +55,11 @@ for i in range(len(idstyp)):
         iedge = idstyp[i,0]
         for j in range(2):
             ih = 2*(iedge - 1) + j
-            #print edges[ih-1,0]
+            #if i == 2044:
+            #    print edges[ih-1,0]
             if edges[ih-1,0] == iface:
                 ax.plot(uv[i,2*j], uv[i,2*j+1], '.', markersize=5, color='r')
-                #ax.text(uv[i,2*j], uv[i,2*j+1], str(i+1))
+                ax.text(uv[i,2*j], uv[i,2*j+1], str(i+1))
                 isonface[i] = True
                 x[i] = uv[i,2*j:2*(j+1)]
 """
@@ -73,6 +75,8 @@ ax.set_aspect('equal')
 plt.grid(False)
 #plt.axis('off')
 #ax.tick_params(labelbottom='off', labelleft='off')
+
+print 'uv min =', np.amin(x), ', max =', np.amax(x)
 
 
 plt.show()

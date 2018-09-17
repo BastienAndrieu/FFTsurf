@@ -1,4 +1,4 @@
-from PIL import Image, ImageFont, ImageDraw, ImageChops
+from PIL import Image, ImageFont, ImageDraw, ImageChops, ImageEnhance
 import os
 import sys
 
@@ -17,7 +17,10 @@ top = 76
 box = (left, top, left+width, top+height)
 
 ###################################################################################
-base = Image.open("base_"+shading+".png")
+base = Image.open("base_"+shading+".png") # background (still) image
+base = ImageEnhance.Color(base).enhance(1.2) # boost saturation
+if shading == "shaded":
+    base = ImageEnhance.Brightness(base).enhance(1.2) # boost brightness
 
 for i in range(1,nframes+1):
     print "frame "+str(i)+"/"+str(nframes)

@@ -27,135 +27,116 @@ contains
     use mod_hypergraph
     implicit none
     type(type_brep),      intent(in), target  :: brep
-    type(type_hyperedge), intent(in)  :: hyperedge
-    integer,              intent(in)  :: iedge
-    real(kind=fp),        intent(in)  :: uv(2,2)
-    real(kind=fp),        intent(in)  :: xyz(3)
-    real(kind=fp),        intent(in)  :: duv(2,2)
-    real(kind=fp),        intent(in)  :: dxyz(3)
-    integer,              intent(out) :: iedgetmp
-    real(kind=fp),        intent(out) :: uvtmp(2,2)
-    real(kind=fp)                     :: duvtmp(2,2)
-    real(kind=fp), dimension(3)       :: xyzprev, xyztmp, dxyztmp, p, XYZTARGET
+    type(type_hyperedge), intent(in)          :: hyperedge
+    integer,              intent(in)          :: iedge
+    real(kind=fp),        intent(in)          :: uv(2,2)
+    real(kind=fp),        intent(in)          :: xyz(3)
+    real(kind=fp),        intent(in)          :: duv(2,2)
+    real(kind=fp),        intent(in)          :: dxyz(3)
+    integer,              intent(out)         :: iedgetmp
+    real(kind=fp),        intent(out)         :: uvtmp(2,2)
+    real(kind=fp)                             :: duvtmp(2,2)
+    real(kind=fp), dimension(3)               :: xyzprev, xyztmp, xyztarget, dxyztmp, p
+    type(type_intersection_curve), pointer    :: curve => null()
     type(type_intersection_polyline), pointer :: polyline => null()
-    real(kind=fp)                     :: w0, w, wfirst, wlast, ds, duv_ds(2,2,2), dxyz_ds(3,2)
-    integer                           :: jedge, ihedg(2), ifirst, ilast, sens, np, k, stat
-    real(kind=fp), dimension(4)            :: lowerb, upperb
+    real(kind=fp)                             :: w, wfirst, wlast, ds, duv_ds(2,2,2), dxyz_ds(3,2)
+    integer                                   :: jedge, ihedg(2), ifirst, ilast, sens, np, k, stat
+    real(kind=fp), dimension(4)               :: lowerb, upperb
 
     upperb(:) = 2._fp
     lowerb = -upperb
     
-    xyzprev = xyz
-    uvtmp = uv
-    iedgetmp = iedge
-    duvtmp = duv
-    dxyztmp = dxyz
-
-    XYZTARGET = XYZ + DXYZTMP
-    PRINT *,'DXYZ0 =',DXYZ
-
     do jedge = 1,hyperedge%ne
-       if ( hyperedge%halfedges(1,jedge) == iedge ) exit
-    end do
-    
-    ihedg = hyperedge%halfedges(:,jedge)
-    PRINT *,'IHEDG =',ihedg
-    
-    do k = 1,hyperedge%ne
-       ! relax temporary point onto true intersection underlying the hyperedge
-       uvtmp = uvtmp + duvtmp ! initial iterate
-       call newton_intersection_polyline( &
-            brep%edges(iedgetmp)%curve%surf, &
-            lowerb, &
-            upperb, &
-            xyzprev, &
-            sum(dxyztmp**2), &
-            stat, &
-            uvtmp, &
-            xyztmp )
-       if ( stat > 0 ) then
-          PRINT *,'projection_hyperedge : failed to reproject onto transversal intersection curve, k =',k
-          PAUSE
+       if ( hyperedge%halfedges(1,jedge) == iedge ) then
+          ihedg = hyperedge%halfedges(:,jedge)
+          iedgetmp = ihedg(1)
+          curve => brep%edges(iedgetmp)%curve
+          polyline => curve%polyline
+          call get_polyline_endpoints( &
+               brep, &
+               ihedg, &
+               ifirst, &
+               ilast, &
+               sens, &
+               np )
+          exit
        end if
-       xyzprev = xyztmp
-       PRINT *,'XYZTMP =', xyztmp
+    end do
+
+    uvtmp = uv
+    duvtmp = duv
+    xyztmp = xyz
+    dxyztmp = dxyz    
+
+    do k = 1,hyperedge%ne
+       xyztarget = xyztmp + dxyztmp
        
-       polyline => brep%edges(iedgetmp)%curve%polyline
-       ! get w parameter bounds of the current halfedge
-       call get_polyline_endpoints( &
-            brep, &
-            ihedg, &
-            ifirst, &
-            ilast, &
-            sens, &
-            np )
-       !PRINT *, DOT_PRODUCT(brep%edges(iedgetmp)%curve%param_vector, &
-       !     POLYLINE%XYZ(:,1)) - brep%edges(iedgetmp)%curve%w0, &
-       !     DOT_PRODUCT(brep%edges(iedgetmp)%curve%param_vector, &
-       !     POLYLINE%XYZ(:,POLYLINE%NP)) - brep%edges(iedgetmp)%curve%w0
-       p = real((-1)**sens, kind=fp) * brep%edges(iedgetmp)%curve%param_vector
-       !w0 = real((-1)**sens, kind=fp) * brep%edges(iedgetmp)%curve%w0
-       !p = brep%edges(iedgetmp)%curve%param_vector
-       w0 = brep%edges(iedgetmp)%curve%w0
+       p = real((-1)**sens, kind=fp) * curve%param_vector
        wfirst = dot_product(p, polyline%xyz(:,ifirst))
        wlast  = dot_product(p, polyline%xyz(:,ilast))
-       w      = dot_product(p, xyztmp)
-       !if ( sens == 1 ) then
-       !   wfirst = 1._fp - wfirst
-       !   wlast = 1._fp - wlast
-       !   w = 1._fp - w
-       !end if
-       PRINT *,'WFIRST, W, WLAST =',WFIRST, W, WLAST
-
-       ! check if the provisional point fits within these bounds
-       if ( is_in_closed_interval(w, wfirst, wlast, tolerance=EPSuv ) ) return
-
-       if ( w < wfirst ) then
-          ! move on to previous halfedge on the hyperedge
-          !uvtmp = polyline%uv(:,:,ifirst)
-          xyztmp = polyline%xyz(:,ifirst)
-          jedge = 1 + mod(jedge + hyperedge%ne - 2,hyperedge%ne) ! previous
-       else
-          ! move on to next halfedge on the hyperedge
-          !uvtmp = polyline%uv(:,:,ilast)
-          xyztmp = polyline%xyz(:,ilast)
-          jedge = 1 + mod(jedge,hyperedge%ne) ! next
-       end if
-       PRINT *,'XYZV =', xyztmp
-       !uvtmp = uvtmp(:,[2,1])
-
-       ihedg = hyperedge%halfedges(:,jedge)
-       iedgetmp = ihedg(1)
-       PRINT *,'IHEDG =',ihedg
-
-       polyline => brep%edges(iedgetmp)%curve%polyline
-       ! get w parameter bounds of the current halfedge
-       call get_polyline_endpoints( &
-            brep, &
-            ihedg, &
-            ifirst, &
-            ilast, &
-            sens, &
-            np )
-       if ( w < wfirst ) then
-          uvtmp = polyline%uv(:,:,ilast)
-       else
-          uvtmp = polyline%uv(:,:,ifirst)
-       end if
-
+       w = dot_product(p, xyztarget)
        
-       dxyztmp = XYZ + DXYZ - XYZTMP!dxyztmp + xyzprev - xyztmp
-       PRINT *,'DXYZTMP =',dxyztmp
-       call diffgeom_intersection( &
-            brep%edges(iedgetmp)%curve%surf, &
-            uvtmp, &
-            duv_ds, &
-            dxyz_ds, &
-            stat )
-       ds = dot_product(dxyztmp, dxyz_ds(:,1))
-       duvtmp = ds * duv_ds(:,1,:)
-       dxyztmp = ds * dxyz_ds(:,1)
-       PRINT *,'DXYZTMP* =',dxyztmp
+       if ( is_in_closed_interval(w, wfirst, wlast, tolerance=EPSuv) ) then
+          ! relax temporary point onto true intersection underlying the hyperedge
+          uvtmp = uvtmp + duvtmp ! initial iterate
+          xyzprev = xyztmp
+          call newton_intersection_polyline( &
+               curve%surf, &
+               lowerb, &
+               upperb, &
+               xyzprev, &
+               sum(dxyztmp**2), &
+               stat, &
+               uvtmp, &
+               xyztmp )
+          if ( stat > 0 ) then
+             PRINT *,'projection_hyperedge : failed to reproject onto transversal intersection curve, k =',k
+             PAUSE
+          else
+             return
+          end if
+       else
+          ! the target point is on another halfedge
+          if ( w < wfirst ) then
+             ! move on to previous halfedge on the hyperedge
+             jedge = 1 + mod(jedge + hyperedge%ne - 2,hyperedge%ne) ! previous
+          else
+             ! move on to next halfedge on the hyperedge
+             jedge = 1 + mod(jedge,hyperedge%ne) ! next
+          end if
+
+          ihedg = hyperedge%halfedges(:,jedge)
+          iedgetmp = ihedg(1)
+          curve => brep%edges(iedgetmp)%curve
+          polyline => curve%polyline
+          call get_polyline_endpoints( &
+               brep, &
+               ihedg, &
+               ifirst, &
+               ilast, &
+               sens, &
+               np )
+
+          if ( w < wfirst ) then
+             uvtmp = polyline%uv(:,:,ilast)
+             xyztmp = polyline%xyz(:,ilast)
+          else
+             uvtmp = polyline%uv(:,:,ifirst)
+             xyztmp = polyline%xyz(:,ifirst)
+          end if
+
+          dxyztmp = xyztarget - xyztmp
+          call diffgeom_intersection( &
+               curve%surf, &
+               uvtmp, &
+               duv_ds, &
+               dxyz_ds, &
+               stat )
+          ds = dot_product(dxyztmp, dxyz_ds(:,1))
+          duvtmp = ds * duv_ds(:,1,:)
+          dxyztmp = ds * dxyz_ds(:,1)
+
+       end if
     end do
     STOP 'projection_hyperedge : failed to reproject onto hyperedge'
     
@@ -179,7 +160,8 @@ contains
        duv, &
        dxyz, &
        ifacetmp, &
-       uvtmp )
+       uvtmp, &
+       debug )
     use mod_linalg
     use mod_diffgeom
     use mod_types_brep
@@ -188,6 +170,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
+    logical, intent(in) :: debug
     type(type_brep), intent(in)               :: brep
     integer,         intent(in)               :: iface
     real(kind=fp),   intent(in)               :: uv(2)
@@ -214,6 +197,11 @@ contains
     ifacetmp = iface
     duvtmp = duv
     dxyztmp = dxyz
+
+    IF ( DEBUG ) THEN
+       PRINT *,'DXYZTMP  =',dxyztmp
+       PRINT *,'DUVTMP   =',duvtmp
+    END IF
 
     allocate(uvpoly(1)%mat(2,2))
 
@@ -257,6 +245,13 @@ contains
              if ( ninter > 0 ) then ! <-----------------------------------------------------+  !  !  !
                 ! pick closest point to temporary uv point                                  !  !  !  !
                 iinter = maxloc(lambda(1,1:ninter), 1)                                      !  !  !  !
+                IF ( DEBUG ) THEN
+                   PRINT *,'IT       =',IT
+                   PRINT *,'XYZ      =',xyztmp
+                   PRINT *,'UV       =',uvtmp
+                   PRINT *,'IFACE    =',ifacetmp
+                   PRINT *,'LAMBDA   =',LAMBDA(:,IINTER)
+                END IF
                 if ( it > 0 .and. lambda(1,iinter) < EPSuv ) exit brep_wires                !  !  !  !
                 changeface = .true.                                                         !  !  !  !
                 ! new supporting brep face                                                  !  !  !  !
@@ -270,6 +265,11 @@ contains
                 uvtmp = (1._fp - w) * polyline%uv(1:2,ihedg(2),i1) + &                      !  !  !  !
                      w * polyline%uv(1:2,ihedg(2),i2)                                       !  !  !  !
                 ! update xyz displacement                                                   !  !  !  !
+                IF ( DEBUG ) THEN
+                   PRINT *,'XYZTMP   =',xyztmp
+                   PRINT *,'UVTMP    =',uvtmp
+                   PRINT *,'IFACETMP =',ifacetmp
+                END IF
                 dxyztmp = dxyztmp - xyztmp                                                  !  !  !  !
                 ! update uv displacement                                                    !  !  !  !
                 do ivar = 1,2 ! <-----------------------+                                   !  !  !  !
@@ -279,11 +279,16 @@ contains
                         uvtmp, &                        !                                   !  !  !  !
                         ivar )                          !                                   !  !  !  !
                 end do ! <------------------------------+                                   !  !  !  !
+                IF ( DEBUG ) CALL PRINT_MAT(TRANSPOSE(jac))
                 call solve_NxN( &                                                           !  !  !  !
                      duvtmp, &                                                              !  !  !  !
                      matmul(transpose(jac), jac), &                                         !  !  !  !
                      matmul(transpose(jac), dxyztmp), &                                     !  !  !  !
                      singular )                                                             !  !  !  !
+                IF ( DEBUG ) THEN
+                   PRINT *,'DXYZTMP  =',dxyztmp
+                   PRINT *,'DUVTMP   =',duvtmp
+                END IF
                 !                                                                           !  !  !  !
                 exit brep_wires                                                             !  !  !  !
              end if ! <---------------------------------------------------------------------+  !  !  !
@@ -299,6 +304,7 @@ contains
        it = it + 1                                                                                   !
     end do outer_loop ! <----------------------------------------------------------------------------+
 
+    uvtmp = uvtmp + duvtmp
     deallocate(uvpoly(1)%mat)
 
   end subroutine projection_hyperface
