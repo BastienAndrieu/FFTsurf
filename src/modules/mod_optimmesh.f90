@@ -62,7 +62,7 @@ contains
     
     lowerb(:) = -2._fp
     upperb(:) = 2._fp
-
+    
     do ipass = 1,passmax
        PRINT *,'OPTIM PASS',IPASS,'/',PASSMAX
        ! compute target edge lengths at vertices
@@ -144,6 +144,7 @@ contains
              idsnew(ivert) = mesh%ids(ivert)
              typnew(ivert) = 2
              uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
+             uvnew(:,2,ivert) = 0._fp
              ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
              iface = mesh%ids(ivert)   ! brep face index
              !

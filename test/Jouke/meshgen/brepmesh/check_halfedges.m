@@ -5,10 +5,53 @@ xyz = importdata('xyz.dat');
 v2h = importdata('mv2h.dat');
 twin = importdata('mtwin.dat');
 
+
+
+figure('units','normalized','position',[.15 .15 .7 .7]);
+hold on
+
+trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
+    'facecolor', 'w', 'specularstrength', 0, 'edgecolor', 'k');
+
+% l = find(min(twin,[],2) < 1);
+% l = find(v2h < 1);
+% plot3(xyz(l,1), xyz(l,2), xyz(l,3), 'r.');
+l = [];
+for i = 1:size(twin,1)
+    b = sum(xyz(tri(i,:),:),1) / 3.0;
+    for j = 1:3
+        if twin(i,2*j) < 1
+            l = [l; [j,i]];
+            e = tri(i,[j, 1+mod(j,3)])
+            a = xyz(e(1),:);
+            v = xyz(e(2),:) - a;
+            m = a + 0.5*v;
+            a = a + 0.05 * (b - m) + 0.05 * v;
+            v = 0.9*v;
+            quiver3(a(1), a(2), a(3), v(1), v(2), v(3), 0, 'r', 'maxheadsize', 1);
+        end
+    end
+end
+l
+
+
+axis image vis3d
+view(3)
+camproj('persp');
+if 1
+    [azl,ell] = deal( 120, 60 );
+    [xl,yl,zl] = sph2cart( pi()*azl/180, pi()*ell/180, 10 );
+    light( 'style', 'infinite', 'position', [xl,yl,zl] );
+    light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
+end
+
+return
+
 nt = size(tri,1);
 nv = size(xyz,1);
 
-j = randi(nv);
+% j = randi(nv);
+j = l(randi(length(l)));
 
 h = v2h(j,:);
 kv = [];

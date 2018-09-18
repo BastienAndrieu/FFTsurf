@@ -19,6 +19,21 @@ for i = 1:2
     instant(i).vxyz = verts(:,1:3);
     instant(i).v2he = round(verts(:,4:5));
     
+    instant(i).v2f = {};
+    for j = 1:instant(i).nv
+        instant(i).v2f{j} = [];
+        ihedg = instant(i).v2he(j,:);
+        ih = 2*(ihedg(1) - 1) + ihedg(2);
+        iface = instant(i).edges(ih,1);
+        while 1
+            instant(i).v2f{j} = [instant(i).v2f{j}, iface];
+            ihedg = instant(i).edges(ih,3:4); % previous
+            ih = 2*(ihedg(1) - 1) + 1 + mod(ihedg(2),2); % twin
+            iface = instant(i).edges(ih,1);
+            if ( iface < 1 || iface == instant(i).v2f{j}(1) ); break; end
+        end
+    end
+    
     instant(i).lfeat_edge = importdata([folders{i},'/feat_edge.dat'])';
     feat_vert = importdata([folders{i},'/feat_vert.dat']);
     instant(i).lfeat_vert = find(feat_vert(:,1) == 1)';
@@ -124,10 +139,22 @@ for i = 1:2
             instant(i).vxyz(instant(i).lfeat_vert,3), 'k.', 'markersize', 10 );
     end
     
-%     axis image vis3d
-axis([-0.1, 1.25, 0, 0.5, -0.5, 0.5])
-daspect([1,1,1])
-    axis vis3d
+    
+    if 1 % label vertices
+        for j = 1:instant(i).nv
+            text( ...
+                instant(i).vxyz(j,1), ...
+                instant(i).vxyz(j,2), ...
+                instant(i).vxyz(j,3), ...
+                num2str(j) );
+        end
+    end
+    
+    
+    axis image vis3d
+% axis([-0.1, 1.25, 0, 0.5, -0.5, 0.5])
+% daspect([1,1,1])
+%     axis vis3d
     view(3)
     camproj('persp');
     
@@ -168,7 +195,49 @@ if instant(1).nf == instant(2).nf
     f_old2new = 1:instant(1).nf;
 else
     f_old2new = zeros(1,instant(1).nf);
+    f_old2new(1:2) = 1:2;
+    for k = 1:5
+        for i = [1,2,6]
+            f_old2new(2+(k-1)*6+i) = 2 + (k-1)*7 + i;
+            if i == 6
+                f_old2new(2+(k-1)*6+i) = f_old2new(2+(k-1)*6+i) + 1;
+            end
+        end
+    end
 end
+
+
+v_old2new = zeros(1,instant(1).nv);
+for i = 1:instant(1).nv
+    v2fi = f_old2new(instant(1).v2f{i});
+    for j = 1:instant(2).nv
+        if v_old2new(i) > 0; break; end
+        
+        v2fj = instant(2).v2f{j};
+        if length(v2fi) ~= length(v2fj); continue; end
+        for k = 1:length(v2fi)
+            if v2fi(k) == v2fj(1)
+                v2fi = v2fi([k:length(v2fi),1:k-1]);
+                for l = 2:length(v2fi)
+                   if v2fi(l) ~= v2fj(l); break; end 
+                end
+                if v2fi(l) == v2fj(l)
+                    v_old2new(i) = j;
+                end
+                break
+            end
+            if v_old2new(i) > 0; break; end
+        end
+    end
+    if v_old2new(i) > 0
+        fprintf('%d -> %d\n',i,v_old2new(i));
+    end
+end
+
+
+% v_old2new
+
+
 
 
 hf_old2new = zeros(1,instant(1).nhf);

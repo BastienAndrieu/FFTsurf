@@ -38,27 +38,81 @@ contains
     type(type_surface_mesh), intent(inout) :: mesh
     integer, allocatable                   :: h(:,:)
     integer                                :: pairv(2)
-    integer                                :: ifa, ied, ih
+    integer                                :: ifa, ied, ih, jh, nh
 
     allocate(mesh%twin(2,3,mesh%nt))
     mesh%twin(:,:,:) = 0
-    
-    allocate(h(2,mesh%nv*(mesh%nv - 1) / 2))
-    h(:,:) = 0
-    do ifa = 1,mesh%nt
-       do ied = 1,3
-          pairv = mesh%tri([ied, 1+mod(ied,3)],ifa)
-          ih = hash_integer_pair(pairv)
-
-          if ( h(1,ih) > 0 ) then
-             ! collision -> we found the twin
-             mesh%twin(1:2,ied,ifa) = h(1:2,ih)
-             mesh%twin(1:2,h(1,ih),h(2,ih)) = [ied,ifa]
-          else
-             h(1:2,ih) = [ied,ifa]
-          end if
+        
+    IF ( mesh%nv > 30000 ) THEN
+       allocate(h(3,3*mesh%nt))
+       h(:,:) = 0
+       nh = 0
+       do ifa = 1,mesh%nt
+          edges : do ied = 1,3
+             pairv = mesh%tri([ied, 1+mod(ied,3)],ifa)
+             ih = hash_integer_pair(pairv)
+             if ( .true. ) then!ih - h(1,1) < h(1,max(nh,1)) - ih ) then
+                ! closer from the head
+                do jh = 1,nh
+                   if ( h(1,jh) == ih ) then
+                      ! collision
+                      mesh%twin(1:2,ied,ifa) = h(2:3,jh)
+                      mesh%twin(1:2,h(2,jh),h(3,jh)) = [ied,ifa]
+                      nh = nh - 1
+                      h(:,jh:nh) = h(:,jh+1:nh+1)
+                      h(:,nh+1) = 0
+                      cycle edges
+                   elseif ( h(1,jh) > ih ) then
+                      ! new tmp halfedge
+                      nh = nh + 1
+                      h(:,jh+1:nh+1) = h(:,jh:nh)
+                      h(:,jh) = [ih,ied,ifa]
+                      cycle edges
+                   end if
+                end do
+             else
+                ! closer from the tail
+                do jh = nh,1,-1
+                   if ( h(1,jh) == ih ) then
+                      ! collision
+                      mesh%twin(1:2,ied,ifa) = h(2:3,jh)
+                      mesh%twin(1:2,h(2,jh),h(3,jh)) = [ied,ifa]
+                      nh = nh - 1
+                      h(:,jh:nh) = h(:,jh+1:nh+1)
+                      h(:,nh+1) = 0
+                      cycle edges
+                   elseif ( h(1,jh) < ih ) then
+                      ! new tmp halfedge
+                      nh = nh + 1
+                      h(:,jh+1:nh+1) = h(:,jh:nh)
+                      h(:,jh) = [ih,ied,ifa]
+                      cycle edges
+                   end if
+                end do
+             end if
+             nh = nh + 1
+             h(:,nh) = [ih,ied,ifa]
+          end do edges
        end do
-    end do
+    ELSE       
+       nh = mesh%nv * (mesh%nv - 1) / 2
+       allocate(h(2,nh))
+       h(:,:) = 0
+       do ifa = 1,mesh%nt
+          do ied = 1,3
+             pairv = mesh%tri([ied, 1+mod(ied,3)],ifa)
+             ih = hash_integer_pair(pairv)
+
+             if ( h(1,ih) > 0 ) then
+                ! collision -> we found the twin
+                mesh%twin(1:2,ied,ifa) = h(1:2,ih)
+                mesh%twin(1:2,h(1,ih),h(2,ih)) = [ied,ifa]
+             else
+                h(1:2,ih) = [ied,ifa]
+             end if
+          end do
+       end do
+    END IF
     deallocate(h)
 
     ! vertex -> outgoing half-edge incidences
@@ -117,7 +171,7 @@ contains
     write (fid,*) 'VARIABLES = "X" "Y" "Z"'
 
     write (fid,*) 'ZONE T="' // zonename // '"'
-    write (fid,'(A2,I5,A3,I5)') 'N=',mesh%nv,' E=',mesh%nt
+    write (fid,'(A2,I0,A3,I0)') 'N=',mesh%nv,' E=',mesh%nt
     write (fid,*) 'ZONETYPE=FETriangle'
     write (fid,*) 'DATAPACKING=BLOCK'
 

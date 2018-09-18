@@ -339,10 +339,10 @@ program jouke
   
   
   IF ( .TRUE. ) THEN
-     !call write_tecplot_mesh( &
-     !     mesh, &
-     !     'Jouke/meshgen/brepmesh/brepmesh_optim_00.dat', &
-     !     'pass_00' )
+     call write_tecplot_mesh( &
+          mesh, &
+          'Jouke/meshgen/brepmesh/brepmesh_optim_00.dat', &
+          'pass_00' )
      call write_obj_mesh( &
           mesh, &
           'Jouke/meshgen/brepmesh/brepmesh_optim_00.obj' )
@@ -413,7 +413,6 @@ program jouke
                    xyzverif(:,j), &
                    brep%faces(iface)%surface, &
                    mesh%uv(:,j,i) )
-              IF ( I == 2045 ) PRINT *,'IFACE =',IFACE, norm2(mesh%xyz(:,i) - xyzverif(:,j))
            end do
            IF ( max(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) > 1.D-13 ) THEN
               PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
@@ -863,7 +862,6 @@ contains
              if ( ihedg(1) == ifirstedge ) then ! <------+
                 ! the wire is complete                   !
                 write (fedg,*) npf, ifirstpoint          !
-                PRINT *,
                 exit                                     !
              else ! -------------------------------------+
                 write (fedg,*) npf, npf+1                !
@@ -1148,7 +1146,7 @@ contains
     write (fid,*) 'VARIABLES = "X" "Y" "Z" "IFACE"'
 
     write (fid,*) 'ZONE T="' // zonename // '"'
-    write (fid,'(A2,I5,A3,I5)') 'N=',mesh%nv,' E=',mesh%nt
+    write (fid,'(A2,I0,A3,I0)') 'N=',mesh%nv,' E=',mesh%nt
     write (fid,*) 'ZONETYPE=FETriangle'
     write (fid,*) 'DATAPACKING=BLOCK'
 
