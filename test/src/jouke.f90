@@ -336,6 +336,49 @@ program jouke
         end select
      end do
   END IF
+
+
+  ! CONTRACT SMALL EDGES
+  IF ( .false. ) THEN
+     STOP
+  ELSE
+     call contract_small_edges( &
+          brep, &
+          hyperedges(1:nhe), &
+          nhe, &
+          mesh, &
+          PARAM_hmin )
+     PRINT *,'(RE)MAKE HALFEDGES...'
+     deallocate(mesh%v2h, mesh%twin)
+     call make_halfedges( &
+          mesh )
+     PRINT *,'...OK'
+  END IF
+
+  call write_inria_mesh( &
+       mesh, &
+       'Jouke/meshgen/brepmesh/brepmesh_ec.mesh' )
+
+  call write_mesh_files( &
+       mesh, &
+       'Jouke/meshgen/brepmesh/tri_ec.dat', &
+       'Jouke/meshgen/brepmesh/xyz_ec.dat', &
+       'Jouke/meshgen/brepmesh/uv_ec.dat', &
+       'Jouke/meshgen/brepmesh/idstyp_ec.dat', &
+       'Jouke/meshgen/brepmesh/paths_ec.dat' )
+  
+  open(unit=13, file='Jouke/meshgen/brepmesh/mv2h_ec.dat', action='write')
+  do i = 1,mesh%nv
+     write (13,*) mesh%v2h(:,i)
+  end do
+  close(13)
+  open(unit=13, file='Jouke/meshgen/brepmesh/mtwin_ec.dat', action='write')
+  do i = 1,mesh%nt
+     write (13,*) mesh%twin(:,:,i)
+  end do
+  close(13)
+
+  !STOP
   
   
   IF ( .TRUE. ) THEN
@@ -343,16 +386,16 @@ program jouke
           mesh, &
           'Jouke/meshgen/brepmesh/brepmesh_optim_00.dat', &
           'pass_00' )
-     call write_obj_mesh( &
-          mesh, &
-          'Jouke/meshgen/brepmesh/brepmesh_optim_00.obj' )
+     !call write_obj_mesh( &
+     !     mesh, &
+     !     'Jouke/meshgen/brepmesh/brepmesh_optim_00.obj' )
      call optim_jiao( &
           brep, &
           hyperedges(1:nhe), &
           nhe, &
           mesh, &
-          20, &
-          0.5_fp, &
+          40, &
+          0.75_fp, &
           PARAM_hmin, &
           PARAM_hmax )
      call write_inria_mesh( &
@@ -1168,7 +1211,7 @@ contains
     write (fid,*) ''
 
     do j = 1,mesh%nt
-       write (fid,'(3I7)') mesh%tri(:,j)
+       write (fid,'(I0,1x,I0,1x,I0)') mesh%tri(:,j)
     end do
 
     close(fid)

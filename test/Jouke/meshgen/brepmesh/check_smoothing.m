@@ -8,15 +8,14 @@ idstyp = importdata('idstyp.dat');
 
 xyzs = importdata('xyz_smooth.dat');
 
+tri = importdata('tri_ec.dat');
 xyz = importdata('xyz_smooth.dat');
+uv = importdata('uv_smooth.dat');
 idstyp = importdata('idstyp_smooth.dat');
 
 % vertex displacement
 dxyz = importdata('debug_dxyz.dat');
 
-dxyz(491,:) = [
-0.0000000000000000        1.7193342914554384E-003   8.4853348570061596E-004
-];
 
 figure('units','normalized','position',[.15 .15 .7 .7]);
 hold on
@@ -31,25 +30,27 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % l = 4243;
 % l = 19408;
 % l = 13887;%2045;
-l = 2045;
+% l = 25353;
+% l = 1996;%[17686, 20997, 24309, 27618];
+% l = [52 64 409 414 499 17221 17686 18702 19174 20997 23844 25327 27153 27365 27618 28326 28628 30461 30926 31936];
+l = find(max(abs(uv),[],2) > 1.0 + 1e-12)';
+
 plot3( xyz(l,1), xyz(l,2), xyz(l,3), 'r*' );
-quiver3(xyz(l,1), xyz(l,2), xyz(l,3), ...
-    dxyz(l,1), dxyz(l,2), dxyz(l,3), ...
-    0, 'color', 'r', 'maxheadsize', 1);
+% quiver3(xyz(l,1), xyz(l,2), xyz(l,3), ...
+%     dxyz(l,1), dxyz(l,2), dxyz(l,3), ...
+%     0, 'color', 'r', 'maxheadsize', 1);
 % k = 4261;
 % k = [19409, 4261];
 % k = [1936, 4261];
-k = [22723,22724,22725,22726];
+k = [];
 % plot3( xyz(k,1), xyz(k,2), xyz(k,3), 'g*' ); 
 
 
-aabb = xyz(l,[1,1,2,2,3,3]) + 3e-2 * repmat([-1,1],1,3);
+% aabb = xyz(l,[1,1,2,2,3,3]) + 3e-2 * repmat([-1,1],1,3);
 
-
-
-% axis image vis3d
-axis(aabb); daspect([1,1,1]);
-axis vis3d
+axis image vis3d
+% axis(aabb); daspect([1,1,1]);
+% axis vis3d
 view(3)
 camproj('persp');
 if 1
@@ -61,15 +62,15 @@ end
 
 
 idstyp(l,:)
-idstyp(k,:)
+% idstyp(k,:)
 
 
-norm( xyz(l,:) - xyzs(l,:) )
+% norm( xyz(l,:) - xyzs(l,:) )
 
 
 % dxyz(l,:) * ( xyz(k,:) - repmat(xyz(l,:), length(k), 1) )'
 
-uv(l,1:2)
+% uv(l,1:2)
 
 return
 
@@ -80,9 +81,9 @@ trisurf(tri, xyzs(:,1), xyzs(:,2), xyzs(:,3), ...
     'facecolor', 'w', 'specularstrength', 0, 'edgecolor', 'k');
 
 plot3( xyzs(l,1), xyzs(l,2), xyzs(l,3), 'r*' );
-% axis image vis3d
-axis(aabb); daspect([1,1,1]);
-axis vis3d
+axis image vis3d
+% axis(aabb); daspect([1,1,1]);
+% axis vis3d
 view(3)
 camproj('persp');
 if 1

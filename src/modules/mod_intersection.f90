@@ -663,11 +663,11 @@ subroutine simultaneous_point_inversions( &
 
   IF ( DEBUG ) PRINT *,'|X1 - X2| , |DUV1| , |DUV2| , eps*cond1 , eps*cond2'
   do it = 1,itmax ! <-------------------------------------------------------+
-     IF ( DEBUG ) PRINT *,'IT. #',IT
-     IF ( DEBUG ) THEN
-        PRINT *,'UV='
-        CALL PRINT_MAT(transpose(UV))
-     END IF
+     !IF ( DEBUG ) PRINT *,'IT. #',IT
+     !IF ( DEBUG ) THEN
+     !   PRINT *,'UV='
+     !   CALL PRINT_MAT(transpose(UV))
+     !END IF
      do isurf = 1,2 ! <--------------+                                      !
         call eval( &                 !                                      !
              xyzs(:,isurf), &        !                                      !

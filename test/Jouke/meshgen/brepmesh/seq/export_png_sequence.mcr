@@ -5,7 +5,7 @@ $!EXPORTSETUP SUPERSAMPLEFACTOR = 3
 $!EXPORTSETUP EXPORTFORMAT = PNG
 $!EXPORTSETUP IMAGEWIDTH = 1200
 
-$!Loop 22 
+$!Loop 42 
   $!ACTIVEFIELDMAPS = [|loop|]
   $!EXPORTSETUP EXPORTFNAME = '/d/bandrieu/GitHub/FFTsurf/test/Jouke/meshgen/brepmesh/seq/im_|loop|.png'
   $!EXPORT 

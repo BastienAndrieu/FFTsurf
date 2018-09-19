@@ -8,7 +8,7 @@ if len(args) < 2:
 else:
     shading = args[1]
 
-nframes = 22
+nframes = 42
 
 width = 1200
 height = 675

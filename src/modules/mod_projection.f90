@@ -45,6 +45,7 @@ contains
     integer                                   :: jedge, ihedg(2), ifirst, ilast, sens, np, k, stat
     real(kind=fp), dimension(4)               :: lowerb, upperb
 
+    IF ( DEBUG ) PRINT *,'PROJECTION HYPEREDGE'
     upperb(:) = 2._fp
     lowerb = -upperb
     
@@ -187,6 +188,7 @@ contains
     use mod_intersection
     use mod_tolerances
     use mod_geometry
+    use mod_polynomial
     implicit none
     logical, intent(in) :: debug
     type(type_brep), intent(in)               :: brep
@@ -209,7 +211,16 @@ contains
     real(kind=fp)                             :: det, w, jac(3,2)
     logical                                   :: changeface, singular
     integer                                   :: iwire, ihedg(2), istart, it, ivar, iinter
+    INTEGER :: I
+    real(kind=fp)                             :: uvtng(2,2), duv_ds(2,2,2), dxyz_ds(3,2)
+    real(kind=fp), dimension(4)               :: lowerb, upperb
+    integer                                   :: stat
 
+    upperb(:) = 1._fp + EPSuv
+    lowerb = -upperb
+    
+    IF ( DEBUG ) PRINT *,'PROJECTION HYPERFACE'
+    
     xyztmp = xyz
     uvtmp = uv
     ifacetmp = iface
@@ -225,7 +236,7 @@ contains
 
     it = 0
     outer_loop : do ! <------------------------------------------------------------------------------+
-       IF ( DEBUG ) PRINT *,'FA'
+       IF ( DEBUG ) PRINT *,'FA',ifacetmp
        IF ( DEBUG ) PAUSE
        changeface = .false.                                                                          !
        uvpoly(1)%mat(:,1) = uvtmp                                                                    !
@@ -242,7 +253,7 @@ contains
           istart = get_orig(brep, ihedg)                                                          !  !
           ! cycle the wire's halfedges                                                            !  !
           brep_halfedges : do ! <--------------------------------------------------------------+  !  !
-             IF ( DEBUG ) PRINT *,'HE'
+             IF ( DEBUG ) PRINT *,'HE',ihedg
              ! get current halfedge's uv polyline                                              !  !  !
              i1 = brep%edges(ihedg(1))%curve%isplit(2,brep%edges(ihedg(1))%isplit)             !  !  !
              i2 = brep%edges(ihedg(1))%curve%isplit(2,brep%edges(ihedg(1))%isplit + 1)         !  !  !
@@ -261,6 +272,34 @@ contains
                   ninter, &                                                                    !  !  !
                   isegments, &                                                                 !  !  !
                   lambda )                                                                     !  !  !
+             IF ( DEBUG ) THEN
+                OPEN(UNIT=13, FILE='polylines/xy1.dat', ACTION='WRITE')
+                WRITE (13,*) 2
+                DO I = 1,2
+                   WRITE (13,*) UVPOLY(1)%MAT(:,I)
+                END DO
+                CLOSE(13)
+
+                OPEN(UNIT=13, FILE='polylines/xy2.dat', ACTION='WRITE')
+                WRITE (13,*) NP
+                DO I = 1,NP
+                   WRITE (13,*) UVPOLY(2)%MAT(:,I)
+                END DO
+                CLOSE(13)
+
+                OPEN(UNIT=13, FILE='polylines/result.dat', ACTION='WRITE')
+                WRITE (13,*) NINTER
+                DO I = 1,NINTER
+                   WRITE (13,*) ISEGMENTS(:,I)
+                END DO
+                DO I = 1,NINTER
+                   WRITE (13,*) LAMBDA(:,I)
+                END DO
+                CLOSE(13)
+
+                PRINT *,'--> CHECK POLYINES'
+                PAUSE
+             END IF
              !                                                                                 !  !  !
              if ( ninter > 0 ) then ! <-----------------------------------------------------+  !  !  !
                 ! pick closest point to target uv point                                     !  !  !  !
@@ -305,8 +344,44 @@ contains
                    w = lambda(2,iinter)                                                        !  !  !  !
                    dxyztmp = dxyztmp + xyztmp                                                  !  !  !  !
                    xyztmp = (1._fp - w) * polyline%xyz(1:3,i1) + w * polyline%xyz(1:3,i2)      !  !  !  !
-                   uvtmp = (1._fp - w) * polyline%uv(1:2,ihedg(2),i1) + &                      !  !  !  !
-                        w * polyline%uv(1:2,ihedg(2),i2)                                       !  !  !  !
+                   !uvtmp = (1._fp - w) * polyline%uv(1:2,ihedg(2),i1) + &                      !  !  !  !
+                   !     w * polyline%uv(1:2,ihedg(2),i2)                                       !  !  !  !
+
+                   ! relax on tangential intersection
+                   uvtng = (1._fp - w) * polyline%uv(1:2,1:2,i1) + &                           !  !  !  !
+                        w * polyline%uv(1:2,1:2,i2)
+                   call simultaneous_point_inversions( &
+                        brep%edges(ihedg(1))%curve%surf, &
+                        lowerb, &
+                        upperb, &
+                        stat, &
+                        uvtng, &
+                        xyztmp )
+                   IF ( STAT > 0 ) THEN
+                      PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
+                      CALL WRITE_POLYNOMIAL(brep%edges(ihedg(1))%curve%surf(1)%ptr%x, 'Jouke/debug_relaxtng_surf1.cheb')
+                      CALL WRITE_POLYNOMIAL(brep%edges(ihedg(1))%curve%surf(2)%ptr%x, 'Jouke/debug_relaxtng_surf2.cheb')
+                      PRINT *,'UVTNG =',uvtng
+                      PAUSE 
+                   END IF
+                   uvtmp = uvtng(1:2,ihedg(2))
+                   IF ( maxval(abs(uvtmp)) < 1._fp - EPSuv ) THEN
+                      call diffgeom_intersection( &
+                           brep%edges(ihedg(1))%curve%surf, &
+                           uvtng, &
+                           duv_ds, &
+                           dxyz_ds, &
+                           stat )
+                      IF ( STAT > 1 ) THEN
+                         PRINT *,'STAT DIFFGEOM_INTERSECTION =',STAT
+                         CALL WRITE_POLYNOMIAL(brep%edges(ihedg(1))%curve%surf(1)%ptr%x, 'Jouke/debug_diffgeominter_surf1.cheb')
+                         CALL WRITE_POLYNOMIAL(brep%edges(ihedg(1))%curve%surf(2)%ptr%x, 'Jouke/debug_diffgeominter_surf2.cheb')
+                         PRINT *,'UV =',UVTNG
+                         STOP
+                      END IF
+                      PRINT *,'DUV_DS =',DUV_DS(:,1,ihedg(2))
+                   END IF
+                   
                    IF ( DEBUG ) THEN
                       PRINT *,'XYZTMP   =',xyztmp
                       PRINT *,'UVTMP    =',uvtmp
@@ -345,7 +420,10 @@ contains
           !                                                                                       !  !
        end do brep_wires ! <----------------------------------------------------------------------+  !
        !                                                                                             !
-       if ( .not.changeface ) exit outer_loop                                                        !
+       if ( .not.changeface ) then
+          IF ( DEBUG ) PRINT *,'CONVERGED'
+          exit outer_loop                                                                            !
+       end if
        it = it + 1                                                                                   !
        IF ( IT > BREP%NF ) THEN
           PRINT *,'*** FAILED TO PROJECT ON HYPERFACE ***'

@@ -5,6 +5,10 @@ xyz = importdata('xyz.dat');
 v2h = importdata('mv2h.dat');
 twin = importdata('mtwin.dat');
 
+% tri = importdata('tri_ec.dat');
+% xyz = importdata('xyz_ec.dat');
+% v2h = importdata('mv2h_ec.dat');
+% twin = importdata('mtwin_ec.dat');
 
 
 figure('units','normalized','position',[.15 .15 .7 .7]);
@@ -45,13 +49,13 @@ if 1
     light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] );
 end
 
-return
+% return
 
 nt = size(tri,1);
 nv = size(xyz,1);
 
-% j = randi(nv);
-j = l(randi(length(l)));
+j = randi(nv);
+% j = l(randi(length(l)));
 
 h = v2h(j,:);
 kv = [];

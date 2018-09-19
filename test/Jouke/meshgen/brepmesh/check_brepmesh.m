@@ -1,8 +1,16 @@
 clc; clear; close all
 
-tri = importdata('tri.dat');
-xyz = importdata('xyz.dat');
-idstyp = importdata('idstyp.dat');
+% tri = importdata('tri.dat');
+% xyz = importdata('xyz.dat');
+% idstyp = importdata('idstyp.dat');
+
+% tri = importdata('tri_ec.dat');
+% xyz = importdata('xyz_ec.dat');
+% idstyp = importdata('idstyp_ec.dat');
+
+tri = importdata('tri_ec.dat');
+xyz = importdata('xyz_smooth.dat');
+idstyp = importdata('idstyp_smooth.dat');
 
 ener = importdata('ener.dat');
 grad = importdata('grad.dat')';
@@ -25,7 +33,8 @@ for i = 1:nv
     end
 end
 
-fid = fopen('paths.dat','r');
+% fid = fopen('paths.dat','r');
+fid = fopen('paths_ec.dat','r');
 npths = str2num(fgetl(fid));
 for i = 1:npths
     pth(i).hyperedge = str2num(fgetl(fid));
@@ -63,7 +72,7 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % l = 1936:2044;%1:65;
 % plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', 'g', 'markersize', 6);
 
-if 1
+if 0
 %     for iface = 1:nfaces
 %         l = find(idstyp(:,1) == iface & idstyp(:,2) == 2);
 %         plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', cl(iface,:), 'markersize', 6);
@@ -76,13 +85,12 @@ if 1
     plot3(xyz(l,1), xyz(l,2), xyz(l,3), 'o', 'color', 'k', 'markersize', 6);
 end
 
-for i = 1%:npths
+for i = 1:npths
     l = pth(i).verts;
-    plot3(xyz(l,1), xyz(l,2), xyz(l,3), 'o', 'color', clp(i,:), 'linewidth', 2);
-%     plot3(xyz(l,1), xyz(l,2), xyz(l,3), '-', 'color', clp(i,:), 'linewidth', 2);
-    plot3(xyz(l(1),1), xyz(l(1),2), xyz(l(1),3), '*', 'color', 'r', 'markersize', 10);
-        plot3(xyz(l(2),1), xyz(l(2),2), xyz(l(2),3), '*', 'color', 'y', 'markersize', 10);
-
+%     plot3(xyz(l,1), xyz(l,2), xyz(l,3), 'o', 'color', clp(i,:), 'linewidth', 2);
+    plot3(xyz(l,1), xyz(l,2), xyz(l,3), 'o-', 'color', clp(i,:), 'linewidth', 2);
+%     plot3(xyz(l(1),1), xyz(l(1),2), xyz(l(1),3), '*', 'color', 'r', 'markersize', 10);
+%         plot3(xyz(l(2),1), xyz(l(2),2), xyz(l(2),3), '*', 'color', 'y', 'markersize', 10);
 %     plot3(xyz(l(end),1), xyz(l(end),2), xyz(l(end),3), 'o', 'color', clp(i,:), 'markersize', 8);
 end
 

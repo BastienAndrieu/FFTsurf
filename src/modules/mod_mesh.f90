@@ -188,7 +188,7 @@ contains
     write (fid,*) ''
 
     do j = 1,mesh%nt
-       write (fid,'(3I7)') mesh%tri(:,j)
+       write (fid,'(I0,1x,I0,1x,I0)') mesh%tri(:,j)
     end do
 
     close(fid)
@@ -197,7 +197,53 @@ contains
 
 
 
-  
+  subroutine write_tecplot_mesh_solv( &
+       mesh, &
+       filename, &
+       zonename, &
+       fv )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    character(*),            intent(in) :: zonename
+    real(kind=fp),           intent(in) :: fv(mesh%nv)
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+
+    write (fid,*) 'VARIABLES = "X" "Y" "Z" "CURVATURE RADIUS"'
+
+    write (fid,*) 'ZONE T="' // zonename // '"'
+    write (fid,'(A2,I0,A3,I0)') 'N=',mesh%nv,' E=',mesh%nt
+    write (fid,*) 'ZONETYPE=FETriangle'
+    write (fid,*) 'DATAPACKING=BLOCK'
+
+    write (fid,*) 'VARLOCATION = ([1-4]=NODAL)'
+
+    do i = 1,3
+       write (fid,*) ''
+       do j = 1,mesh%nv
+          write (fid,'(ES15.7)') mesh%xyz(i,j)
+       end do
+    end do
+
+    write (fid,*) ''
+
+    do j = 1,mesh%nv
+       write (fid,'(ES15.7)') fv(j)
+    end do
+
+    write (fid,*) ''
+
+    do j = 1,mesh%nt
+       write (fid,'(I0,1x,I0,1x,I0)') mesh%tri(:,j)
+    end do
+
+    close(fid)
+    
+  end subroutine write_tecplot_mesh_solv
 
   
 

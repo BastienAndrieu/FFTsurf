@@ -82,3 +82,8 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/jouke.out test/obj/
 #echo "...graph.out"
 #gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/graph.f90 -o test/obj/graph.o
 #gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/graph.out test/obj/graph.o obj/mod_util.o obj/mod_math.o obj/mod_graph.o
+
+
+echo "...optimmesh.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/optimmesh.f90 -o test/obj/optimmesh.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/optimmesh.out test/obj/optimmesh.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o -Lsrc/dfftpack -ldfftpack
