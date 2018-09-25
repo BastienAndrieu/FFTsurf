@@ -738,12 +738,21 @@ contains
 
   function overlap_intervals( &
        ab, &
-       cd )
+       cd, &
+       tolerance )
     implicit none
     real(kind=fp), dimension(2), intent(in) :: ab, cd
+    real(kind=fp),     optional, intent(in) :: tolerance
     logical                                 :: overlap_intervals
+    real(kind=fp)                           :: tol
 
-    overlap_intervals = ( min(maxval(ab), maxval(cd)) >= max(minval(ab), minval(cd)) )
+    if ( present(tolerance) ) then
+       tol = tolerance
+    else
+       tol = EPSfp
+    end if
+
+    overlap_intervals = ( min(maxval(ab), maxval(cd)) >= max(minval(ab), minval(cd)) - tolerance )
     
   end function overlap_intervals
 

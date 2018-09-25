@@ -17,8 +17,71 @@ module mod_hypergraph
      integer              :: verts(2) = 0
      integer              :: hyperfaces(2) = 0
   end type type_hyperedge
-  
+
+  type type_hypergraph
+     integer                           :: nhe = 0, nhf = 0
+     type(type_hyperface), allocatable :: hyperfaces(:)
+     type(type_hyperedge), allocatable :: hyperedges(:)     
+  end type type_hypergraph
+
 contains
+
+
+  subroutine make_hypergraph( &
+       brep, &
+       hypergraph, &
+       feat_edge, &
+       feat_vert )
+    use mod_types_brep
+    implicit none
+    type(type_brep),       intent(inout) :: brep
+    type(type_hypergraph), intent(inout) :: hypergraph
+    logical, allocatable,  intent(inout) :: feat_edge(:)
+    logical, allocatable,  intent(inout) :: feat_vert(:)
+    integer                              :: valence(brep%nv)
+
+    ! get feature edges
+    if ( allocated(feat_edge) ) then
+       if ( size(feat_edge) < brep%ne ) deallocate(feat_edge)
+    end if
+    if ( .not.allocated(feat_edge) ) allocate(feat_edge(brep%ne))
+    call get_feature_edges( &
+         brep, &
+         feat_edge(1:brep%ne) )
+
+    ! get hyperfaces
+    hypergraph%nhf = 0
+    call get_hyperfaces( &
+         brep, &
+         feat_edge(1:brep%ne), &
+         hypergraph%hyperfaces, &
+         hypergraph%nhf )
+
+    ! get feature vertices
+    if ( allocated(feat_vert) ) then
+       if ( size(feat_vert) < brep%nv ) deallocate(feat_vert)
+    end if
+    if ( .not.allocated(feat_vert) ) allocate(feat_vert(brep%nv))
+    call get_feature_vertices( &
+         brep, &
+         feat_edge(1:brep%ne), &
+         feat_vert(1:brep%nv), &
+         valence )
+
+    ! get hyperedges
+    hypergraph%nhe = 0
+    call get_hyperedges( &
+         brep, &
+         feat_edge(1:brep%ne), &
+         feat_vert(1:brep%nv), &
+         valence, &
+         hypergraph%hyperedges, &
+         hypergraph%nhe )
+
+  end subroutine make_hypergraph
+
+
+  
 
   subroutine get_feature_edges( &
        brep, &

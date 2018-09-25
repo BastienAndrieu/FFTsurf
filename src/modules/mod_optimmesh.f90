@@ -185,7 +185,8 @@ contains
                   dxyz, &
                   idsnew, &
                   uvnew(:,1), &
-                  .true. )
+                  .true., &
+                  stat )
           end if
        end if
     else
@@ -438,7 +439,7 @@ contains
     logical                                :: check_change
     real(kind=fp)                          :: frac_conf_ramp
     CHARACTER(2) :: STRNUM
-    INTEGER :: FID
+    INTEGER :: FID, I, J
 
     CALL GET_FREE_UNIT(FID)
 
@@ -455,7 +456,7 @@ contains
                mesh, &
                hve )
           !hve = min(minval(hve)*hmax/hmin, hve)
-          PRINT *,'MIN(HVE) =', real(minval(hve)), minloc(hve,1)
+          PRINT *,''!MIN(HVE) =', real(minval(hve)), minloc(hve,1)
           hve = hve/minval(hve)
           hve = min(hmax/hmin, hve)
           !hve = min(10._fp, hve)
@@ -593,7 +594,7 @@ contains
 
              if ( check_change ) then
                 !PRINT *,'IVERT =',IVERT
-                call projection_hyperface( &
+                call projection_hyperface2( &
                      brep, &
                      iface, &
                      mesh%uv(:,1,ivert), &
@@ -602,7 +603,14 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp(:,1), &
-                     .false. )!(ivert == 32406) )!
+                     .false., &!(ivert == 19170), &!((ipass > 0) .and. (ivert == 17221)), &!(ivert == 17686)), &
+                     !.false., &!((ipass > 8) .and. (ivert == 17217 .or. ivert == 25320)), &!
+                     stat )
+                if ( stat > 0 ) THEN
+                   PRINT *,'IVERT =',IVERT
+                   PRINT *,'DXYZ =',DXYZ
+                   PAUSE
+                END if
                 uvnew(:,1,ivert) = uvtmp(:,1)
              end if
              !
@@ -649,6 +657,19 @@ contains
           !call write_obj_mesh( &
           !     mesh, &
           !     'Jouke/meshgen/brepmesh/brepmesh_optim_'//strnum//'.obj' )
+
+
+          open( &
+               unit = fid, &
+               file = 'Jouke/meshgen/brepmesh/xyz_optim_'//strnum//'.dat', &
+               action = 'write' )
+          do j = 1,mesh%nv
+             do i = 1,3
+                write (fid, '(e22.15,1x)', advance='no') mesh%xyz(i,j)
+             end do
+             write (fid,*)
+          end do
+          close(fid)
        END IF
 
        !PAUSE

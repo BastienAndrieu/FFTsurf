@@ -6,17 +6,16 @@ addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surfac
 addpath('/stck8/bandrieu/Bureau/CYPRES/Intersections');
 
 cl = colorcet( 'I2', 'N', 2 );
-cl = cl(randperm(size(cl,1)),:);
 cl = CC( cl, 0.0, 0.8, 1.5 );
 
 
 uv = [
-    0.99999999999999689       0.98009925619580018
-    -0.99999999999999689       0.98009925619580018
+    0.58209411780172349      -0.99999999165128495       
+    0.74618943497682766      -0.98518813262897365
     ];
 
 
-
+x = zeros(2,3);
 xyz = zeros(1,3);
 for i = 1:2
     c = readCoeffs2(sprintf('debug_diffgeominter_surf%d.cheb',i));
@@ -30,8 +29,13 @@ for i = 1:2
     set(si, 'facecolor', cl(i,:), 'specularstrength', 0);
     
     xyzi = ICT2unstr(c, uv(i,:));
+    x(i,:) = xyzi;
     xyz = xyz + 0.5 * xyzi;
 end
+
+fprintf('|x1 - x2| = %e\n',norm(x(1,:) - x(2,:)));
+
+
 
 plot3(xyz(1), xyz(2), xyz(3), 'k*');
 
@@ -47,7 +51,8 @@ light( 'style', 'infinite', 'position', [-xl,-yl,-0.5*zl], 'color', 0.7*[1,1,1] 
 [ stat, duv_ds, dxyz_ds ] = diffgeom_intersection_curve( S, uv )
 
 for i = 1:size(dxyz_ds,2)
-    quiver3(xyz(1), xyz(2), xyz(3), dxyz_ds(1,i), dxyz_ds(2,i), dxyz_ds(3,i), ...
-        'k' );
+    quiver3(xyz(1), xyz(2), xyz(3), ...
+        dxyz_ds(1,i), dxyz_ds(2,i), dxyz_ds(3,i), ...
+        0.2, 'k' );
 end
 

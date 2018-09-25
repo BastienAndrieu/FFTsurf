@@ -72,7 +72,7 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % l = 1936:2044;%1:65;
 % plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', 'g', 'markersize', 6);
 
-if 0
+if 1
 %     for iface = 1:nfaces
 %         l = find(idstyp(:,1) == iface & idstyp(:,2) == 2);
 %         plot3(xyz(l,1), xyz(l,2), xyz(l,3), '.', 'color', cl(iface,:), 'markersize', 6);

@@ -26,6 +26,7 @@ subroutine simultaneous_point_inversions( &
   IF ( DEBUG ) THEN
      PRINT *,''
      PRINT *,'SIMULTANEOUS_POINT_INVERSION'
+     PRINT *,'UV =',uv
   END IF
   
   stat = 1

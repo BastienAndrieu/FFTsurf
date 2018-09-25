@@ -7,6 +7,7 @@ subroutine characterize_tangential_intersection_point( &
      dxyz_ds )
   use mod_math
   use mod_diffgeom
+  ! NOT USED ANYMORE
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.172-175 )
   ! Returns stat = 1 : single tangential intersection curve

@@ -61,11 +61,10 @@ contains
     logical                                   :: singular
     integer                                   :: j
     real(kind=fp)                             :: duv_ds(2,2,2), dxyz_ds(3,2)
-    real(kind=fp)                             :: ao(2), h, wtmp, wq, aux(2)
+    real(kind=fp)                             :: ao(2), h, wtmp
     logical                                   :: inside
     integer                                   :: it, iwire, ihedg(2), istart, ivar
     INTEGER :: I
-    real(kind=fp), dimension(2) :: p, q, pu, pq
 
     IF ( DEBUG ) PRINT *,'PROJECTION HYPERFACE'
 
@@ -280,125 +279,42 @@ contains
                       PRINT *,'H/R =',h / NORM2(AO)
                    END IF
                    !
-                   if ( inside ) then
-                      do
-                         aux = uvtmp + duvtmp - polyline%uv(:,sens,i1)
-                         vec = real((-1)**sens, kind=fp) * (polyline%uv(1:2,sens,i2) - polyline%uv(1:2,sens,i1))
-                         IF ( DEBUG ) THEN
-                            PRINT *,'POLYLINE SEGMENT :'
-                            PRINT *,polyline%uv(1:2,sens,i1)
-                            PRINT *,polyline%uv(1:2,sens,i2)
-                            PRINT *,'SENS =',SENS
-                            PRINT *,'DET =',vec(1)*aux(2) - vec(2)*aux(1)
-                         END IF
-                         if ( vec(1)*aux(2) - vec(2)*aux(1) > -EPSmath ) exit
-                         !if ( vec(1)*duvtmp(2) - vec(2)*duvtmp(1) < -EPSmath ) then
-                         ! target point inside circular approximation but outside linear approximation
-                         ! (happens only if the domain is locally convex)
-                         wtmp = dot_product(aux, polyline%uv(:,sens,i2) - polyline%uv(:,sens,i1)) / sum(vec**2)
-                         IF ( DEBUG ) PRINT *,'WTMP =',WTMP
-                         uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
-                         p = uvinter(:,sens)
-                         ! relax to exact intersectino curve
-                         call simultaneous_point_inversions( &
-                              curve%surf, &
-                              lowerb, &
-                              upperb, &
-                              stat, &
+                   if ( inside .and. in_open ) then
+                      ! the polyline intersection is a false-positive
+                      ! refine locally the polyline by adding a new point on the current segment
+                      wtmp = lamb(2,iinter)
+                      IF ( DEBUG ) PRINT *,'WTMP =',WTMP
+                      uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
+                      ! relax to exact intersectino curve
+                      call simultaneous_point_inversions( &
+                           curve%surf, &
+                           lowerb, &
+                           upperb, &
+                           stat, &
+                           uvinter, &
+                           xyzinter )
+                      if ( stat > 0 ) then
+                         ! failed to converge :(
+                         PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
+                         CALL WRITE_POLYNOMIAL(curve%surf(1)%ptr%x, 'Jouke/debug_relaxtng_surf1.cheb')
+                         CALL WRITE_POLYNOMIAL(curve%surf(2)%ptr%x, 'Jouke/debug_relaxtng_surf2.cheb')
+                         PRINT *,'UVinter0 =',(1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
+                         RETURN 
+                      else
+                         ! add polyline point
+                         call insert_polyline_point( &
                               uvinter, &
-                              xyzinter )
-                         if ( stat > 0 ) then
-                            ! failed to converge :(
-                            PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
-                            PRINT *,'UVTMP  =',UVTMP
-                            PRINT *,'DUVTMP =',DUVTMP
-                            PRINT *,'UVPOLY ='
-                            PRINT *,POLYLINE%UV(:,SENS,I1)
-                            PRINT *,POLYLINE%UV(:,SENS,I2)
-                            CALL WRITE_POLYNOMIAL(curve%surf(1)%ptr%x, 'Jouke/debug_relaxtng_surf1.cheb')
-                            CALL WRITE_POLYNOMIAL(curve%surf(2)%ptr%x, 'Jouke/debug_relaxtng_surf2.cheb')
-                            PRINT *,'UVinter0 =',(1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
-                            RETURN 
-                         else
-                            q = uvinter(:,sens)
-                            wq = dot_product(q - polyline%uv(:,sens,i1), &
-                                 polyline%uv(:,sens,i2) - polyline%uv(:,sens,i1)) / sum(vec**2)
-                            ! add polyline point
-                            call insert_polyline_point( &
-                                 uvinter, &
-                                 xyzinter, &
-                                 stat, &
-                                 polyline, &
-                                 i1 )
-                            if ( stat == 0 ) then
-                               IF ( DEBUG ) PRINT *,'NEW POINT INSERTED IN POLYLINE : UV =',uvinter
-                               ! shift downstream polyline split points
-                               where ( curve%isplit(2,:) >= i2 ) curve%isplit(2,:) = curve%isplit(2,:) + 1
-                            end if
-                            !
-                            IF ( DEBUG ) PRINT *,'WQ =',WQ
-                            if ( wq < wtmp ) then
-                               i1 = i1 + 1
-                               i2 = i2 + 1
-                            end if
-                            pq = q - p
-                            pu = uvtmp + duvtmp - p
-                            IF ( DEBUG ) THEN
-                               PRINT *,'U =',UVTMP
-                               PRINT *,'D =',DUVTMP
-                               PRINT *,'P =',P
-                               PRINT *,'Q =',Q
-                               PRINT *,'(PU.PQ)/(PQ.PQ) =',dot_product(pu,pq) / sum(pq**2)
-                               PAUSE
-                            END IF
-                            if ( dot_product(pu,pq) > sum(pq**2) ) then
-                               PRINT *,'U =',UVTMP
-                               PRINT *,'D =',DUVTMP
-                               PRINT *,'P =',P
-                               PRINT *,'Q =',Q
-                               PRINT *,'(PU.PQ)/(PQ.PQ) =',dot_product(pu,pq) / sum(pq**2)
-                               PAUSE
-                               RETURN
-                            end if
+                              xyzinter, &
+                              stat, &
+                              polyline, &
+                              i1 )
+                         if ( stat == 0 ) then
+                            IF ( DEBUG ) PRINT *,'NEW POINT INSERTED IN POLYLINE : UV =',uvinter
+                            ! shift downstream polyline split points
+                            where ( curve%isplit(2,:) >= i2 ) curve%isplit(2,:) = curve%isplit(2,:) + 1
                          end if
-                      end do
+                      end if
                    end if
-                   !if ( inside .and. in_open ) then
-                   !   ! the polyline intersection is a false-positive
-                   !   ! refine locally the polyline by adding a new point on the current segment
-                   !   wtmp = lamb(2,iinter)
-                   !   IF ( DEBUG ) PRINT *,'WTMP =',WTMP
-                   !   uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
-                   !   ! relax to exact intersectino curve
-                   !   call simultaneous_point_inversions( &
-                   !        curve%surf, &
-                   !        lowerb, &
-                   !        upperb, &
-                   !        stat, &
-                   !        uvinter, &
-                   !        xyzinter )
-                   !   if ( stat > 0 ) then
-                   !      ! failed to converge :(
-                   !      PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
-                   !      CALL WRITE_POLYNOMIAL(curve%surf(1)%ptr%x, 'Jouke/debug_relaxtng_surf1.cheb')
-                   !      CALL WRITE_POLYNOMIAL(curve%surf(2)%ptr%x, 'Jouke/debug_relaxtng_surf2.cheb')
-                   !      PRINT *,'UVinter0 =',(1._fp - wtmp)*polyline%uv(:,:,i1) + wtmp*polyline%uv(:,:,i2)
-                   !      RETURN 
-                   !   else
-                   !      ! add polyline point
-                   !      call insert_polyline_point( &
-                   !           uvinter, &
-                   !           xyzinter, &
-                   !           stat, &
-                   !           polyline, &
-                   !           i1 )
-                   !      if ( stat == 0 ) then
-                   !         IF ( DEBUG ) PRINT *,'NEW POINT INSERTED IN POLYLINE : UV =',uvinter
-                   !         ! shift downstream polyline split points
-                   !         where ( curve%isplit(2,:) >= i2 ) curve%isplit(2,:) = curve%isplit(2,:) + 1
-                   !      end if
-                   !   end if
-                   !end if
                    !
                    if ( .not.inside .and. &
                         h < 5.d-2 * norm2(duvtmp) ) then

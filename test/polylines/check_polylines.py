@@ -50,6 +50,10 @@ d = ply[0].xy[0] - ply[1].xy[3]
 print np.hypot(d[0],d[1])
 """
 
+print "intersection points:"
+print y
+
+
 mid = 0.5*(xymax + xymin)
 rng = 0.5*(xymax - xymin)
 rng = 1.05*np.maximum(rng, 0.4*np.amax(rng))

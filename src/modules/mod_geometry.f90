@@ -594,4 +594,37 @@ contains
     
   end subroutine point_in_polygon
 
+
+
+
+  subroutine circumcircle( &
+       p1, &
+       p2, &
+       p3, &
+       ctr, &
+       radsqr )
+    implicit none
+    real(kind=fp), intent(in), dimension(2) :: p1, p2, p3
+    real(kind=fp), intent(out)              :: ctr(2)
+    real(kind=fp), intent(out)              :: radsqr
+    real(kind=fp), dimension(2)             :: u, v, w
+    real(kind=fp)                           :: usqr, vsqr, denom
+    
+    u = p2 - p1
+    v = p3 - p1
+    usqr = sum(u**2)
+    vsqr = sum(v**2)
+    w = usqr*v - vsqr*u
+    
+    denom = usqr*vsqr - dot_product(u,v)**2
+    if ( denom < EPSfp ) then
+       ctr = p1
+       radsqr = 0._fp
+    else
+       ctr = 0.5_fp * (dot_product(v,w)*u - dot_product(u,w)*w) / denom
+       radsqr = sum(ctr**2)
+    end if
+    
+  end subroutine circumcircle
+
 end module mod_geometry

@@ -60,9 +60,12 @@ for ifa = 1:nf
     
     l = [1:length(f2v{ifa}),1];
     %     plot3( xf(l,1), xf(l,2), xf(l,3), '-', 'color', clf(ifa,:) );
+    
+    if ifa == 39
     patch( xf(l,1), xf(l,2), xf(l,3), 'r', ...
         'facecolor', clf(ifa,:), 'edgecolor', 'none', ...0.5*clf(ifa,:), ...
         'facealpha', falph );
+    end
 end
 
 
@@ -135,6 +138,8 @@ axis(axlim); daspect([1,1,1]);
 view(3)
 camproj('persp');
 
+
+return
 
 
 % lbndedg = [188, 196, 228, 238, 252, 260, 261, 271, 285, 293, 294, 304, 318, 326, 327, 337];

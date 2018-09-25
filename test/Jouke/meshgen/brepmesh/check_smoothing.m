@@ -9,8 +9,12 @@ idstyp = importdata('idstyp.dat');
 xyzs = importdata('xyz_smooth.dat');
 
 tri = importdata('tri_ec.dat');
+% xyz = importdata('xyz_ec.dat');
+% xyz = importdata('xyz_optim_13.dat');
 xyz = importdata('xyz_smooth.dat');
+% uv = importdata('uv_ec.dat');
 uv = importdata('uv_smooth.dat');
+% idstyp = importdata('idstyp_ec.dat');
 idstyp = importdata('idstyp_smooth.dat');
 
 % vertex displacement
@@ -33,11 +37,24 @@ trisurf(tri, xyz(:,1), xyz(:,2), xyz(:,3), ...
 % l = 25353;
 % l = 1996;%[17686, 20997, 24309, 27618];
 % l = [52 64 409 414 499 17221 17686 18702 19174 20997 23844 25327 27153 27365 27618 28326 28628 30461 30926 31936];
-l = find(max(abs(uv),[],2) > 1.0 + 1e-12)';
+l = find(max(abs(uv(:,1:2)),[],2) > 1.0 + 1e-12)';
+length(l)
+% return
+
+% l = 17217;%25320;%26538;%29;%1804;%
+d = [
+    -2.7063644024207878E-004   0.0000000000000000        3.1983493867487656E-004
+%     -2.7112470720109746E-004  -8.0551587795222687E-005  -1.1086974910659094E-004
+%     0.0000000000000000       -1.0647613369302543E-003  -2.1105774507568559E-004
+% 4.6261470116707571E-004   8.7126875562516294E-004  -5.7583148248160844E-004
+    ];
 
 plot3( xyz(l,1), xyz(l,2), xyz(l,3), 'r*' );
 % quiver3(xyz(l,1), xyz(l,2), xyz(l,3), ...
 %     dxyz(l,1), dxyz(l,2), dxyz(l,3), ...
+%     0, 'color', 'r', 'maxheadsize', 1);
+% quiver3(xyz(l,1), xyz(l,2), xyz(l,3), ...
+%     d(1), d(2), d(3), ...
 %     0, 'color', 'r', 'maxheadsize', 1);
 % k = 4261;
 % k = [19409, 4261];
@@ -61,7 +78,7 @@ if 1
 end
 
 
-idstyp(l,:)
+% idstyp(l,:)
 % idstyp(k,:)
 
 

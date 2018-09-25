@@ -9,9 +9,49 @@ module mod_brep
   integer, parameter :: BREP_xtra_nv = 20
   integer, parameter :: BREP_xtra_ne = 20
   integer, parameter :: BREP_xtra_nf = 20
-
+  
 contains
 
+
+  subroutine make_brep( &
+       surf, &
+       nsurf, &
+       interdata, &
+       brep )
+    use mod_diffgeom
+    use mod_types_intersection
+    use mod_types_brep
+    use mod_intersection
+    implicit none
+    integer,                          intent(inout) :: nsurf
+    type(type_surface),  allocatable, intent(inout) :: surf(:)
+    type(type_intersection_data),     intent(inout) :: interdata
+    type(type_brep),                  intent(inout) :: brep
+    logical                                         :: mask(nsurf)
+
+    mask(1:nsurf) = .true.
+    ! compute transversal surface-surface intersections
+    call intersect_all_surfaces( &
+         surf, &
+         nsurf, &
+         interdata, &
+         mask )
+
+    ! make BREP
+    brep%nv = 0
+    brep%ne = 0
+    brep%nf = 0
+    call make_brep_from_intersection_data( &
+         surf, &
+         nsurf, &
+         interdata, &
+         brep )
+
+  end subroutine make_brep
+
+  
+
+  
   subroutine write_brep_files( &
        brep, &
        fileve, &

@@ -19,7 +19,7 @@ subroutine diffgeom_intersection( &
   ! Patrikalakis et al. (2009), pp.166-175, 
   ! and "Tracing surface intersections with validated ODE system solver", Mukundan et al (2004)
   implicit none
-  real(kind=fp), parameter             :: EPS = 1.d-12
+  real(kind=fp), parameter             :: EPS = 1.d-9
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)
   real(kind=fp),           intent(out) :: duv_ds(2,2,2) ! u/v, #branch, #surf
