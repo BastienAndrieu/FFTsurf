@@ -102,7 +102,9 @@ for ic = 1:nc
         '-', 'color', cli, 'linewidth', 1.0, 'markersize', 5 )
 end
 
-plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
+if ~isempty(points)
+    plot3( points(:,1), points(:,2), points(:,3), '.', 'color', cli, 'markersize', 10 );
+end
 
 
 axis image vis3d
@@ -286,8 +288,8 @@ return
 fid = fopen('interdataglobal_surf2curv.dat', 'r');
 for isurf=1:nsurf
     
-%     figure;
-%     hold on
+    %     figure;
+    %     hold on
     
     arc_end = [];
     arc_ang = [];
@@ -359,13 +361,13 @@ for isurf=1:nsurf
     end
     fclose(fout);
     
-%     plot(xy(:,1), xy(:,2), '*');
-%     for iarc = 1:narc
-%         quiver(xy(arc_end(iarc,1),1), xy(arc_end(iarc,1),2), ...
-%             xy(arc_end(iarc,2),1) - xy(arc_end(iarc,1),1), ...
-%             xy(arc_end(iarc,2),2) - xy(arc_end(iarc,1),2), 0 );
-%     end
-%     axis image
+    %     plot(xy(:,1), xy(:,2), '*');
+    %     for iarc = 1:narc
+    %         quiver(xy(arc_end(iarc,1),1), xy(arc_end(iarc,1),2), ...
+    %             xy(arc_end(iarc,2),1) - xy(arc_end(iarc,1),1), ...
+    %             xy(arc_end(iarc,2),2) - xy(arc_end(iarc,1),2), 0 );
+    %     end
+    %     axis image
 end
 
 

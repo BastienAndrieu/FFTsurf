@@ -105,7 +105,7 @@ subroutine newton_three_surfaces( &
      if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
         if ( max(sum(r(1:3)**2), sum(r(4:6)**2)) < EPSxyzsqr ) then
            if ( erruv > EPSuvsqr ) then
-              IF ( .true. ) PRINT *,'newton_three_surfaces : /!\ toluv > EPSuv'
+              IF ( DEBUG ) PRINT *,'newton_three_surfaces : /!\ toluv > EPSuv'
               pause
            end if
            stat = 0

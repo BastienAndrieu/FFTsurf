@@ -4,9 +4,10 @@ module mod_obb
 
   implicit none
 
-  real(kind=fp), parameter :: MRGobb = real( 0.0, kind=fp )
-  real(kind=fp), parameter :: EPSobb = real( 1.0e-14, kind=fp )
-
+  real(kind=fp), parameter :: MRGobb = real( 1.e-7, kind=fp )
+  !real(kind=fp), parameter :: EPSobb = real( 1.e-14, kind=fp )
+  real(kind=fp), parameter :: EPSobb = real( 1.e-9, kind=fp )
+  
   type type_obb
      real(kind=fp) :: ctr(3)   ! center
      real(kind=fp) :: rng(3)   ! (half-)ranges
@@ -78,7 +79,7 @@ contains
        !PRINT *,'R  =',R
 
        !PRINT *,'I=',I,', R-(RK+RL) =',R - RK - RL
-       if ( R > Rk + Rl + EPSfp ) then
+       if ( R > Rk + Rl + EPSobb ) then
           !PRINT *,'R - (RK + RL) =',R - RK - RL
           !PRINT *,'DISJOINT OBBs, I =',I
           overlap = .false.

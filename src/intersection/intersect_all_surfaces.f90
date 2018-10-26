@@ -2,7 +2,10 @@ subroutine intersect_all_surfaces( &
      surf, &
      nsurf, &
      interdata_global, &
-     mask )
+     mask, &
+     tolchord, &
+     hmin, &
+     hmax )
   USE MOD_UTIL
   use mod_math
   use mod_polynomial
@@ -16,6 +19,7 @@ subroutine intersect_all_surfaces( &
   type(type_surface), target,   intent(in)    :: surf(nsurf)      ! surfaces
   type(type_intersection_data), intent(inout) :: interdata_global ! global intersection data collection
   logical, optional,            intent(in)    :: mask(nsurf)      ! used to skip some surfaces when computing intersections
+  real(kind=fp),                intent(in)    :: tolchord, hmin, hmax
   type(ptr_surface)                           :: surfpair(2)   
   type(type_region), target                   :: root(nsurf)
   type(ptr_region)                            :: region(2)
@@ -88,10 +92,10 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
-        IF ( DEBUG ) THEN
-           PRINT *,''; PRINT *,''; PRINT *,''
-           PRINT *,'PAIR :',ISURF,JSURF
-        END IF
+        !IF ( DEBUG ) THEN
+        !   PRINT *,''; PRINT *,''; PRINT *,''
+        !   PRINT *,'PAIR :',ISURF,JSURF
+        !END IF
         PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
@@ -143,7 +147,10 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              interdata_local, &
-             interdata_global )
+             interdata_global, &
+             tolchord, &
+             hmin, &
+             hmax )
 
         ! reset local intersection data collection
         call free_intersection_data(interdata_local)
@@ -182,6 +189,7 @@ subroutine intersect_all_surfaces( &
      end if
 
      ! compute polyline arclength
+     if ( allocated(interdata_global%curves(ic)%polyline%s) ) deallocate(interdata_global%curves(ic)%polyline%s)
      allocate(interdata_global%curves(ic)%polyline%s(interdata_global%curves(ic)%polyline%np))
      interdata_global%curves(ic)%polyline%s(1) = 0._fp
      do i = 2,interdata_global%curves(ic)%polyline%np

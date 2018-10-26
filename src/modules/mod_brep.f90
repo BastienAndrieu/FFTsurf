@@ -17,7 +17,10 @@ contains
        surf, &
        nsurf, &
        interdata, &
-       brep )
+       brep, &
+       tolchord, &
+       hmin, &
+       hmax )
     use mod_diffgeom
     use mod_types_intersection
     use mod_types_brep
@@ -27,6 +30,7 @@ contains
     type(type_surface),  allocatable, intent(inout) :: surf(:)
     type(type_intersection_data),     intent(inout) :: interdata
     type(type_brep),                  intent(inout) :: brep
+    real(kind=fp),                    intent(in)    :: tolchord, hmin, hmax
     logical                                         :: mask(nsurf)
 
     mask(1:nsurf) = .true.
@@ -35,7 +39,18 @@ contains
          surf, &
          nsurf, &
          interdata, &
-         mask )
+         mask, &
+         tolchord, &
+         hmin, &
+         hmax )
+
+    IF ( .TRUE. ) THEN
+       call write_intersection_data( &
+            interdata, &
+            '../debug/intersection_points.dat', &
+            '../debug/intersection_curves.dat' )
+    END IF
+    
 
     ! make BREP
     brep%nv = 0
@@ -511,6 +526,8 @@ contains
        point2nod, &
        nod_uv, &
        nnod )
+    use mod_diffgeom
+    use mod_types_intersection
     implicit none
     type(type_surface), target,   intent(in)    :: surf
     type(type_intersection_data), intent(inout) :: interdata
@@ -621,6 +638,7 @@ contains
        nod2point, &
        nnod )
     use mod_util
+    use mod_types_intersection
     implicit none
     type(type_intersection_data), target, intent(inout) :: interdata
     type(type_BREP),                      intent(inout) :: brep
@@ -720,6 +738,7 @@ contains
        arc2split, &
        arc_sens, &
        inside )
+    use mod_types_intersection
     ! tests whether a point lies inside the region outlined by a wire of
     ! intersection curves
     implicit none
@@ -1053,4 +1072,20 @@ contains
   
 
 
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+  
 end module mod_brep

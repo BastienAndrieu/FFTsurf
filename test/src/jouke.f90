@@ -33,7 +33,7 @@ program jouke
   type(type_surface_mesh)                 :: mesh
   real(kind=fp)                           :: xyzverif(3,2)
   real(kind=fp), allocatable              :: wei(:), hve(:), ener(:), grad(:,:), hess(:,:,:)
-  
+  real(kind=fp)                           :: hminsqr
   integer                                 :: isurf, ic, jsurf, ksurf, iface, I, J, k
 
   ! =================================================================================
@@ -77,7 +77,11 @@ program jouke
   end do
   ! =================================================================================
 
-  call read_curves('Jouke/propergol/tangent_curves.dat', surf, interdata)
+  !call read_curves('Jouke/propergol/tangent_curves.dat', surf, interdata)
+  call read_intersection_curves( &
+     'Jouke/propergol/tangent_curves.dat', &
+     surf, &
+     interdata )
   do ic = 1,interdata%nc
      interdata%curves(ic)%smooth = .true.
      !PRINT *,'NP = ',INTERDATA%CURVES(IC)%POLYLINE%NP, ALLOCATED(INTERDATA%CURVES(IC)%POLYLINE%UV)
@@ -103,7 +107,10 @@ program jouke
        surf, &
        nsurf, &
        interdata, &
-       mask )
+       mask, &
+       5.d-3, &
+       1.d-3, &
+       1.d-2 )
   call system_clock( toc )
   PRINT *,''; PRINT *,''; PRINT *,''
   PRINT *,'ELAPSED =',REAL( TOC - TIC ) / REAL( COUNT_RATE )
@@ -271,9 +278,9 @@ program jouke
   PRINT *,'GENERATE BREP MESH...'
   call generate_brep_mesh( &
        brep, &
-       PARAM_hmin, &
-       PARAM_hmax, &
-       TOLchord, &
+       1.d-3, &!PARAM_hmin, &
+       1.d-2, &!PARAM_hmax, &
+       5.d-3, &!TOLchord, &
        feat_edge, &
        feat_vert, &
        hyperedges(1:nhe), &
@@ -347,7 +354,7 @@ program jouke
           hyperedges(1:nhe), &
           nhe, &
           mesh, &
-          PARAM_hmin )
+          1.d-3 )!PARAM_hmin )
      PRINT *,'(RE)MAKE HALFEDGES...'
      deallocate(mesh%v2h, mesh%twin)
      call make_halfedges( &
@@ -394,10 +401,13 @@ program jouke
           hyperedges(1:nhe), &
           nhe, &
           mesh, &
-          40, &
+          1.0_fp, &
           0.75_fp, &
-          PARAM_hmin, &
-          PARAM_hmax )
+          5, &
+          15, &
+          100, &
+          1.d-3, &!PARAM_hmin, &
+          1.d-2 )!PARAM_hmax )
      call write_inria_mesh( &
           mesh, &
           'Jouke/meshgen/brepmesh/brepmesh_optim.mesh' )
@@ -420,6 +430,7 @@ program jouke
           mesh%xyz(1:3,1:mesh%nv), &
           hve, &
           0.7_fp, &
+          hminsqr, &
           ener, &
           grad, &
           hess )
@@ -540,60 +551,7 @@ contains
   !end program dev_intersection
 
 
-  subroutine write_intersection_data( &
-       interdata, &
-       filepoints, &
-       filecurves )
-    use mod_util
-    use mod_types_intersection
-    implicit none
-    type(type_intersection_data), intent(in) :: interdata
-    character(*),                 intent(in) :: filepoints, filecurves
-    integer                                  :: fileunit
-    integer                                  :: ip, ic, is
-
-    call get_free_unit( fileunit )
-
-    ! intersection points
-    open( &
-         unit = fileunit, &
-         file = filepoints, &
-         action = 'write' )
-    do ip = 1,interdata%np
-       write ( fileunit, * ) interdata%points(ip)%xyz
-    end do
-    close( fileunit )
-
-    ! intersection curves
-    open( &
-         unit = fileunit, &
-         file = filecurves, &
-         action = 'write' )
-    write ( fileunit, * ) interdata%nc
-    do ic = 1,interdata%nc
-       write ( fileunit, * ) logic2int(interdata%curves(ic)%dummy)
-       write ( fileunit, * ) logic2int(interdata%curves(ic)%smooth)
-       write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,1)
-       write ( fileunit, * ) interdata%curves(ic)%uvbox(:,:,2)
-       write ( fileunit, * ) interdata%curves(ic)%nsplit
-       do ip = 1,interdata%curves(ic)%nsplit
-          write ( fileunit, * ) interdata%curves(ic)%isplit(:,ip)
-       end do
-       do is = 1,interdata%curves(ic)%nsplit-1
-          write ( fileunit, * ) 1!class(is)
-       end do
-       if ( associated(interdata%curves(ic)%polyline) ) then
-          write ( fileunit, * ) interdata%curves(ic)%polyline%np
-          do ip = 1,interdata%curves(ic)%polyline%np
-             write ( fileunit, * ) interdata%curves(ic)%polyline%uv(:,:,ip), interdata%curves(ic)%polyline%xyz(:,ip)
-          end do
-       else
-          write ( fileunit, * ) 0
-       end if
-    end do
-    close( fileunit )    
-
-  end subroutine write_intersection_data
+  
 
 
 
@@ -973,6 +931,7 @@ contains
        call append_triangles( &
             meshvisu, &
             trif(1:3,1:ntrif) + meshvisu%nv, &
+            [(brep%faces(iface)%hyperface, i=1,ntrif)], &
             ntrif )
        call append_vertices( &
             meshvisu, &
@@ -990,6 +949,7 @@ contains
        call append_triangles( &                                                                !
             mesh, &                                                                            !
             trif(1:3,1:ntrif), &                                                               !
+            [(brep%faces(iface)%hyperface, i=1,ntrif)], &
             ntrif )                                                                            !
        !                                                                                       !
        ! add new mesh vertices                                                                 !
@@ -1085,85 +1045,6 @@ contains
 
 
 
-
-
-
-
-  subroutine read_triangles( &
-       filename, &
-       tri, &
-       n )
-    use mod_util
-    implicit none
-    character(*),         intent(in)    :: filename
-    integer, allocatable, intent(inout) :: tri(:,:)
-    integer,              intent(out)   :: n
-    integer, allocatable                :: tmp(:,:)
-    integer                             :: fid, io, t(3)
-
-    call get_free_unit(fid)
-    open(unit=fid, file=filename, action='read')
-    n = 0
-    do
-       read (fid, *, iostat=io) t
-       if ( io /= 0 ) exit
-       if ( .not.allocated(tri) ) then
-          allocate(tri(3,100))
-       else
-          if ( n + 1 > size(tri,2) ) then
-             call move_alloc(from=tri, to=tmp)
-             allocate(tri(3,n+100))
-             tri(1:3,1:n) = tmp(1:3,1:n)
-             deallocate(tmp)
-          end if
-       end if
-       n = n + 1
-       tri(1:3,n) = t(1:3)
-    end do
-    close(fid)
-
-  end subroutine read_triangles
-
-
-
-
-  subroutine read_points( &
-       filename, &
-       pts, &
-       m, &
-       n )
-    use mod_util
-    implicit none
-    character(*),               intent(in)    :: filename
-    real(kind=fp), allocatable, intent(inout) :: pts(:,:)
-    integer,                    intent(in)    :: m
-    integer,                    intent(out)   :: n
-    real(kind=fp), allocatable                :: tmp(:,:)
-    real(kind=fp)                             :: p(m)
-    integer                                   :: fid, io
-
-    call get_free_unit(fid)
-    open(unit=fid, file=filename, action='read')
-    n = 0
-    do
-       read (fid, *, iostat=io) p
-       if ( io /= 0 ) exit
-       if ( .not.allocated(pts) ) then
-          allocate(pts(m,100))
-       else
-          if ( n + 1 > size(pts,2) ) then
-             call move_alloc(from=pts, to=tmp)
-             allocate(pts(m,n+100))
-             pts(1:m,1:n) = tmp(1:m,1:n)
-             deallocate(tmp)
-          end if
-       end if
-       n = n + 1
-       pts(1:m,n) = p(1:m)
-    end do
-    close(fid)
-
-  end subroutine read_points
 
 
 

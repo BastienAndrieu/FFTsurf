@@ -5,7 +5,7 @@ module mod_hypergraph
   integer, parameter :: PARAM_xtra_nhf = 10
   integer, parameter :: PARAM_xtra_nhe = 10
 
-  
+
   type type_hyperface
      integer              :: nf = 0
      integer, allocatable :: faces(:)
@@ -81,7 +81,7 @@ contains
   end subroutine make_hypergraph
 
 
-  
+
 
   subroutine get_feature_edges( &
        brep, &
@@ -145,7 +145,7 @@ contains
           tangents(1:3,iend,jedge) = dxyz_ds(1:3,1)                  !    !
        end do ! <----------------------------------------------------+    !
     end do ! <------------------------------------------------------------+
-    
+
     do ivert = 1,brep%nv ! <-----------------------------------------------------+
        iedge = brep%verts(ivert)%halfedge ! outgoing                             !
        do ! <----------------------------------------------------------------+   !
@@ -176,8 +176,8 @@ contains
     end do ! <-------------------------------------------------------------------+
 
   end subroutine get_feature_vertices
-  
-  
+
+
 
   subroutine get_hyperfaces( &
        brep, &
@@ -194,7 +194,7 @@ contains
     type(type_hyperface), allocatable                :: tmp(:)
     logical                                          :: visited(brep%nf)
     integer                                          :: ifa, ihf
-    
+
     visited(:) = .false.
     nhf = 0
     do while ( any(.not.visited) )
@@ -240,11 +240,11 @@ contains
           brep%faces(hyperfaces(ihf)%faces(ifa))%hyperface = ihf
        end do
     end do
-    
+
   end subroutine get_hyperfaces
 
 
-  
+
 
   recursive subroutine build_hyperface( &
        brep, &
@@ -265,13 +265,13 @@ contains
     integer                             :: iwire, istart, jfa
 
     if ( visited(ifa) ) return
-    
+
     call insert_after( &
          hf%faces, &
          hf%nf, &
          ifa, &
          hf%nf )
-    
+
     visited(ifa) = .true.
 
     do iwire = 1,1 + brep%faces(ifa)%ninner ! <---------------------------------------+
@@ -297,7 +297,7 @@ contains
 
 
 
-  
+
 
   subroutine get_hyperedges( &
        brep, &
@@ -391,11 +391,11 @@ contains
           brep%edges(hyperedges(ihe)%halfedges(1,ied))%hyperedge = ihe
        end do
     end do
-    
+
   end subroutine get_hyperedges
 
 
-  
+
 
   subroutine build_hyperedge( &
        brep, &
@@ -449,12 +449,12 @@ contains
 
        ivert = get_dest(brep, ihedg)
        valence(ivert) = valence(ivert) - 1
-       
+
        if ( feat_vert(ivert) .or. ivert == istart ) exit
     end do
-    
+
   end subroutine build_hyperedge
-       
+
 
 
   subroutine reverse_hyperedge(self)
@@ -469,7 +469,7 @@ contains
     do iedge = 1,self%ne
        self%halfedges(1:2,iedge) = get_twin(self%halfedges(1:2,iedge))
     end do
-    
+
   end subroutine reverse_hyperedge
 
 
@@ -492,16 +492,16 @@ contains
        len_edg(iedge) = get_polyline_length(brep, self%halfedges(:,iedge))
        len_tot = len_tot + len_edg(iedge)
     end do
-    
+
   end subroutine get_hyperedge_length
-  
 
 
 
 
 
 
-  
+
+
 
 
   subroutine transfer_hyperfaces( &
@@ -518,7 +518,7 @@ contains
        to(i)%nf = from(i)%nf
        call move_alloc(from(i)%faces, to(i)%faces)
     end do
-    
+
   end subroutine transfer_hyperfaces
 
 
@@ -538,7 +538,7 @@ contains
        to(i)%verts = from(i)%verts
        to(i)%hyperfaces = from(i)%hyperfaces
     end do
-    
+
   end subroutine transfer_hyperedges
 
 
@@ -572,8 +572,25 @@ contains
          hyperedges, &
          nhe )
     deallocate(tmp)
-    
+
   end subroutine reallocate_hyperedges
-       
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
 end module mod_hypergraph

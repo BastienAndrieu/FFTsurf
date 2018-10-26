@@ -11,6 +11,7 @@ module mod_diffgeom
 
   type type_surface
      type(type_polynomial) :: x, xu, xv, pn, xuu, xuv, xvv
+     integer               :: tag = 1
   end type type_surface
 
   type ptr_surface
@@ -264,6 +265,103 @@ contains
     end select
 
   end subroutine evald2_surface
+
+
+  subroutine eval_minimum_curvature_radius( &
+       surf, &
+       uv, &
+       r )
+    implicit none
+    type(type_surface), intent(in)  :: surf
+    real(kind=fp),      intent(in)  :: uv(2)
+    real(kind=fp),      intent(out) :: r
+    real(kind=fp)                   :: kmean, kgauss, k1, k2
+
+    call eval_curvature_surface( &
+         surf, &
+         uv, &
+         kmean, &
+         kgauss, &
+         k1, &
+         k2 )
+
+    r = min(abs(1._fp/k1), abs(1._fp/k2))
+    
+  end subroutine eval_minimum_curvature_radius
+
+  
+
+  subroutine eval_curvature_surface( &
+       surf, &
+       uv, &
+       kmean, &
+       kgauss, &
+       k1, &
+       k2 )
+    implicit none
+    type(type_surface), intent(in)  :: surf
+    real(kind=fp),      intent(in)  :: uv(2)
+    real(kind=fp),      intent(out) :: kmean
+    real(kind=fp),      intent(out) :: kgauss
+    real(kind=fp),      intent(out) :: k1
+    real(kind=fp),      intent(out) :: k2
+    real(kind=fp)                   :: dxyz_duv(3,2), EFG(3), invdetI, n(3)
+    real(kind=fp)                   :: d2xyz_duv2(3), LMN(3), s
+    integer                         :: ivar, jvar
+
+    ! First Fundamental Form (metric tensor)
+    do ivar = 1,2
+       call evald1( &
+            dxyz_duv(:,ivar), &
+            surf, &
+            uv, &
+            ivar )
+    end do
+    do ivar = 1,2
+       do jvar = ivar,2 
+          EFG(ivar + jvar - 1) = dot_product(dxyz_duv(:,ivar), dxyz_duv(:,jvar))
+       end do
+    end do
+    invdetI = EFG(1)*EFG(3) - EFG(2)**2
+    if ( invdetI < EPSmath ) then
+       ! the surface is singular at that point
+       kmean = huge(1._fp)
+       kgauss = kmean
+       k1 = kmean
+       k2 = kmean
+       return
+    else
+       ! regular surface
+       invdetI = 1._fp / invdetI
+    end if
+
+    ! unit normal
+    n = cross(dxyz_duv(:,1), dxyz_duv(:,2)) * sqrt(invdetI)
+    
+    ! Second Fundamental Form (shape operator)
+    do ivar = 1,3
+       call evald2( &
+            d2xyz_duv2, &
+            surf, &
+            uv, &
+            ivar )
+       LMN(ivar) = dot_product(n, d2xyz_duv2)
+    end do
+
+    ! mean curvature
+    kmean = 0.5_fp * invdetI * (EFG(1)*LMN(3) + EFG(3)*LMN(1) - 2._fp*EFG(2)*LMN(2))
+
+    ! Gaussian curvature
+    kgauss = (LMN(1)*LMN(3) - LMN(2)**2) * invdetI
+
+    ! principal curvatures
+    s = kmean**2 - kgauss
+    s = sqrt(max(0._fp, s))
+
+    k1 = kmean + s
+    k2 = kmean - s
+    
+  end subroutine eval_curvature_surface
 
 
 end module mod_diffgeom

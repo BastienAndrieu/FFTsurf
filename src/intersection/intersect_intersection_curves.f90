@@ -8,7 +8,7 @@ subroutine intersect_intersection_curves( &
   use mod_tolerances
   use mod_types_intersection
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true.!( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
   type(type_intersection_data), target, intent(inout) :: interdata
   integer,                              intent(in)    :: curvpair(2)
   type(ptr_intersection_curve)                        :: curv(2)

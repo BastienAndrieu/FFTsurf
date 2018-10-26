@@ -7,6 +7,7 @@ subroutine trace_intersection_polyline( &
      stat, &
      polyline, &
      w0, &
+     tolchord, &
      hmin, &
      hmax )
   use mod_math
@@ -32,7 +33,9 @@ subroutine trace_intersection_polyline( &
   integer,                          intent(out)   :: stat
   type(type_intersection_polyline), intent(inout) :: polyline
   real(kind=fp),                    intent(out)   :: w0
-  real(kind=fp), optional,          intent(in)    :: hmin, hmax
+  real(kind=fp),                    intent(in)    :: tolchord
+  real(kind=fp),                    intent(in)    :: hmin, hmax
+  real(kind=fp)                                   :: FRACcurvature_radius 
   integer                                         :: stat_tangent, stat_insertion, stat_newton
   real(kind=fp), dimension(4)                     :: lowerb, upperb
   real(kind=fp)                                   :: Dw, w, wprev, dist_from_end
@@ -40,6 +43,8 @@ subroutine trace_intersection_polyline( &
   real(kind=fp)                                   :: h_endpoints(2), h, EPSh, hnext
   real(kind=fp)                                   :: uv(2,2), xyz(3), lambda
   integer                                         :: ipt
+
+  FRACcurvature_radius = 2._fp*sqrt(tolchord*(2._fp - tolchord))
   
   stat = 0
   lowerb = reshape(uvbox(1,1:2,1:2), [4]) - EPSuv
@@ -84,8 +89,8 @@ subroutine trace_intersection_polyline( &
      curvature(1) = max(EPSfp, curvature(1))
      h_endpoints(ipt) = FRACcurvature_radius / curvature(1)
   end do
-  if ( present(hmin) ) h_endpoints = max(h_endpoints, hmin) 
-  if ( present(hmax) ) h_endpoints = min(h_endpoints, hmax)
+  h_endpoints = max(h_endpoints, hmin) 
+  h_endpoints = min(h_endpoints, hmax)
 
   
   ! first point
@@ -171,8 +176,8 @@ subroutine trace_intersection_polyline( &
               !                                                        !  !   !  !
               curvature(1) = max(EPSfp, curvature(1))                  !  !   !  !
               hnext = FRACcurvature_radius / curvature(1)              !  !   !  !
-              if ( present(hmin) ) hnext = max(hnext, hmin)            !  !   !  !
-              if ( present(hmax) ) hnext = min(hnext, hmax)            !  !   !  !
+              hnext = max(hnext, hmin)                                 !  !   !  !
+              hnext = min(hnext, hmax)                                 !  !   !  !
               if ( lambda*h <= hnext ) then ! <---------+              !  !   !  !
                  h = hnext                              !              !  !   !  !
                  exit inner                             !              !  !   !  !

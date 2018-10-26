@@ -24,6 +24,7 @@ module mod_mesh
      real(kind=fp), allocatable   :: uv(:,:,:)
      integer, allocatable         :: ids(:)
      integer, allocatable         :: typ(:)
+     integer, allocatable         :: ihf(:)
      integer                      :: npaths = 0
      type(type_path), allocatable :: paths(:)
   end type type_surface_mesh
@@ -274,7 +275,7 @@ contains
     write (fid,'(A9)') 'Triangles'
     write (fid,'(I0)') mesh%nt
     do j = 1,mesh%nt
-       write (fid,'(I0,1x,I0,1x,I0,1x,I0)') mesh%tri(1:3,j), 0
+       write (fid,'(I0,1x,I0,1x,I0,1x,I0)') mesh%tri(1:3,j), mesh%ihf(j)
     end do
     
     write (fid,'(A3)') 'End'
@@ -380,12 +381,14 @@ contains
   subroutine append_triangles( &
        mesh, &
        tri, &
+       ihf, &
        nt )
     implicit none
     type(type_surface_mesh), intent(inout) :: mesh
     integer,                 intent(in)    :: nt
     integer,                 intent(in)    :: tri(3,nt)
-    integer, allocatable                   :: tmp(:,:)
+    integer,                 intent(in)    :: ihf(nt)
+    integer, allocatable                   :: tmp(:,:), col(:)
 
 
     if ( allocated(mesh%tri) ) then ! <-------------------------+
@@ -399,7 +402,19 @@ contains
        allocate(mesh%tri(3,nt + MESH_xtra_nt))                  !
     end if ! <--------------------------------------------------+
 
+    if ( allocated(mesh%ihf) ) then ! <-------------------------+
+       if ( size(mesh%ihf) < mesh%nt + nt ) then ! <---------+  !
+          call move_alloc(from=mesh%ihf, to=col)             !  !
+          allocate(mesh%ihf(mesh%nt + nt + MESH_xtra_nt))    !  !
+          mesh%ihf(1:mesh%nt) = col(1:mesh%nt)               !  !
+          deallocate(col)                                    !  !
+       end if ! <--------------------------------------------+  !
+    else ! -----------------------------------------------------+
+       allocate(mesh%ihf(nt + MESH_xtra_nt))                    !
+    end if ! <--------------------------------------------------+
+
     mesh%tri(1:3,mesh%nt+1:mesh%nt+nt) = tri(1:3,1:nt)
+    mesh%ihf(mesh%nt+1:mesh%nt+nt) = ihf(1:nt)
     mesh%nt = mesh%nt+nt
     
   end subroutine append_triangles
@@ -540,6 +555,92 @@ contains
     end do
 
   end subroutine transfer_paths
+
+
+
+
+  
+  subroutine read_triangles( &
+       filename, &
+       tri, &
+       n )
+    use mod_util
+    implicit none
+    character(*),         intent(in)    :: filename
+    integer, allocatable, intent(inout) :: tri(:,:)
+    integer,              intent(out)   :: n
+    integer, allocatable                :: tmp(:,:)
+    integer                             :: fid, io, t(3)
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='read')
+    n = 0
+    do
+       read (fid, *, iostat=io) t
+       if ( io /= 0 ) exit
+       if ( .not.allocated(tri) ) then
+          allocate(tri(3,100))
+       else
+          if ( n + 1 > size(tri,2) ) then
+             call move_alloc(from=tri, to=tmp)
+             allocate(tri(3,n+100))
+             tri(1:3,1:n) = tmp(1:3,1:n)
+             deallocate(tmp)
+          end if
+       end if
+       n = n + 1
+       tri(1:3,n) = t(1:3)
+    end do
+    close(fid)
+
+  end subroutine read_triangles
+  
+
+
+
+  subroutine read_points( &
+       filename, &
+       pts, &
+       m, &
+       n )
+    use mod_util
+    implicit none
+    character(*),               intent(in)    :: filename
+    real(kind=fp), allocatable, intent(inout) :: pts(:,:)
+    integer,                    intent(in)    :: m
+    integer,                    intent(out)   :: n
+    real(kind=fp), allocatable                :: tmp(:,:)
+    real(kind=fp)                             :: p(m)
+    integer                                   :: fid, io
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='read')
+    n = 0
+    do
+       read (fid, *, iostat=io) p
+       if ( io /= 0 ) exit
+       if ( .not.allocated(pts) ) then
+          allocate(pts(m,100))
+       else
+          if ( n + 1 > size(pts,2) ) then
+             call move_alloc(from=pts, to=tmp)
+             allocate(pts(m,n+100))
+             pts(1:m,1:n) = tmp(1:m,1:n)
+             deallocate(tmp)
+          end if
+       end if
+       n = n + 1
+       pts(1:m,n) = p(1:m)
+    end do
+    close(fid)
+
+  end subroutine read_points
+
+
+
+
+
+  
 
   
 end module mod_mesh

@@ -3,7 +3,10 @@ subroutine merge_intersection_data( &
      uvxyz, &
      nuvxyz, &
      interdata_local, &
-     interdata_global )
+     interdata_global, &
+     tolchord, &
+     hmin, &
+     hmax )
   USE MOD_UTIL
   use mod_math
   use mod_diffgeom
@@ -17,6 +20,7 @@ subroutine merge_intersection_data( &
   real(kind=fp),                intent(in)    :: uvxyz(8,nuvxyz)
   type(type_intersection_data), intent(in)    :: interdata_local
   type(type_intersection_data), intent(inout) :: interdata_global
+  real(kind=fp),                intent(in)    :: tolchord, hmin, hmax
   integer                                     :: id_global(nuvxyz)
   integer                                     :: stat
   integer                                     :: nc
@@ -62,8 +66,9 @@ subroutine merge_intersection_data( &
           stat, &
           interdata_global%curves(nc+ic)%polyline, &
           interdata_global%curves(nc+ic)%w0, &
-          hmin=PARAM_hmin, &
-          hmax=PARAM_hmax )
+          tolchord, &
+          hmin, &
+          hmax )
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
