@@ -42,7 +42,7 @@ subroutine update_intersection_curves( &
                 xyz(:,1) )                              !    !  !
            if ( stat > 0 ) then ! <------------------+  !    !  !
               ! keep current coordinates             !  !    !  !
-              PRINT *,'*** /!\ FAILED TO RECOVER POINT ON TANGENT INTERSECTION, ERR=',SQRT(ERR)
+              PRINT *,'update_intersection_curves: *** /!\ FAILED TO RECOVER POINT ON TANGENT INTERSECTION, ERR=',SQRT(ERR)
            else ! -----------------------------------+  !    !  !
               curve%polyline%uv(1:2,1:2,i) = uv      !  !    !  !
               PRINT *,I,NORM2(XYZ(:,1) - CURVE%POLYLINE%XYZ(:,I))

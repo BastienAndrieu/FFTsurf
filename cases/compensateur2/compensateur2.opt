@@ -1,10 +1,12 @@
 # pas de temps
 timestep
-2.600000e-03
+0.002593774940144
+#2.600000e-03
 
 # duree totale
 timespan
-3.198000e-01
+0.326815642458101
+#3.224000e-01
 
 # chemin
 directory

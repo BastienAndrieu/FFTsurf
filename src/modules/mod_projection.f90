@@ -917,7 +917,6 @@ contains
           return
        end if
     end do
-
     
   end subroutine projection_surface
 

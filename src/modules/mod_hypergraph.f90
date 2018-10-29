@@ -581,7 +581,29 @@ contains
 
 
 
+  subroutine free_hypergraph( &
+       self )
+    implicit none
+    type(type_hypergraph), intent(inout) :: self
+    integer                              :: ihe, ihf
 
+    do ihe = 1,self%nhe
+       if ( allocated(self%hyperedges(ihe)%halfedges) ) &
+            deallocate(self%hyperedges(ihe)%halfedges)
+    end do
+
+     do ihf = 1,self%nhf
+       if ( allocated(self%hyperfaces(ihf)%faces) ) &
+            deallocate(self%hyperfaces(ihf)%faces)
+    end do
+
+    if ( allocated(self%hyperedges) ) deallocate(self%hyperedges)
+    if ( allocated(self%hyperfaces) ) deallocate(self%hyperfaces)
+
+    self%nhe = 0
+    self%nhf = 0
+    
+  end subroutine free_hypergraph
 
 
 

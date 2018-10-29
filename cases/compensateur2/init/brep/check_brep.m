@@ -130,7 +130,7 @@ if 0 % plot prev, next & twin of random halfedge
     end
 end
 
-axis image vis3d
+axis image %vis3d
 
 axlim = zeros(1,6);
 for i = 1:3

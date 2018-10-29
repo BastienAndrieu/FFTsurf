@@ -4,13 +4,13 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
 
-rep = importdata('/d/bandrieu/GitHub/FFTsurf/cases/compensateur/output/reprises.dat');
+rep = importdata('/d/bandrieu/GitHub/FFTsurf/cases/compensateur2/output/reprises.dat');
 rep = [rep; 10000];
 
 plotfaces = 0;
 plotdisplacement = 0;
 
-instant = 90;
+instant = 117;
 
 irep = 1;
 while 1
