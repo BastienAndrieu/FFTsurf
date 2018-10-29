@@ -112,15 +112,19 @@ contains
     real(kind=fp)                          :: tng(3,2), ds, duv_ds(2,2,2), duv(2,2), dxyz(3)
     logical                                :: singular
     integer                                :: idsnew, typnew, stat
-    integer                                :: verts(2), faces(2), i, j, k, ivar, inew
+    integer                                :: verts(2), faces(2), i, j, k, ivar
+    integer                                :: ikp, jkp, irm, jrm, inew, imx
     integer                                :: it, iv, ip, ihype
     integer                                :: v_old2new(mesh%nv), t_old2new(mesh%nt)
 
     verts = mesh%tri([ihedg(1), 1+mod(ihedg(1),3)],ihedg(2))
+    PRINT *,'VERTS =',VERTS
 
     ! geometry
     if ( mesh%typ(verts(1)) == mesh%typ(verts(2)) ) then
        ! midpoint
+       jkp = minloc(verts, 1)
+       ikp = verts(jkp)
        typnew = mesh%typ(verts(1))
        if ( mesh%ids(verts(1)) == mesh%ids(verts(2)) ) then
           uvnew  = 0.5 * sum(mesh%uv(:,:,verts), 3)
@@ -191,52 +195,66 @@ contains
           end if
        end if
     else
-       i = verts(minloc(mesh%typ(verts),1))
-       ! contract towards i
-       xyznew = mesh%xyz(:,i)
-       uvnew  = mesh%uv(:,:,i)
-       idsnew = mesh%ids(i)
-       typnew = mesh%typ(i)
+       jkp = minloc(mesh%typ(verts),1)
+       ikp = verts(jkp)
+       ! contract towards ikp
+       xyznew = mesh%xyz(:,ikp)
+       uvnew  = mesh%uv(:,:,ikp)
+       idsnew = mesh%ids(ikp)
+       typnew = mesh%typ(ikp)
     end if
+
+    jrm = 1+mod(jkp,2)
+    irm = verts(jrm)
 
     PRINT *,'    IDS =',mesh%ids(verts)
     PRINT *,'    TYP =',mesh%typ(verts)
 
-    ! new topology
     inew = minval(verts)
+    imx = maxval(verts)
+
+    v_old2new(1:imx-1) = [(j, j=1,imx-1)]
+    v_old2new(imx) = inew
+    v_old2new(imx+1:mesh%nv) = [(j, j=imx,mesh%nv-1)]
+    !v_old2new([irm,ikp]) = inew
+ 
+    if ( mesh%typ(irm) == 1 ) then
+       ihype = brep%edges(mesh%ids(irm))%hyperedge
+       do ip = 1,mesh%npaths
+          if ( mesh%paths(ip)%hyperedge == ihype ) then
+             call remove_from_list( &
+                  imx, &
+                  mesh%paths(ip)%verts, &
+                  mesh%paths(ip)%nv )
+             !do iv = 2,mesh%paths(ip)%nv-1
+             !   if ( mesh%paths(ip)%verts(iv) == irm ) exit
+             !end do
+             !mesh%paths(ip)%verts(iv:mesh%paths(ip)%nv-1) = mesh%paths(ip)%verts(iv+1:mesh%paths(ip)%nv)
+             !mesh%paths(ip)%nv = mesh%paths(ip)%nv - 1
+             exit
+          end if
+       end do
+    end if
+
+    ! new topology
     mesh%ids(inew) = idsnew
     mesh%typ(inew) = typnew
     mesh%xyz(:,inew) = xyznew
     mesh%uv(:,:,inew) = uvnew
 
+    PRINT *,'   I_RM =',irm
+    PRINT *,'   I_KP =',ikp
     PRINT *,'  I_NEW =',inew
     PRINT *,'XYZ_NEW =',xyznew
     PRINT *,' UV_NEW =',uvnew
     PRINT *,'TYP_NEW =',typnew
     PRINT *,'IDS_NEW =',idsnew
-
-    i = maxval(verts)
-    v_old2new(1:i) = [(j, j=1,i)]
-    v_old2new(i) = inew
-    v_old2new(i+1:mesh%nv) = [(j, j=i,mesh%nv-1)]
-    if ( mesh%typ(i) == 1 ) then
-       ihype = brep%edges(mesh%ids(i))%hyperedge
-       do ip = 1,mesh%npaths
-          if ( mesh%paths(ip)%hyperedge == ihype ) then
-             call remove_from_list( &
-                  i, &
-                  mesh%paths(ip)%verts, &
-                  mesh%paths(ip)%nv )
-             exit
-          end if
-       end do
-    end if
     
     ! remove vertex
-    mesh%typ(i:mesh%nv-1) = mesh%typ(i+1:mesh%nv)
-    mesh%ids(i:mesh%nv-1) = mesh%ids(i+1:mesh%nv)
-    mesh%xyz(1:3,i:mesh%nv-1) = mesh%xyz(1:3,i+1:mesh%nv)
-    mesh%uv(1:2,1:2,i:mesh%nv-1) = mesh%uv(1:2,1:2,i+1:mesh%nv)
+    mesh%typ(imx:mesh%nv-1) = mesh%typ(imx+1:mesh%nv)
+    mesh%ids(imx:mesh%nv-1) = mesh%ids(imx+1:mesh%nv)
+    mesh%xyz(1:3,imx:mesh%nv-1) = mesh%xyz(1:3,imx+1:mesh%nv)
+    mesh%uv(1:2,1:2,imx:mesh%nv-1) = mesh%uv(1:2,1:2,imx+1:mesh%nv)
     !mesh%v2h(1:2,i:mesh%nv-1) = mesh%v2h(1:2,i+1:mesh%nv)
     mesh%nv = mesh%nv - 1
 

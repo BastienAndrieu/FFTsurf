@@ -678,6 +678,7 @@ contains
     i = 1
     do while ( i <= nlist )
        if ( list(i) == elem ) then
+          !PRINT *,'REMOVING',ELEM
           list(i:nlist-1) = list(i+1:nlist)
           nlist = nlist - 1
        else

@@ -18,7 +18,7 @@ program fftsurf
 
   ! --------------------------------------------------------------
   ! Parameters
-  integer, parameter                    :: freq_checkpoint = 30
+  integer, parameter                    :: freq_checkpoint = 10
   integer, parameter                    :: PARAM_passmax = 20!40
   real(kind=fp), parameter              :: PARAM_frac_conf1 = 1._fp
   real(kind=fp), parameter              :: PARAM_frac_conf2 = 0.7_fp
@@ -164,37 +164,16 @@ program fftsurf
 
      ! checkpoint
      if ( mod(instant,freq_checkpoint) == 0 ) then
-        do isurf = 1,nsurf
-           write (strnum3, '(i3.3)') isurf
-           call write_polynomial( &
-                surf(isurf)%x, &
-                trim(options%directory) // 'checkpoint/coef/c_' // strnum3 // '.cheb' )           
-        end do
-
-        call get_free_unit(fid)
-
-        !open(unit=fid, file=trim(options%directory) // 'checkpoint/nsurf.dat', action='write')
-        open(unit=fid, file=trim(options%directory) // 'checkpoint/surftag.dat', action='write')
-        write (fid,*) nsurf
-        do isurf = 1,nsurf
-           write (fid,*) surf(isurf)%tag
-        end do
-        close(fid)
-
-        open(unit=fid, file=trim(options%directory) // 'checkpoint/time.dat', action='write')
-        write (fid,*) instant
-        write (fid,*) time
-        close(fid)
-
-        call system('cp '  //trim(options%directory) // 'init/tangent_curves.dat ' //trim(options%directory) // 'checkpoint/')
+        call make_checkpoint( &
+             options, &
+             surf(1:nsurf), &
+             nsurf, &
+             instant, &
+             time )
      end if
-     
-
-
      
      ! Propagate surfaces
      do isurf = 1,nsurf
-        !if ( all([4,5] /= isurf) ) cycle ! CAS 'COMPENSATEUR'
         if ( surf(isurf)%tag /= 1 ) cycle
         call propagation_step_RK4( &
              surf(isurf), &
@@ -204,7 +183,7 @@ program fftsurf
      end do
      time = time + options%timestep
      instant = instant + 1
-     !PRINT '(a5,1x,f5.3,1x,f8.3)','TIME:', time, '/', options%timespan
+
      PRINT *,''
      PRINT '(a7,1x,i0)','INSTANT',INSTANT
      PRINT *,'TIME:', time, '/', options%timespan
@@ -1813,11 +1792,14 @@ subroutine write_tecplot_mesh_iface( &
     integer                                  :: ihedg(2), ifirst, ilast, sens, np, jedge, kedge, ivert
     INTEGER :: FID
 
-    IF ( .false. ) THEN
+    IF ( .true. ) THEN      
        CALL GET_FREE_UNIT(FID)
        OPEN(UNIT=FID, FILE='../debug/hyperedge.dat', ACTION='WRITE')
        DO JEDGE = 1,HYPEREDGE%NE
           IHEDG = HYPEREDGE%HALFEDGES(:,JEDGE)
+          PRINT *,'IHEDG =',IHEDG
+          PRINT *,BREP%EDGES(IHEDG(1))%CURVE%POLYLINE%NP
+          PRINT *,BREP%EDGES(IHEDG(1))%CURVE%ISPLIT(2,1:BREP%EDGES(IHEDG(1))%CURVE%NSPLIT)
           CALL get_polyline_endpoints( &
                brep, &
                ihedg, &
@@ -1825,6 +1807,7 @@ subroutine write_tecplot_mesh_iface( &
                ilast, &
                sens, &
                np )
+          PRINT *,'IFIRST, ILAST =', ifirst, ilast
           DO IVERT = IFIRST,ILAST,(-1)**SENS
              WRITE (FID,*) BREP%EDGES(IHEDG(1))%CURVE%POLYLINE%XYZ(:,IVERT)
           END DO
@@ -1832,6 +1815,7 @@ subroutine write_tecplot_mesh_iface( &
        CLOSE(FID)
     END IF
 
+    ! compute the hyperedge's total curvilinear length
     stot = 0._fp
     do jedge = 1,hyperedge%ne
        ihedg = hyperedge%halfedges(:,jedge)
@@ -1865,7 +1849,7 @@ subroutine write_tecplot_mesh_iface( &
     xyz = brep%edges(ids(1))%curve%polyline%xyz(:,ifirst)
 
     do ivert = 2,nv-1
-       IF ( .FALSE. ) THEN
+       IF ( .true. ) THEN
           PRINT *,'IVERT =',IVERT
           PRINT *,'XYZprev =',xyz
        END IF
@@ -1902,6 +1886,7 @@ subroutine write_tecplot_mesh_iface( &
        if ( stat_proj /= 0 ) then
           stat = 2
           PRINT *,'discretize_hyperedge: failed to project onto hyperedge'
+          PRINT *,'DXYZ =',dxyz
           PAUSE
           return
        end if
@@ -1940,6 +1925,66 @@ subroutine write_tecplot_mesh_iface( &
     uv(:,:,nv) = brep%edges(ids(nv))%curve%polyline%uv(:,:,ilast)
 
   end subroutine discretize_hyperedge
-  
+
+
+
+
+
+
+
+
+
+
+
+  subroutine make_checkpoint( &
+       options, &
+       surf, &
+       nsurf, &
+       instant, &
+       time )
+    use mod_util
+    use mod_options
+    use mod_diffgeom
+    use mod_polynomial
+    implicit none
+    type(type_options), intent(in) :: options
+    integer,            intent(in) :: nsurf
+    type(type_surface), intent(in) :: surf(nsurf)
+    integer,            intent(in) :: instant
+    real,               intent(in) :: time
+    character(3)                   :: strnum3
+    integer                        :: isurf, fid
+
+    do isurf = 1,nsurf
+       write (strnum3, '(i3.3)') isurf
+       call write_polynomial( &
+            surf(isurf)%x, &
+            trim(options%directory) // 'checkpoint/coef/c_' // strnum3 // '.cheb' )
+    end do
+
+    call get_free_unit(fid)
+
+    open( &
+         unit=fid, &
+         file=trim(options%directory) // 'checkpoint/surftag.dat', &
+         action='write' )
+    write (fid,*) nsurf
+    do isurf = 1,nsurf
+       write (fid,*) surf(isurf)%tag
+    end do
+    close(fid)
+
+    open( &
+         unit=fid, &
+         file=trim(options%directory) // 'checkpoint/time.dat', &
+         action='write' )
+    write (fid,*) instant
+    write (fid,*) time
+    close(fid)
+
+    call system('cp '  //trim(options%directory) // 'init/tangent_curves.dat ' &
+         & //trim(options%directory) // 'checkpoint/')
+
+  end subroutine make_checkpoint
   
 end program fftsurf

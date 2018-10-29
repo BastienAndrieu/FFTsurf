@@ -1,0 +1,35 @@
+# pas de temps
+timestep
+1.000000e-02
+
+# duree totale
+timespan
+1
+
+# chemin
+directory
+/d/bandrieu/GitHub/FFTsurf/cases/expanding_cube/
+
+# loi de propagation
+# 1 : vitesse normale constante et uniforme
+# 2 : vortex
+# 3 : rotation autour de l axe z
+propagation
+1
+
+# mode
+# 0 : propagation des surfaces
+# 1 : regeneration B-rep et hypergraphe
+# 2 : ismorphisme hypergraphes et maillage
+# defaut=0
+mode
+2
+# chordal error
+chord
+1.000000e-04
+# hmin
+hmin
+1.000000e-02
+# hmax
+hmax
+3.000000e-02
