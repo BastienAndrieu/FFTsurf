@@ -36,6 +36,21 @@ contains
 
 
 
+  function triangle_normal( xyz, unitize ) result( nor )
+    implicit none
+    real(kind=fp),     intent(in) :: xyz(3,3)
+    logical, optional, intent(in) :: unitize
+    real(kind=fp)                 :: nor(3)
+
+    nor = cross(xyz(:,2) - xyz(:,1), xyz(:,3) - xyz(:,1))
+    if ( present(unitize) ) then
+       if ( unitize ) nor = nor / norm2(nor)
+    end if
+    
+  end function triangle_normal
+
+  
+
   ! ---------------------------------------------------------
   subroutine convex_hull_2d( &
        xy, &

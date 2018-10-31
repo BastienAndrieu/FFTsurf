@@ -362,7 +362,7 @@ contains
        write (fid,*) mesh%paths(i)%hyperedge
        write (fid,*) mesh%paths(i)%nv
        do j = 1,mesh%paths(i)%nv
-          write (fid,*) mesh%paths(i)%verts(j), mesh%paths(i)%s(j)
+          write (fid,*) mesh%paths(i)%verts(j)!, mesh%paths(i)%s(j)
        end do
     end do
     close(fid)

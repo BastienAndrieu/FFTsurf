@@ -68,7 +68,7 @@ for instant in range(i1,i2+1):
         f = open('tecplot/instant_' + sinst + '.dat', 'w')
         f.write('VARIABLES = "X" "Y" "Z" "FREF"\n')
         f.write('ZONE T="instant ' + sinst + '"\n')
-        f.write('STRANDID=0, SOLUTIONTIME=0\n')
+        #f.write('STRANDID=0, SOLUTIONTIME=0\n')
         f.write('Nodes=' + str(len(xyz)) + ', Elements=' + str(len(tri)) + '\n')
         f.write('ZONETYPE=FETriangle\n')
         f.write('DATAPACKING=BLOCK\n')

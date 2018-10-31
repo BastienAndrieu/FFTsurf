@@ -43,6 +43,7 @@ program fftsurf
   ! --------------------------------------------------------------
   ! Surface mesh
   type(type_surface_mesh)               :: mesh
+  real(kind=fp), allocatable            :: xyzprev(:,:), dxyz(:,:)
   integer                               :: stat_corresp, stat_regen_path
   integer                               :: ivert, iface
   ! --------------------------------------------------------------
@@ -144,6 +145,8 @@ program fftsurf
           trim(options%directory) // 'output/', &
           mesh, &
           instant )
+
+     allocate(xyzprev(3,mesh%nv), dxyz(3,mesh%nv))
      PAUSE
   end if
 
@@ -258,6 +261,8 @@ program fftsurf
            end if
            !PAUSE
 
+           xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
+
            ! Regenerate features mesh
            call regenerate_feature_paths( &
                 brep_new, &
@@ -270,16 +275,23 @@ program fftsurf
            end if
 
            ! (Pre-deform mesh to prevent inverted elements)
+           dxyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) - xyzprev(1:3,1:mesh%nv)
+           call spring_displacement_smoothing( &
+                mesh, &
+                dxyz, &
+                10 )
+           
            do ivert = 1,mesh%nv ! <-------------------------------------------------+
               select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
               case (0) ! -------------------------------------------------------+   !
                  mesh%xyz(:,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz  !   !
               case (1) ! -------------------------------------------------------+   !
-                 iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
-                 call eval( &                                                   !   !
-                      mesh%xyz(:,ivert), &                                      !   !
-                      brep_new%faces(iface)%surface, &                          !   !
-                      mesh%uv(:,1,ivert) )                                      !   !
+                 ! redundant...
+                 !iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
+                 !call eval( &                                                   !   !
+                 !     mesh%xyz(:,ivert), &                                      !   !
+                 !     brep_new%faces(iface)%surface, &                          !   !
+                 !     mesh%uv(:,1,ivert) )                                      !   !
               case (2) ! -------------------------------------------------------+   !
                  iface = mesh%ids(ivert)                                        !   !
                  call eval( &                                                   !   !
@@ -288,6 +300,12 @@ program fftsurf
                       mesh%uv(:,1,ivert) )                                      !   !
               end select ! <----------------------------------------------------+   !
            end do ! <---------------------------------------------------------------+
+
+           dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) + dxyz(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
+           call pre_deformation( &
+                brep_new, &
+                mesh, &
+                dxyz )
 
            ! Mesh optimization
            call optim_jiao( &
