@@ -855,7 +855,8 @@ contains
        !
        ! run mesher
        PRINT *,'MESH FACE #',IFACE
-       call system('/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
+       call system( &!'/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
+            '/home/bastien/MeshGen/./meshgen.out &
             & ../tmp/c.cheb &
             & ../tmp/bpts.dat &
             & ../tmp/bedg.dat &

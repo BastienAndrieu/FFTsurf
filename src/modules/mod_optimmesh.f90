@@ -470,6 +470,7 @@ contains
     real(kind=fp)                          :: hess(3,3,mesh%nv)
     real(kind=fp)                          :: duv(2,2,mesh%nv), ds
     real(kind=fp)                          :: tng(3,2), duv_ds(2,2,2)
+    real(kind=fp)                          :: xyzproj(3)
     integer                                :: stat
     logical                                :: singular
     real(kind=fp), dimension(4)            :: lowerb, upperb
@@ -738,6 +739,21 @@ contains
                      uvtmp(:,1), &
                      .false., &!(passmax > 30 .and. ivert == 12), &!(passmax < 10 .and. ivert == 3984), &
                      stat )
+                if ( stat > 0 ) then
+                   PRINT *,'IVERT =',IVERT
+                   PRINT *,'DXYZ =',DXYZ
+                   uvtmp(1:2,1) = mesh%uv(1:2,1,ivert)
+                   call projection_surface( &
+                        brep%faces(mesh%ids(ivert))%surface, &
+                        mesh%xyz(1:3,ivert) + dxyz, &
+                        uvtmp(1:2,1), &
+                        [-2._fp, -2._fp], &
+                        [2._fp, 2._fp], &
+                        stat, &
+                        xyzproj )
+                   PRINT *,'UVTMP =',UVTMP(1:2,1)
+                   PRINT *,'XYZPROJ =',XYZPROJ
+                end if
                 if ( stat > 0 ) THEN
                    PRINT *,'IVERT =',IVERT
                    PRINT *,'DXYZ =',DXYZ
@@ -1195,7 +1211,7 @@ subroutine write_tecplot_mesh_displacement2( &
     type(type_surface_mesh), intent(inout) :: mesh
     real(kind=fp),           intent(inout) :: dxyz(3,mesh%nv)
     integer, dimension(mesh%nv)            :: idsnew
-    real(kind=fp)                          :: duv(2), uvnew(2)
+    real(kind=fp)                          :: duv(2), uvnew(2), xyzproj(3)
     real(kind=fp)                          :: dxyz_duv(3,2)
     logical                                :: singular
     logical                                :: check_change
@@ -1261,7 +1277,23 @@ subroutine write_tecplot_mesh_displacement2( &
                stat )
           if ( stat > 0 ) then
              PRINT *,'IVERT =',IVERT
-             PRINT *,'DXYZ =',DXYZ
+             PRINT *,'DXYZ =',DXYZ(:,ivert)
+             uvnew = mesh%uv(1:2,1,ivert)
+             call projection_surface( &
+                  brep%faces(mesh%ids(ivert))%surface, &
+                  mesh%xyz(1:3,ivert) + dxyz(1:3,ivert), &
+                  uvnew, &
+                  [-2._fp, -2._fp], &
+                  [2._fp, 2._fp], &
+                  stat, &
+                  xyzproj )
+             idsnew(ivert) = mesh%ids(ivert)
+             PRINT *,'UVNEW =',UVnew
+             PRINT *,'XYZPROJ =',XYZPROJ
+          end if
+          if ( stat > 0 ) then
+             PRINT *,'IVERT =',IVERT
+             PRINT *,'DXYZ =',DXYZ(:,ivert)
              PAUSE
           else
              mesh%uv(1:2,1,ivert) = uvnew
@@ -1311,8 +1343,11 @@ subroutine write_tecplot_mesh_displacement2( &
     type(type_surface_mesh), intent(in)    :: mesh
     real(kind=fp),           intent(inout) :: dxyz(3,mesh%nv)
     integer,                 intent(in)    :: npass
-    real(kind=fp)                          :: dxyztmp(3,mesh%nv), w, sumw
-    integer                                :: ipass, ivert, jvert, ihedg(2), iface, jface
+    real(kind=fp)                          :: maxd0, dxyztmp(3,mesh%nv), w, sumw
+    integer                                :: ipass, ivert, jvert, ihedg(2), iface, jface, n
+
+    maxd0 = sqrt(maxval(sum(dxyz**2,1)))
+    PRINT *,'MAXD0 =',MAXD0
     
     do ipass = 1,npass
        dxyztmp(1:3,1:mesh%nv) = 0._fp
@@ -1321,13 +1356,15 @@ subroutine write_tecplot_mesh_displacement2( &
              ihedg = mesh%v2h(:,ivert)
              iface = get_face(ihedg)
              sumw = 0._fp
+             n = 0
              adjacent_verts : do
                 jvert = get_dest(mesh, ihedg)
                 w = sum((mesh%xyz(:,jvert) - mesh%xyz(:,ivert))**2)
                 if ( w > EPSxyzsqr ) then
+                   n = n + 1
                    w = 1._fp / sqrt(w)
-                   dxyztmp(1:3,ivert) = dxyztmp(1:3,ivert) + w*dxyz(1:3,jvert)
                    sumw = sumw + w
+                   dxyztmp(1:3,ivert) = dxyztmp(1:3,ivert) + w*dxyz(1:3,jvert)
                 else
                    PRINT *,'/!\ ADJACENT VERTICES TOO CLOSE, VERTS =',IVERT,JVERT,', DISTANCE =',SQRT(W)
                 end if
@@ -1337,13 +1374,29 @@ subroutine write_tecplot_mesh_displacement2( &
                 jface = get_face(ihedg)
                 if ( jface < 1 .or. jface == iface ) exit adjacent_verts
              end do adjacent_verts
+             if ( sumw < EPSfp ) then
+                w = 1._fp
+             else
+                w = sumw / real(n, kind=fp)
+             end if
+             dxyztmp(1:3,ivert) = dxyztmp(1:3,ivert) + w * dxyz(1:3,ivert)
+             sumw = sumw + w
+             dxyztmp(1:3,ivert) = dxyztmp(1:3,ivert) / sumw
           else
              dxyztmp(1:3,ivert) = dxyz(1:3,ivert)
           end if
        end do
-
+       PRINT *,'PASS #',IPASS,', DELTA* =',SQRT(MAXVAL(SUM((DXYZ - DXYZTMP)**2,1))) / maxd0
+       
        dxyz(1:3,1:mesh%nv) = dxyztmp(1:3,1:mesh%nv)
     end do
+
+    !PRINT *,'MAX =',SQRT(MAXVAL(SUM(DXYZ(MESH%TYP(1:MESH%NV)
+    MAXD0 = 0._FP
+    DO IVERT = 1,MESH%NV
+       IF ( MESH%TYP(IVERT) == 2 ) MAXD0 = MAX(MAXD0, SUM(DXYZ(:,IVERT)**2))
+    END DO
+    PRINT *,'MAX DXYZ_FREE =',SQRT(MAXD0)
 
   end subroutine spring_displacement_smoothing
 

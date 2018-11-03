@@ -833,7 +833,7 @@ contains
     use mod_linalg
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .false.
+    LOGICAL, PARAMETER :: DEBUG = .true.
     integer, parameter                :: itmax = 20
     type(type_surface), intent(in)    :: surf
     real(kind=fp),      intent(in)    :: xyz(3)
@@ -889,7 +889,7 @@ contains
 
        erruv = sum(duv**2)
 
-       IF ( DEBUG ) PRINT *,sqrt(sum(r**2) - rn**2), sqrt(erruv), EPSfp*cond
+       IF ( DEBUG ) PRINT *,sqrt(max(0._fp,sum(r**2) - rn**2)), sqrt(erruv), EPSfp*cond
 
        ! modify Newton step => keep iterate inside feasible region
        call nd_box_reflexions( &

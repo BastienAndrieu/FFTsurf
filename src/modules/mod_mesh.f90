@@ -640,7 +640,91 @@ contains
 
 
 
-  
+   subroutine write_connectivity( &
+       dir, &
+       mesh, &
+       irep )
+    use mod_util
+    implicit none
+    character(*),            intent(in) :: dir
+    type(type_surface_mesh), intent(in) :: mesh
+    integer,                 intent(in) :: irep
+    character(2)                        :: strnum
+    integer                             :: fid, i, j
+
+    write (strnum,'(i2.2)') irep
+    call get_free_unit(fid)
+    open( &
+         unit = fid, &
+         file = dir // 'connect_' // strnum //'.dat', &
+         action = 'write' )
+    do j = 1,mesh%nt
+       do i = 1,3
+          write (fid, '(i0,1x)', advance='no') mesh%tri(i,j)
+       end do
+       write (fid,*)
+    end do
+    close(fid)
+
+  end subroutine write_connectivity
+
+
+
+  subroutine write_face_ref( &
+       dir, &
+       mesh, &
+       irep )
+    use mod_util
+    implicit none
+    character(*),            intent(in) :: dir
+    type(type_surface_mesh), intent(in) :: mesh
+    integer,                 intent(in) :: irep
+    character(2)                        :: strnum
+    integer                             :: fid, i
+
+    write (strnum,'(i2.2)') irep
+    call get_free_unit(fid)
+    open( &
+         unit = fid, &
+         file = dir // 'faceref_' // strnum //'.dat', &
+         action = 'write' )
+    do i = 1,mesh%nt
+       write (fid, '(i0)') mesh%ihf(i)
+    end do
+    close(fid)
+
+  end subroutine write_face_ref
+
+
+
+  subroutine write_xyz_positions( &
+       dir, &
+       mesh, &
+       instant )
+    use mod_util
+    implicit none
+    character(*),            intent(in) :: dir
+    type(type_surface_mesh), intent(in) :: mesh
+    integer,                 intent(in) :: instant
+    character(3)                        :: str
+    integer                             :: fid, i, j
+
+    write (str,'(i3.3)') instant
+    call get_free_unit(fid)
+    open( &
+         unit = fid, &
+         file = dir // 'pos_' // str // '.dat', &
+         action = 'write' )
+    do j = 1,mesh%nv
+       do i = 1,3
+          write (fid, '(e22.15,1x)', advance='no') mesh%xyz(i,j)
+       end do
+       write (fid,*)
+    end do
+    close(fid)
+
+  end subroutine write_xyz_positions
+
 
   
 end module mod_mesh

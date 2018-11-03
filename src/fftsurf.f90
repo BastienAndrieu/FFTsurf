@@ -13,6 +13,7 @@ program fftsurf
   use mod_propagation
   use mod_polynomial
   use mod_intersection
+  use mod_init
 
   implicit none
 
@@ -86,7 +87,7 @@ program fftsurf
   !if ( options%mode > 0 ) allocate(interdata_old, brep_old)
   !if ( options%mode > 1 ) allocate(hypergraph_old)
   allocate(interdata_old, brep_old, hypergraph_old)
-  call initialization( &
+  call init_from_surfaces( &!initialization( &
        fileoptions, &
        options, &
        surf, &
@@ -261,9 +262,10 @@ program fftsurf
            end if
            !PAUSE
 
-           xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
+           !xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
 
            ! Regenerate features mesh
+           ! uv, ids
            call regenerate_feature_paths( &
                 brep_new, &
                 hypergraph_new, &
@@ -274,24 +276,50 @@ program fftsurf
               PAUSE
            end if
 
-           ! (Pre-deform mesh to prevent inverted elements)
-           dxyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) - xyzprev(1:3,1:mesh%nv)
-           call spring_displacement_smoothing( &
-                mesh, &
-                dxyz, &
-                10 )
-           
+           ! xyz
+           dxyz(1:3,1:mesh%nv) = 0._fp
            do ivert = 1,mesh%nv ! <-------------------------------------------------+
               select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
               case (0) ! -------------------------------------------------------+   !
-                 mesh%xyz(:,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz  !   !
+                 !mesh%xyz(:,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz  !   !
+                 dxyz(1:3,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz - &
+                      mesh%xyz(1:3,ivert)
               case (1) ! -------------------------------------------------------+   !
-                 ! redundant...
-                 !iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
-                 !call eval( &                                                   !   !
-                 !     mesh%xyz(:,ivert), &                                      !   !
-                 !     brep_new%faces(iface)%surface, &                          !   !
-                 !     mesh%uv(:,1,ivert) )                                      !   !
+                 iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
+                 call eval( &                                                   !   !
+                      dxyz(1:3,ivert), &!mesh%xyz(:,ivert), &                                      !   !
+                      brep_new%faces(iface)%surface, &                          !   !
+                      mesh%uv(:,1,ivert) )                                      !   !
+                 dxyz(1:3,ivert) = dxyz(1:3,ivert) - mesh%xyz(1:3,ivert)
+              end select ! <----------------------------------------------------+   !
+           end do ! <---------------------------------------------------------------+
+
+           ! (Pre-deform mesh to prevent inverted elements)
+           !dxyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) - xyzprev(1:3,1:mesh%nv)
+           !mesh%xyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv)
+           call spring_displacement_smoothing( &
+                mesh, &
+                dxyz, &
+                40 )
+           xyzprev = mesh%xyz(1:3,1:mesh%nv) + dxyz
+           ! ********
+           mesh%xyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) + dxyz
+           call write_xyz_positions( &
+                '../debug/', &
+                mesh, &
+                0 )
+           ! ********
+           !PAUSE
+           do ivert = 1,mesh%nv ! <-------------------------------------------------+
+              select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
+              !case (0) ! -------------------------------------------------------+   !
+              !   mesh%xyz(:,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz  !   !
+              !case (1) ! -------------------------------------------------------+   !
+              !   iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
+              !   call eval( &                                                   !   !
+              !        mesh%xyz(:,ivert), &                                      !   !
+              !        brep_new%faces(iface)%surface, &                          !   !
+              !        mesh%uv(:,1,ivert) )                                      !   !
               case (2) ! -------------------------------------------------------+   !
                  iface = mesh%ids(ivert)                                        !   !
                  call eval( &                                                   !   !
@@ -301,12 +329,21 @@ program fftsurf
               end select ! <----------------------------------------------------+   !
            end do ! <---------------------------------------------------------------+
 
-           dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) + dxyz(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
-           call pre_deformation( &
-                brep_new, &
-                mesh, &
-                dxyz )
-
+           IF ( .true. ) THEN
+              dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
+              call pre_deformation( &
+                   brep_new, &
+                   mesh, &
+                   dxyz )
+              ! ********
+              call write_xyz_positions( &
+                   '../debug/', &
+                   mesh, &
+                   1 )
+              ! ********
+              !PAUSE
+           END IF
+           
            ! Mesh optimization
            call optim_jiao( &
                 brep_new, &
@@ -672,47 +709,7 @@ contains
 
 
 
-  subroutine check_uvs( &
-       brep, &
-       mesh )
-    use mod_types_brep
-    use mod_mesh
-    use mod_diffgeom
-    use mod_tolerances
-    implicit none
-    type(type_brep),         intent(in) :: brep
-    type(type_surface_mesh), intent(in) :: mesh
-    real(kind=fp)                       :: xyzverif(3,2)
-    integer                             :: i, j, iface
-
-    PRINT *,'CHECK UVs'
-    do i = 1,mesh%nv
-       select case(mesh%typ(i))
-       case (0)
-       case (1)
-          do j = 1,2
-             iface = brep%edges(mesh%ids(i))%halfedges(1+mod(j,2))%face
-             call eval( &
-                  xyzverif(:,j), &
-                  brep%faces(iface)%surface, &
-                  mesh%uv(:,j,i) )
-          end do
-          IF ( MAX(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) > EPSxyz ) THEN
-             PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
-          END IF
-       case (2)
-          call eval( &
-               xyzverif(:,1), &
-               brep%faces(mesh%ids(i))%surface, &
-               mesh%uv(:,1,i) )
-          IF ( norm2(mesh%xyz(:,i) - xyzverif(:,1)) > 1.D-13 ) THEN
-             PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1))
-          END IF
-       end select
-    end do
-
-  end subroutine check_uvs
-
+  
 
 
 
@@ -971,94 +968,7 @@ contains
   
 
 
-  subroutine write_connectivity( &
-       dir, &
-       mesh, &
-       irep )
-    use mod_util
-    use mod_mesh
-    implicit none
-    character(*),            intent(in) :: dir
-    type(type_surface_mesh), intent(in) :: mesh
-    integer,                 intent(in) :: irep
-    character(2)                        :: strnum
-    integer                             :: fid, i, j
-
-    write (strnum,'(i2.2)') irep
-    call get_free_unit(fid)
-    open( &
-         unit = fid, &
-         file = dir // 'connect_' // strnum //'.dat', &
-         action = 'write' )
-    do j = 1,mesh%nt
-       do i = 1,3
-          write (fid, '(i0,1x)', advance='no') mesh%tri(i,j)
-       end do
-       write (fid,*)
-    end do
-    close(fid)
-
-  end subroutine write_connectivity
-
-
-
-  subroutine write_face_ref( &
-       dir, &
-       mesh, &
-       irep )
-    use mod_util
-    use mod_mesh
-    implicit none
-    character(*),            intent(in) :: dir
-    type(type_surface_mesh), intent(in) :: mesh
-    integer,                 intent(in) :: irep
-    character(2)                        :: strnum
-    integer                             :: fid, i
-
-    write (strnum,'(i2.2)') irep
-    call get_free_unit(fid)
-    open( &
-         unit = fid, &
-         file = dir // 'faceref_' // strnum //'.dat', &
-         action = 'write' )
-    do i = 1,mesh%nt
-       write (fid, '(i0)') mesh%ihf(i)
-    end do
-    close(fid)
-
-  end subroutine write_face_ref
-
-
-
-  subroutine write_xyz_positions( &
-       dir, &
-       mesh, &
-       instant )
-    use mod_util
-    use mod_mesh
-    implicit none
-    character(*),            intent(in) :: dir
-    type(type_surface_mesh), intent(in) :: mesh
-    integer,                 intent(in) :: instant
-    character(3)                        :: str
-    integer                             :: fid, i, j
-
-    write (str,'(i3.3)') instant
-    call get_free_unit(fid)
-    open( &
-         unit = fid, &
-         file = dir // 'pos_' // str // '.dat', &
-         action = 'write' )
-    do j = 1,mesh%nv
-       do i = 1,3
-          write (fid, '(e22.15,1x)', advance='no') mesh%xyz(i,j)
-       end do
-       write (fid,*)
-    end do
-    close(fid)
-
-  end subroutine write_xyz_positions
-
+ 
 
 
 

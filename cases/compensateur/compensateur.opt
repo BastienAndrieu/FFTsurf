@@ -1,6 +1,9 @@
 # pas de temps
 timestep
-2.600000e-03
+4.0e-3
+#2.600000e-03
+#5.200000e-03
+
 
 # duree totale
 timespan
