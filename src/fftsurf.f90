@@ -1083,6 +1083,11 @@ contains
           end do
        else
           ! closed hyperedge (cycle) ...
+          do jhype = 1,hypg_new%nhe
+             if ( assigned(jhype) ) cycle
+             if ( hypg_new%hyperedges(jhype)%verts(1) /= hypg_new%hyperedges(jhype)%verts(2) ) cycle
+             
+          end do
        end if
     end do
 
@@ -1103,7 +1108,8 @@ contains
        if ( he2he(ihype) > 0 ) then
           mesh%paths(ipath)%hyperedge = he2he(ihype)
        else
-          ! delete path ans update ids & typ
+          ! delete path and update ids & typ
+          ! ...
        end if
     end do
     
