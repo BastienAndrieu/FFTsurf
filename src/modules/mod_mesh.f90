@@ -314,6 +314,98 @@ contains
     close(fid)
 
   end subroutine write_obj_mesh
+
+
+
+
+  
+  subroutine write_vtk_mesh( &
+       mesh, &
+       filename )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+
+    write (fid,'(A26)') '# vtk DataFile Version 2.0'
+    write (fid,*) filename    
+    write (fid,'(A5)') 'ASCII'
+    write (fid,'(A25)') 'DATASET UNSTRUCTURED_GRID'
+    write (fid,'(A6,1x,I0,1x,A6)') 'POINTS', mesh%nv, 'double'
+    do j = 1,mesh%nv
+       do i = 1,3
+          write (fid,'(ES22.15,1x)', advance='no') mesh%xyz(i,j)
+       end do
+       write (fid,*)
+    end do
+
+    write (fid,'(A5,1x,I0,1x,I0)') 'CELLS', mesh%nt, 4*mesh%nt
+    do j = 1,mesh%nt
+       write (fid,'(I0,1x,I0,1x,I0,1x,I0)') 3, mesh%tri(1:3,j) - 1
+    end do
+
+    write (fid,'(A10,1x,I0)') 'CELL_TYPES', mesh%nt
+    do j = 1,mesh%nt
+       write (fid,'(I1)') 5
+    end do
+
+    write (fid,'(A9,1x,I0)') 'CELL_DATA', mesh%nt
+    write (fid,*) 'SCALARS hyperface int'
+    write (fid,'(A20)') 'LOOKUP_TABLE default'
+    do j = 1,mesh%nt
+       write (fid,'(I0)') mesh%ihf(j)
+    end do
+    
+    close(fid)   
+
+  end subroutine write_vtk_mesh
+
+
+
+
+  subroutine write_gmsh_mesh( &
+       mesh, &
+       filename )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filename
+    integer                             :: fid, i, j
+
+    call get_free_unit(fid)
+    open(unit=fid, file=filename, action='write')
+
+    write (fid,'(a11)') '$MeshFormat'
+    write (fid,'(a7)') '2.2 0 8'
+    write (fid,'(a14)') '$EndMeshFormat'
+    
+    write (fid,'(a6)') '$Nodes'
+    write (fid,'(i0)') mesh%nv
+    do j = 1,mesh%nv
+       write (fid,'(i0,1x)', advance='no') j
+       do i = 1,3
+          write (fid,'(es22.15,1x)', advance='no') mesh%xyz(i,j)
+       end do
+       write (fid,*) ''
+    end do
+    write (fid,'(a9)') '$EndNodes'
+    
+    write (fid,'(a9)') '$Elements'
+    write (fid,'(i0)') mesh%nt
+    do j = 1,mesh%nt
+       write (fid,'(i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0)') j, 2, 2, 1, mesh%ihf(j), mesh%tri(1:3,j)
+    end do
+    write (fid,'(a12)') '$EndElements'
+    
+    close(fid)
+
+  end subroutine write_gmsh_mesh
+
+  
   
 
 

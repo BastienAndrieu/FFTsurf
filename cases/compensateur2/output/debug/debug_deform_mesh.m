@@ -10,7 +10,7 @@ rep = [rep; 10000];
 plotfaces = 0;
 plotdisplacement = 0;
 
-instant = 117;
+instant = 22;
 
 irep = 1;
 while 1

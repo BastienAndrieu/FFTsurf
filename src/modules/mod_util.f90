@@ -653,8 +653,8 @@ contains
        iprev = max(iprev, 0)
        if ( n + 1 > size(array,2) ) then
           call move_alloc( from=array, to=tmp )
-          allocate(array(m,n + n_xtra))
-          array(1:m,1:n) = tmp(1:m,1:n)
+          allocate(array(max(m,size(tmp,1)),n + n_xtra))
+          array(1:size(tmp,1),1:n) = tmp(1:size(tmp,1),1:n)
           deallocate(tmp)
        end if
        array(1:m,iprev+2:n+1) = array(1:m,iprev+1:n)

@@ -522,8 +522,12 @@ contains
 
        deallocate(lenwire, wire2arc, nsuper, super, outer, inner, ninner)
     end do
+    
 
     ! finally, set halfedge record for BREPvertices
+    PRINT *,'BREP%NE =',BREP%NE
+    PRINT *,'BREP%NF =',BREP%NF
+    PRINT *,'BREP%NV =',BREP%NV
     do ivert = 1,brep%nv
        brep%verts(ivert)%halfedge(:) = 0
     end do

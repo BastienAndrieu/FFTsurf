@@ -11,8 +11,8 @@ timespan
 
 # chemin
 directory
-/home/bastien/GitHub/FFTsurf/cases/compensateur/
-#/d/bandrieu/GitHub/FFTsurf/cases/compensateur/
+/d/bandrieu/GitHub/FFTsurf/cases/compensateur/
+#/home/bastien/GitHub/FFTsurf/cases/compensateur/
 
 # loi de propagation
 # 1 : vitesse normale constante et uniforme

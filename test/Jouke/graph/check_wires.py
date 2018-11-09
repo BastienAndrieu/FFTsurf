@@ -13,7 +13,7 @@ class trimming_wire:
 #############################################################
 def solve_2x2(a11, a12, a21, a22, b):
     det = a11*a22 - a12*a21
-    if abs(det) < 1.e-15:
+    if abs(det) < 1.e-10:
         return 0, False
     else:
         return np.array( (b[0]*a22 - a12*b[1], a11*b[1] - b[0]*a21) ) / det, True

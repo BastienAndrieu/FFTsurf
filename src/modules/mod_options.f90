@@ -17,6 +17,7 @@ module mod_options
      real(kind=fp)              :: hmin = real(1.d-3, kind=fp)!PARAM_hmin
      real(kind=fp)              :: hmax = real(1.d-2, kind=fp)!PARAM_hmax
      logical                    :: reprise = .false.
+     logical                    :: from_msh = .false.
   end type type_options
 
 contains
@@ -108,6 +109,7 @@ contains
     print *,'hmin      = ', self%hmin
     print *,'hmax      = ', self%hmax
     print *,'reprise?    ', self%reprise
+    print *,'from msh?   ', self%from_msh
     print *,'==================================='
     print *,''
 

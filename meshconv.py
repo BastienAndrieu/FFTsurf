@@ -15,7 +15,7 @@ import os
 # si f,uv,poly alors maillage surface texture avec xyz=poly(uv)
 # si f,uv,xyz alors maillage surface texture (poly ignore si present)
 # comprendre extension fichier output:
-#    .obj, .mesh (MFEM ou INRIA), .stl
+#    .obj, .mesh (MFEM ou INRIA), .stl, .vtk
 ##################
 
 
@@ -198,6 +198,34 @@ def write_stl( xyz, faces, filename ):
         f.write( "    endloop\n")
         f.write( "endfacet\n\n")
     f.write( "\nendsolid " + filename )
+    f.close()
+    return
+#############################################################
+def write_vtk( xyz, faces, filename ):
+    f = open( filename, "w" )
+    f.write( "# vtk DataFile Version 2.0\n" )
+    f.write( filename[0:-4] + "\n" )
+    f.write( "ASCII\n" )
+    f.write( "DATASET UNSTRUCTURED_GRID\n" )
+    
+    f.write( "POINTS " + str(len(xyz)) + " double\n" )
+    for v in xyz:
+        for x in v:
+            f.write( format( x, float_fmt ) + " " )
+        f.write( "\n" )
+        
+    f.write( "CELLS " + str(len(faces)) + " " + str(4*len(faces)) + "\n" )
+    for t in faces:
+        f.write( "3 " )
+        for i in t:
+            f.write( str(i-1) + " " )
+        f.write( "\n" )
+
+    f.write( "CELL_TYPES " + str(len(faces)) + "\n" )
+    for t in faces:
+        f.write( "5\n" )
+    f.close()
+    return
 #############################################################
 """
 def boundary_edges( faces, nv ):
@@ -329,8 +357,8 @@ def main(argv):
     
     # check output mesh extension
     name, extension = os.path.splitext( outputmesh )#[1]
-    if extension not in (".obj", ".stl", ".mesh"):
-        print "mesh format "+ extension + " not supported (wavefront OBJ, STL, INRIA mesh, MFEM mesh)"
+    if extension not in (".obj", ".stl", ".mesh", ".vtk"):
+        print "mesh format "+ extension + " not supported (wavefront OBJ, STL, INRIA mesh, MFEM mesh, VTK)"
         sys.exit(2)
         
     # read faces
@@ -377,6 +405,8 @@ def main(argv):
         write_INRIA_mesh( xyz, faces, name + "_inria" + extension )
     elif extension == ".stl":
         write_stl( xyz, faces, outputmesh )
+    elif extension == ".vtk":
+        write_vtk( xyz, faces, outputmesh )  
     else:
         print "output mesh format not supported"
         sys.exit(2)

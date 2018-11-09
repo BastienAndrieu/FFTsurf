@@ -1,17 +1,14 @@
 # pas de temps
 timestep
-0.002593774940144
-#2.600000e-03
+2.593775e-03
 
 # duree totale
 timespan
-0.326815642458101
-#3.224000e-01
+3.268156e-01
 
 # chemin
 directory
-/home/bastien/GitHub/FFTsurf/cases/compensateur2/
-#/d/bandrieu/GitHub/FFTsurf/cases/compensateur2/
+/d/bandrieu/GitHub/FFTsurf/cases/compensateur2/
 
 # loi de propagation
 # 1 : vitesse normale constante et uniforme
@@ -29,10 +26,10 @@ mode
 2
 # chordal error
 chord
-1.000000e-03
+4.418075e-04
 # hmin
 hmin
-8.000000e-03
+6.094816e-03
 # hmax
 hmax
-3.000000e-02
+4.657383e-02

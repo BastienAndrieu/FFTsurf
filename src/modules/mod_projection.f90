@@ -833,7 +833,7 @@ contains
     use mod_linalg
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .true.
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer, parameter                :: itmax = 20
     type(type_surface), intent(in)    :: surf
     real(kind=fp),      intent(in)    :: xyz(3)

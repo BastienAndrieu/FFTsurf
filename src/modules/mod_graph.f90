@@ -75,7 +75,6 @@ contains
        nnod, &
        nwires, &
        wirearc, &
-       !wirenod, &
        lenwire )
     use mod_util
     use mod_math
@@ -84,7 +83,7 @@ contains
     integer,       intent(in)     :: arc2nod(2,narc)
     real(kind=fp), intent(in)     :: arc_angles(2,narc)
     integer,       intent(out)    :: nwires
-    integer,       intent(out)    :: wirearc(min(narc,nnod),min(narc,nnod))!, wirenod(min(narc,nnod),min(narc,nnod))
+    integer,       intent(out)    :: wirearc(min(narc,nnod),min(narc,nnod))
     integer,       intent(out)    :: lenwire(min(narc,nnod))
     integer, dimension(nnod)      :: nin, nout
     integer, dimension(narc,nnod) :: nod2arc_in, nod2arc_out
@@ -127,7 +126,6 @@ contains
        !                                                                                         !
        lenwire(nwires+1) = 1                                                                     !
        wirearc(1,nwires+1) = karc                                                                !
-       !wirenod(1,nwires+1) = arc2nod(1,karc)                                                     !
        inod = arc2nod(2,karc)                                                                    !
        validwire = .true.                                                                        !
        while_wire : do ! <------------------------------------------------------------------+    !
@@ -143,8 +141,10 @@ contains
           ! find leftmost outgoing arc at current node                                      !    !
           maxangle_out = -CSTpi                                                             !    !
           iarc = 0                                                                          !    !
+          !PRINT *,'NOUT =',nout(inod)
           do jarc = 1,nout(inod) ! <------------------------------------------+             !    !
              dangle = diff_angle(arc_angles(1,nod2arc_out(jarc,inod)), angle) !             !    !
+             !PRINT *,'DANGLE =',dangle
              if ( dangle > maxangle_out ) then ! <-----+                      !             !    !
                 iarc = nod2arc_out(jarc,inod)          !                      !             !    !
                 maxangle_out = dangle                  !                      !             !    !
@@ -158,7 +158,6 @@ contains
              if ( iarc == wirearc(1,nwires+1) ) exit while_wire !                           !    !
              lenwire(nwires+1) = lenwire(nwires+1) + 1          !                           !    !
              wirearc(lenwire(nwires+1),nwires+1) = iarc         !                           !    !
-             !wirenod(lenwire(nwires+1),nwires+1) = inod         !                           !    !
              inod = arc2nod(2,iarc)                             !                           !    !
           end if ! <--------------------------------------------+                           !    !
        end do while_wire ! <----------------------------------------------------------------+    !

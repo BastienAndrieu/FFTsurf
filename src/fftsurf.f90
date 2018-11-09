@@ -76,6 +76,9 @@ program fftsurf
      case ('-rep')
         iarg = iarg + 1
         options%reprise = .true.
+     case ('-msh')
+        iarg = iarg + 1
+        options%from_msh = .true.
      end select
   end do
 
@@ -84,18 +87,28 @@ program fftsurf
   !! Initialization
   PRINT *,'INITIALIZATION...'
   call cpu_time(tic)
-  !if ( options%mode > 0 ) allocate(interdata_old, brep_old)
-  !if ( options%mode > 1 ) allocate(hypergraph_old)
   allocate(interdata_old, brep_old, hypergraph_old)
-  call init_from_surfaces( &!initialization( &
-       fileoptions, &
-       options, &
-       surf, &
-       nsurf, &
-       interdata_old, &
-       brep_old, &
-       hypergraph_old, &
-       mesh )
+  if ( options%from_msh ) then
+     call init_from_mesh( &
+          fileoptions, &
+          options, &
+          surf, &
+          nsurf, &
+          interdata_old, &
+          brep_old, &
+          hypergraph_old, &
+          mesh )
+  else
+     call init_from_surfaces( &
+          fileoptions, &
+          options, &
+          surf, &
+          nsurf, &
+          interdata_old, &
+          brep_old, &
+          hypergraph_old, &
+          mesh )
+  end if
   call cpu_time(toc)
   PRINT '(a8,1x,f8.3,1x,a1)','ELAPSED:', toc - tic, 's'
 
@@ -148,6 +161,13 @@ program fftsurf
           instant )
 
      allocate(xyzprev(3,mesh%nv), dxyz(3,mesh%nv))
+
+     call write_vtk_mesh( &
+          mesh, &
+          '../debug/test.vtk' )
+     call write_gmsh_mesh( &
+          mesh, &
+          '../debug/test.msh' )
      PAUSE
   end if
 
@@ -294,21 +314,24 @@ program fftsurf
               end select ! <----------------------------------------------------+   !
            end do ! <---------------------------------------------------------------+
 
-           ! (Pre-deform mesh to prevent inverted elements)
-           !dxyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) - xyzprev(1:3,1:mesh%nv)
-           !mesh%xyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv)
-           call spring_displacement_smoothing( &
-                mesh, &
-                dxyz, &
-                40 )
-           xyzprev = mesh%xyz(1:3,1:mesh%nv) + dxyz
-           ! ********
-           mesh%xyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) + dxyz
-           call write_xyz_positions( &
-                '../debug/', &
-                mesh, &
-                0 )
-           ! ********
+           IF ( .true. ) THEN
+              ! (Pre-deform mesh to prevent inverted elements)
+              !dxyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) - xyzprev(1:3,1:mesh%nv)
+              !mesh%xyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv)
+              call spring_displacement_smoothing( &
+                   mesh, &
+                   dxyz, &
+                   20 )
+              xyzprev = mesh%xyz(1:3,1:mesh%nv) + dxyz
+              ! ********
+              mesh%xyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) + dxyz
+              !call write_xyz_positions( &
+              !     '../debug/', &
+              !     mesh, &
+              !     0 )
+              ! ********
+           END IF
+
            !PAUSE
            do ivert = 1,mesh%nv ! <-------------------------------------------------+
               select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
@@ -329,17 +352,17 @@ program fftsurf
               end select ! <----------------------------------------------------+   !
            end do ! <---------------------------------------------------------------+
 
-           IF ( .true. ) THEN
+           IF ( .false. ) THEN
               dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
               call pre_deformation( &
                    brep_new, &
                    mesh, &
                    dxyz )
               ! ********
-              call write_xyz_positions( &
-                   '../debug/', &
-                   mesh, &
-                   1 )
+              !call write_xyz_positions( &
+              !     '../debug/', &
+              !     mesh, &
+              !     1 )
               ! ********
               !PAUSE
            END IF
@@ -434,278 +457,6 @@ contains
          & //trim(options%directory) // 'checkpoint/')
 
   end subroutine make_checkpoint
-
-
-  
-
-
-  subroutine initialization( &
-       fileoptions, &
-       options, &
-       surf, &
-       nsurf, &
-       interdata, &
-       brep, &
-       hypergraph, &
-       mesh )
-    use mod_util
-    use mod_options
-    use mod_diffgeom
-    use mod_types_intersection
-    use mod_types_brep
-    use mod_intersection
-    use mod_brep
-    use mod_mesh
-    use mod_polynomial
-    use mod_optimmesh
-    use mod_tolerances
-    ! mode = 0 : propagation des surfaces
-    !        1 : regeneration BREP + hypergraphe
-    !        2 : isomorphisme hypergrap
-    implicit none
-    character(*),                    intent(in)    :: fileoptions
-    type(type_options),              intent(inout) :: options
-    type(type_surface), allocatable, intent(inout) :: surf(:)
-    integer,                         intent(out)   :: nsurf
-    type(type_intersection_data),    intent(inout) :: interdata
-    type(type_brep),                 intent(inout) :: brep
-    type(type_hypergraph),           intent(inout) :: hypergraph
-    type(type_surface_mesh),         intent(out)   :: mesh
-    character(99)                                  :: dir
-    character(3)                                   :: strnum3
-    integer                                        :: fid
-    integer                                        :: isurf, icurv, i, j
-
-    ! Read options file
-    call read_options( &
-         fileoptions, &
-         options )
-    call print_options( &
-         options)
-
-    dir = trim(options%directory)
-    if ( options%reprise ) then
-       dir = trim(dir) // 'checkpoint/'
-    else
-       dir = trim(dir) // 'init/'
-    end if
-    print *,'dir =',trim(dir)
-
-    call get_free_unit(fid)
-
-    ! Import surfaces
-    open( &
-         unit = fid, &
-         file = trim(dir) // 'surftag.dat', &
-         action = 'read')
-    read (fid,*) nsurf
-    allocate(surf(nsurf))
-    do isurf = 1,nsurf
-       read (fid,*) surf(isurf)%tag
-    end do
-    close(fid)
-
-    do isurf = 1,nsurf
-       write (strnum3,'(i3.3)') isurf
-       call read_polynomial( &
-            surf(isurf)%x, &
-            trim(dir) // 'coef/c_' // strnum3 // '.cheb', &
-            nvar=2, &
-            base=1 )
-
-       call economize2( &
-            surf(isurf)%x, &
-            EPSmath )
-
-       call compute_deriv1(surf(isurf))
-       call compute_deriv2(surf(isurf))
-       call compute_pseudonormal(surf(isurf))
-       call economize2( &
-            surf(isurf)%pn, &
-            EPSmath )
-    end do
-
-    if ( options%mode > 0 ) then
-       ! Read initial tangential intersection curves
-       call read_intersection_curves( &
-            trim(dir) // 'tangent_curves.dat', &
-            surf, &
-            interdata )
-       do icurv = 1,interdata%nc
-          interdata%curves(icurv)%smooth = .true.
-       end do
-
-       ! Generate initial BREP model
-       call make_brep( &
-            surf, &
-            nsurf, &
-            interdata, &
-            brep, &
-            options%chord_err, &
-            options%hmin, &
-            options%hmax )
-
-       ! debugging >> ..................
-       call write_brep_files( &
-            brep, &
-            trim(dir) // 'brep/verts.dat', &
-            trim(dir) // 'brep/edges.dat', &
-            trim(dir) // 'brep/faces.dat' )
-
-       call write_intersection_data( &
-            interdata, &
-            trim(dir) // 'brep/intersection_points.dat', &
-            trim(dir) // 'brep/intersection_curves.dat' )
-       ! .................. <<
-
-       ! Make hypergraph
-       call make_hypergraph( &
-            brep, &
-            hypergraph, &
-            feat_edge, &
-            feat_vert )
-
-       ! debugging >> ..................
-       call get_free_unit( fid )
-       open(unit=fid, file=trim(dir) // 'brep/hyperfaces.dat', action='write')
-       write (fid,*) hypergraph%nhf
-       do i = 1,hypergraph%nhf
-          write (fid,*) hypergraph%hyperfaces(i)%nf
-          write (fid,*) hypergraph%hyperfaces(i)%faces(1:hypergraph%hyperfaces(i)%nf)
-       end do
-       close(fid)
-
-       open(unit=fid, file=trim(dir) // 'brep/hyperedges.dat', action='write')
-       write (fid,*) hypergraph%nhe
-       do i = 1,hypergraph%nhe
-          write (fid,*) hypergraph%hyperedges(i)%ne
-          write (fid,*) hypergraph%hyperedges(i)%verts
-          write (fid,*) hypergraph%hyperedges(i)%hyperfaces
-          do j = 1,hypergraph%hyperedges(i)%ne
-             write (fid,*) hypergraph%hyperedges(i)%halfedges(1:2,j)
-          end do
-       end do
-       close(fid)
-       ! .................. <<
-
-    end if
-
-    if ( options%mode > 1 ) then
-       !IF ( .false. ) THEN
-       !   call init_mesh( &
-       !        trim(options%directory) // 'init/mesh/xyzb.dat', &
-       !        trim(options%directory) // 'init/mesh/trib.dat', &
-       !        brep, &
-       !        mesh )
-       !   !***********
-       !   call write_connectivity( &
-       !        trim(options%directory) // 'output/', &
-       !        mesh, &
-       !        1 )
-       !   call write_xyz_positions( &
-       !        trim(options%directory) // 'output/', &
-       !        mesh, &
-       !        0 )
-       !   !***********
-       !ELSE
-       ! Generate a first mesh that conforms to the BREP
-       call generate_brep_mesh( &
-            brep, &
-            options%hmin, &
-            options%hmax, &
-            options%chord_err, &
-            feat_edge(1:brep%ne), &
-            feat_vert(1:brep%nv), &
-            hypergraph%hyperedges(1:hypergraph%nhe), &
-            hypergraph%nhe, &
-            mesh )
-
-       ! debugging >> ..................
-       call write_connectivity( &
-            '../debug/', &
-            mesh, &
-            0 )
-       call write_xyz_positions( &
-            '../debug/', &
-            mesh, &
-            0 )
-       ! .................. <<
-
-       ! Eliminate edges that are too short
-       call contract_small_edges( &
-            brep, &
-            hypergraph%hyperedges(1:hypergraph%nhe), &
-            hypergraph%nhe, &
-            mesh, &
-            0.25_fp*options%hmin )
-
-       ! debugging >> ..................
-       call write_connectivity( &
-            '../debug/', &
-            mesh, &
-            1 )
-       call write_xyz_positions( &
-            '../debug/', &
-            mesh, &
-            1 )
-       ! .................. <<
-
-       ! Make mesh halfedges
-       call make_halfedges( &
-            mesh )
-       !END IF
-
-       ! debugging >> ..................
-       call write_mesh_files( &
-            mesh, &
-            trim(dir) // 'mesh/tri.dat', &
-            trim(dir) // 'mesh/xyz.dat', &
-            trim(dir) // 'mesh/uv.dat', &
-            trim(dir) // 'mesh/idstyp.dat', &
-            trim(dir) // 'mesh/paths.dat' )
-
-       call get_free_unit(fid)
-       open(unit=fid, file=trim(dir) // 'mesh/mv2h.dat', action='write')
-       do i = 1,mesh%nv
-          write (fid,*) mesh%v2h(:,i)
-       end do
-       close(fid)
-       open(unit=fid, file=trim(dir) // 'mesh/mtwin.dat', action='write')
-       do i = 1,mesh%nt
-          write (fid,*) mesh%twin(:,:,i)
-       end do
-       close(fid)
-       ! .................. <<
-
-       ! CHECK UVs
-       IF ( .true. ) call check_uvs(brep, mesh)
-
-       PAUSE
-
-       ! Mesh smoothing
-       call optim_jiao( &
-            brep, &
-            hypergraph%hyperedges(1:hypergraph%nhe), &
-            hypergraph%nhe, &
-            mesh, &
-            1._fp, &!PARAM_frac_conf1, &
-            0.7_fp, &!PARAM_frac_conf2, &
-            5, &!PARAM_ipass1, &
-            15, &!PARAM_ipass2, &
-            30, &
-            options%hmin, &
-            options%hmax )
-
-
-       ! CHECK UVs
-       IF ( .true. ) call check_uvs(brep, mesh)
-
-    end if
-
-  end subroutine initialization
-
-
-
 
 
 
@@ -1054,6 +805,18 @@ contains
        print *, ivert, ' -->', v2v(ivert)
     end do
 
+    do ivert = 1,mesh%nv
+       if ( mesh%typ(ivert) == 0 ) then
+          if ( v2v(mesh%ids(ivert)) > 0 ) then
+             mesh%ids(ivert) = v2v(mesh%ids(ivert))
+          else
+             ! ...
+             ! nouveau typ = 1 ou 2
+          end if
+       end if
+    end do
+    
+
     ! hyperedge -> hyperedge
     deallocate(assigned)
     allocate(assigned(hypg_new%nhe))
@@ -1077,7 +840,7 @@ contains
                   hf2hf(hypg_old%hyperedges(ihype)%hyperfaces(2)) == hypg_new%hyperedges(jhype)%hyperfaces(1) ) then
                 assigned(jhype) = .true.
                 he2he(ihype) = -jhype
-                call reverse_hyperedge(hypg_new%hyperedges(jhype))
+                !call reverse_hyperedge(hypg_new%hyperedges(jhype))
                 exit
              end if
           end do
@@ -1086,7 +849,7 @@ contains
           do jhype = 1,hypg_new%nhe
              if ( assigned(jhype) ) cycle
              if ( hypg_new%hyperedges(jhype)%verts(1) /= hypg_new%hyperedges(jhype)%verts(2) ) cycle
-             
+             ! ...
           end do
        end if
     end do
@@ -1105,8 +868,12 @@ contains
     stat = 0
     do ipath = 1,mesh%npaths
        ihype = mesh%paths(ipath)%hyperedge
-       if ( he2he(ihype) > 0 ) then
-          mesh%paths(ipath)%hyperedge = he2he(ihype)
+       if ( he2he(ihype) /= 0 ) then
+          mesh%paths(ipath)%hyperedge = abs(he2he(ihype))
+          if ( he2he(ihype) < 0 ) then
+             mesh%paths(ipath)%verts(1:mesh%paths(ipath)%nv) = &
+                  mesh%paths(ipath)%verts(mesh%paths(ipath)%nv:1:-1)
+          end if
        else
           ! delete path and update ids & typ
           ! ...
