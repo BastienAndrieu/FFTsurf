@@ -10,7 +10,7 @@ subroutine simultaneous_point_inversions( &
   use mod_diffgeom
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true. !( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(2)
   real(kind=fp),     intent(in)    :: lowerb(4)
@@ -23,6 +23,10 @@ subroutine simultaneous_point_inversions( &
   real(kind=fp), dimension(2)      :: cond, erruv
   integer                          :: it, isurf, ivar
 
+  !do isurf = 1,2
+  !   uv(1:2,isurf) = max(lowerb(2*isurf-1:2*isurf), min(upperb(2*isurf-1:2*isurf), uv(1:2,isurf)))
+  !end do
+  
   IF ( DEBUG ) THEN
      PRINT *,''
      PRINT *,'SIMULTANEOUS_POINT_INVERSION'
@@ -45,6 +49,7 @@ subroutine simultaneous_point_inversions( &
              xyzs(:,isurf), &        !                                      !
              surf(isurf)%ptr, &      !                                      !
              uv(:,isurf) )           !                                      !
+        !PRINT *,'xyz =',xyzs(:,isurf)
      end do ! <----------------------+                                      !
      r = 0.5_fp * (xyzs(:,1) - xyzs(:,2))                                   !
      !                                                                      !

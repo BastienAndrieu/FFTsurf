@@ -640,7 +640,7 @@ subroutine simultaneous_point_inversions( &
   use mod_diffgeom
   use mod_tolerances
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = .true. !( GLOBALDEBUG .AND. .true. )
+  LOGICAL, PARAMETER :: DEBUG = .false. !( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
   type(ptr_surface), intent(in)    :: surf(2)
   real(kind=fp),     intent(in)    :: lowerb(4)
@@ -653,6 +653,10 @@ subroutine simultaneous_point_inversions( &
   real(kind=fp), dimension(2)      :: cond, erruv
   integer                          :: it, isurf, ivar
 
+  !do isurf = 1,2
+  !   uv(1:2,isurf) = max(lowerb(2*isurf-1:2*isurf), min(upperb(2*isurf-1:2*isurf), uv(1:2,isurf)))
+  !end do
+  
   IF ( DEBUG ) THEN
      PRINT *,''
      PRINT *,'SIMULTANEOUS_POINT_INVERSION'
@@ -675,6 +679,7 @@ subroutine simultaneous_point_inversions( &
              xyzs(:,isurf), &        !                                      !
              surf(isurf)%ptr, &      !                                      !
              uv(:,isurf) )           !                                      !
+        !PRINT *,'xyz =',xyzs(:,isurf)
      end do ! <----------------------+                                      !
      r = 0.5_fp * (xyzs(:,1) - xyzs(:,2))                                   !
      !                                                                      !
@@ -852,14 +857,29 @@ subroutine update_intersection_curves( &
   use mod_tolerances
   implicit none
   type(type_intersection_data), intent(inout), target :: interdata
+  type(type_point_on_surface), pointer                :: pos => null()
   type(type_intersection_curve), pointer              :: curve => null()
   real(kind=fp)                                       :: uv(2,2), xyz(3,2), err
   real(kind=fp), dimension(4)                         :: lowerb, upperb
   integer                                             :: stat
-  integer                                             :: icurv, i, j
+  integer                                             :: ipoint, ipos, icurv, i, j
  
   upperb(:) = 1._fp + EPSuv
   lowerb = -upperb
+
+  do ipoint = 1,interdata%np
+     interdata%points(ipoint)%xyz(1:3) = 0._fp
+     pos => interdata%points(ipoint)%pos
+     do ipos = 1,interdata%points(ipoint)%npos
+        call eval( &
+             xyz(1:3,1), &
+             pos%surf, &
+             pos%uv )
+        interdata%points(ipoint)%xyz = interdata%points(ipoint)%xyz + xyz(1:3,1)
+        pos => pos%next
+     end do
+     interdata%points(ipoint)%xyz = interdata%points(ipoint)%xyz / real(interdata%points(ipoint)%npos, kind=fp)
+  end do
   
   do icurv = 1,interdata%nc ! <---------------------------------+
      !PRINT *,'ICURV =',ICURV
@@ -1545,17 +1565,6 @@ subroutine intersect_all_surfaces( &
            if ( .not.mask(jsurf) ) cycle inner
         end if
 
-        !IF ( ISURF == 37 .OR. JSURF == 37 ) THEN
-        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
-        !IF ( ISURF == 37 ) then
-        !   CALL EXPORT_REGION_TREE( root(isurf), 'Jouke/tree_surf37.dat' )
-        !   pause
-        !END IF
-        !IF ( JSURF == 37 ) then
-        !   CALL EXPORT_REGION_TREE( root(jsurf), 'Jouke/tree_surf37.dat' )
-        !   pause
-        !END IF
-
         ! check if there is a previously discovered tangential intersection curve between 
         ! the two intersected surfaces
         do ic = 1,interdata_global%nc
@@ -1569,10 +1578,6 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
-        !IF ( DEBUG ) THEN
-        !   PRINT *,''; PRINT *,''; PRINT *,''
-        !   PRINT *,'PAIR :',ISURF,JSURF
-        !END IF
         PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
@@ -1611,6 +1616,7 @@ subroutine intersect_all_surfaces( &
 
            PRINT *,NUVXYZ,            ' INTERSECTION POINT(S)'
            PRINT *,INTERDATA_LOCAL%NC,' INTERSECTION CURVE(S)'
+           IF ( stat_degeneracy /= 0 ) PAUSE
 
            !DO i = 1,2
            !   WRITE (STRNUM,'(I1)') i
@@ -1901,6 +1907,7 @@ subroutine merge_intersection_data( &
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
+        PRINT *,'PARAM_VECTOR =',interdata_global%curves(nc+ic)%param_vector
         return
      end if
 
@@ -2070,17 +2077,18 @@ subroutine copy_tangent_intersections( &
   type(type_point_on_surface), pointer             :: pos => null()
   real(kind=fp), allocatable                       :: uv(:,:)
   type(ptr_surface), allocatable                   :: surf(:)
-  integer                                          :: icurv, j, ipoint, iendpoints(2), isurf
+  integer                                          :: icurv, j, ipoint, iendpoints(2), isurf, np
 
   do icurv = 1,from%nc
      if ( .not.from%curves(icurv)%smooth ) cycle
      
      do j = 1,2
-        if ( j == 1 ) then
-           ipoint = from%curves(icurv)%isplit(1,1)
-        else
-           ipoint = from%curves(icurv)%isplit(from%curves(icurv)%nsplit,1)
-        end if
+        !if ( j == 1 ) then
+        !   ipoint = from%curves(icurv)%isplit(1,1)
+        !else
+        !   ipoint = from%curves(icurv)%isplit(1,from%curves(icurv)%nsplit)
+        !end if
+        ipoint = from%curves(icurv)%isplit(1,1 + (j-1)*(from%curves(icurv)%nsplit-1))
 
         allocate(uv(2,from%points(ipoint)%npos), surf(from%points(ipoint)%npos))
         pos => from%points(ipoint)%pos
@@ -2088,7 +2096,7 @@ subroutine copy_tangent_intersections( &
            uv(:,isurf) = pos%uv 
            surf(isurf)%ptr => pos%surf
            pos => pos%next
-        end do
+        end do        
         
         call add_intersection_point( &
              uv(1:2,1:from%points(ipoint)%npos), &
@@ -2103,17 +2111,25 @@ subroutine copy_tangent_intersections( &
 
      call add_intersection_curve( &
           to, &
-          [0._fp, 0._fp, 0._fp], &!from%curves(icurv)%param_vector, &
+          from%curves(icurv)%param_vector, &
           iendpoints, &
           from%curves(icurv)%uvbox )
 
      to%curves(to%nc)%dummy = from%curves(icurv)%dummy
-     to%curves(to%nc)%smooth = .true.
+     to%curves(to%nc)%smooth = from%curves(icurv)%smooth
      do isurf = 1,2
         to%curves(to%nc)%surf(isurf)%ptr => from%curves(icurv)%surf(isurf)%ptr
      end do
-     to%curves(to%nc)%polyline => from%curves(icurv)%polyline
+     !to%curves(to%nc)%polyline => from%curves(icurv)%polyline
+     allocate(to%curves(to%nc)%polyline)
+     np = from%curves(icurv)%polyline%np
+     to%curves(to%nc)%polyline%np = np
+     allocate(to%curves(to%nc)%polyline%uv(2,2,np), to%curves(to%nc)%polyline%xyz(3,np))
+     to%curves(to%nc)%polyline%uv(1:2,1:2,1:np) = from%curves(icurv)%polyline%uv(1:2,1:2,1:np)
+     to%curves(to%nc)%polyline%xyz(1:3,1:np) = from%curves(icurv)%polyline%xyz(1:3,1:np)
+     
      if ( allocated(to%curves(to%nc)%iedge) ) deallocate(to%curves(to%nc)%iedge)
+     to%curves(to%nc)%isplit(2,1:2) = [1,np]!from%curves(icurv)%isplit(2,[1,from%curves(icurv)%nsplit])
      
   end do
   
@@ -2567,7 +2583,9 @@ subroutine newton_three_surfaces_1tangential( &
   use mod_math
   use mod_linalg
   use mod_diffgeom
-  use mod_tolerances  
+  use mod_tolerances
+  USE MOD_UTIL
+  USE MOD_POLYNOMIAL
   implicit none
   LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
@@ -2607,13 +2625,17 @@ subroutine newton_three_surfaces_1tangential( &
      !! relax tangential intersection
      call simultaneous_point_inversions( &
           surftng, &
-          lowerb([1,2,5,6]), &
-          upperb([1,2,5,6]), &
+          lowerb([1,2,5,6]) - 100._fp*EPSuv, &
+          upperb([1,2,5,6]) + 100._fp*EPSuv, &
           stat, &
           uvtng, &
           xyz )
      if ( stat > 0 ) then
-        STOP 'relaxation onto tangential intersection failed :('
+        CALL WRITE_POLYNOMIAL(surf(1)%ptr%x, '../debug/debug_n3s1t_surf1.cheb')
+        CALL WRITE_POLYNOMIAL(surf(2)%ptr%x, '../debug/debug_n3s1t_surf2.cheb')
+        CALL WRITE_POLYNOMIAL(surf(3)%ptr%x, '../debug/debug_n3s1t_surf3.cheb')
+        CALL write_matrix(uv, 2, 3, '../debug/debug_n3s1t_uv.dat')
+        STOP 'newton_three_surfaces_1tangential : failed to relax onto tangential intersection :('
      end if
      uv(:,[1,3]) = uvtng
      IF ( DEBUG ) THEN
@@ -2628,10 +2650,10 @@ subroutine newton_three_surfaces_1tangential( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
-     !IF ( DEBUG ) THEN
-     !   PRINT *,'XYZ='
-     !   CALL PRINT_MAT(transpose(XYZS))
-     !END IF
+     IF ( DEBUG ) THEN
+        PRINT *,'XYZ='
+        CALL PRINT_MAT(transpose(XYZS))
+     END IF
      
      r(1:3) = xyzs(:,1) - xyzs(:,2)
      r(4:6) = xyzs(:,1) - xyzs(:,3)
@@ -2646,8 +2668,8 @@ subroutine newton_three_surfaces_1tangential( &
 
      !! compute derivatives
      if ( sum(r(4:6)**2) > EPSxyzsqr ) then
-        IF ( DEBUG ) PRINT *,'|X1 - X3| = ',norm2(r(4:6))
-        STOP 'newton_three_surfaces_1tangential : not an intersection point'
+        PRINT *,'|X1 - X3| = ',norm2(r(4:6))
+        STOP 'newton_three_surfaces_1tangential : not an intersection point :('
      else
         ! tangent to tangential intersection curve
         call diffgeom_intersection( &
@@ -2660,14 +2682,8 @@ subroutine newton_three_surfaces_1tangential( &
         !IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
         IF ( DEBUG ) PRINT *,'DUV_DS  =',duv_ds(:,1,:)
         !IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
-        !call diffgeom_intersection_curve( &
-        !     surftng, &
-        !     uv(:,[1,3]), &
-        !     duv_ds, &
-        !     dxyz_ds, &
-        !     stat_contactpoint, &
-        !     curvature )
         if ( stat_contactpoint /= 1 ) then
+           PRINT *,'STAT_CONTACTPOINT =',STAT_CONTACTPOINT
            STOP 'newton_three_surfaces_1tangential : not a tangential intersection curve'
         end if
      end if
@@ -4616,6 +4632,7 @@ subroutine read_intersection_curves( &
   use mod_util
   use mod_diffgeom
   use mod_types_intersection
+  use mod_tolerances
   implicit none
   character(*),                 intent(in)    :: filename
   type(type_surface), target,   intent(in)    :: surf(:)
@@ -4664,10 +4681,10 @@ subroutine read_intersection_curves( &
           interdata, &
           [0._fp, 0._fp, 0._fp], &
           endpt, &
-          spread(spread([-1._fp, 1._fp], 2, 2), 3, 2) )
+          spread(spread([-1._fp-EPSuv, 1._fp+EPSuv], 2, 2), 3, 2) )
      interdata%curves(interdata%nc)%surf(1)%ptr => surf(pair(1))
      interdata%curves(interdata%nc)%surf(2)%ptr => surf(pair(2))
-     interdata%curves(interdata%nc)%isplit(2,:) = [1,np]
+     interdata%curves(interdata%nc)%isplit(2,1:2) = [1,np]
 
      allocate(interdata%curves(interdata%nc)%polyline)
      interdata%curves(interdata%nc)%polyline%np = np
@@ -5509,6 +5526,162 @@ subroutine transfer_intersection_points( &
   from%np = 0
 
 end subroutine transfer_intersection_points
+
+
+
+subroutine refine_intersection_polyline( &
+     curve, &
+     tol2, &
+     tol3 )
+  use mod_math
+  use mod_types_intersection
+  use mod_diffgeom
+  use mod_geometry
+  USE MOD_UTIL
+  implicit none
+  LOGICAL, PARAMETER :: DEBUG = .false.
+  type(type_intersection_curve), intent(inout) :: curve
+  real(kind=fp),                 intent(in)    :: tol2
+  real(kind=fp),                 intent(in)    :: tol3
+  real(kind=fp)                                :: fractol2sqr, fractol3sqr
+  type(type_intersection_polyline), pointer    :: polyline => null()
+  real(kind=fp), dimension(4)                  :: lowerb, upperb
+  real(kind=fp)                                :: uv(2,2), xyz(3), ctr(3), radsqr
+  integer                                      :: stat
+  logical                                      :: crit2, crit3
+  integer                                      :: ivert, isurf
+  INTEGER :: FID
+
+  polyline => curve%polyline
+  lowerb = reshape(curve%uvbox(1,1:2,1:2), [4])
+  upperb = reshape(curve%uvbox(2,1:2,1:2), [4])
+
+  fractol3sqr = 4._fp*(2._fp - tol3)*tol3**2
+  fractol2sqr = 4._fp*(2._fp - tol2)*tol2**2
+  
+  IF ( DEBUG ) THEN
+     CALL GET_FREE_UNIT(FID)
+     OPEN(UNIT=FID, FILE='../debug/debug_rip_xyz0.dat', ACTION='WRITE')
+     DO IVERT = 1,POLYLINE%NP
+        WRITE (FID,*) POLYLINE%XYZ(1:3,IVERT)
+     END DO
+     CLOSE(FID)
+     OPEN(UNIT=FID, FILE='../debug/debug_rip_uv0.dat', ACTION='WRITE')
+     DO IVERT = 1,POLYLINE%NP
+        WRITE (FID,*) POLYLINE%UV(1:2,1:2,IVERT)
+     END DO
+     CLOSE(FID)
+  END IF
+  
+  
+  ivert = 1
+  outer_loop : do while ( ivert < polyline%np )
+     IF ( DEBUG ) PRINT *,'IVERT =', IVERT, ', NP =', POLYLINE%NP
+     !! get exact midpoint
+     ! initial guess
+     uv = 0.5_fp*(polyline%uv(1:2,1:2,ivert) + polyline%uv(1:2,1:2,ivert+1))
+     ! relax to exact intersection
+     call simultaneous_point_inversions( &
+          curve%surf, &
+          lowerb, &
+          upperb, &
+          stat, &
+          uv, &
+          xyz )
+     if ( stat > 0 ) then
+        PRINT *,'refine_intersection_polyline: failed to relax midpoint on segment #', ivert
+        ivert = ivert + 1
+        cycle outer_loop
+     else
+        IF ( DEBUG ) THEN
+           PRINT *,'XYZ VERTICES ='
+           CALL PRINT_MAT(TRANSPOSE(POLYLINE%XYZ(1:3,[IVERT,IVERT+1])))
+           PRINT *,'XYZ MIDPOINT =',XYZ
+           PRINT *,'UV VERTICES ='
+           PRINT *,POLYLINE%UV(1:2,1:2,IVERT)
+           PRINT *,POLYLINE%UV(1:2,1:2,IVERT+1)
+           PRINT *,'UV MIDPOINT =',UV
+        END IF
+     end if
+     !
+     !! check chordal error
+     ! in xyz space
+     call circumcircle( &
+       polyline%xyz(1:3,ivert), &
+       xyz, &
+       polyline%xyz(1:3,ivert+1), &
+       ctr, &
+       radsqr )
+     !
+     if ( radsqr < EPSfp ) radsqr = huge(1._fp)
+     IF ( DEBUG ) PRINT *,'RAD3 =',SQRT(RADSQR)
+     IF ( DEBUG ) PRINT *,SQRT(sum((polyline%xyz(1:3,ivert+1) - polyline%xyz(1:3,ivert))**2) / radsqr)
+     crit3 = ( sum((polyline%xyz(1:3,ivert+1) - polyline%xyz(1:3,ivert))**2) < radsqr*fractol3sqr ) 
+     !
+     if ( crit3 ) then
+        ! in uv space
+        do isurf = 1,2
+           call circumcircle( &
+                [polyline%uv(1:2,isurf,ivert), 0._fp], &
+                [uv(1:2,isurf), 0._fp], &
+                [polyline%uv(1:2,isurf,ivert+1), 0._fp], &
+                ctr, &
+                radsqr )
+           if ( radsqr < EPSfp ) radsqr = huge(1._fp)
+           IF ( DEBUG ) PRINT *,'RAD2 =',SQRT(RADSQR)
+           IF ( DEBUG ) PRINT *,SQRT(sum((polyline%uv(1:2,isurf,ivert+1) - polyline%uv(1:2,isurf,ivert))**2) / radsqr)
+           crit2 = ( sum((polyline%uv(1:2,isurf,ivert+1) - polyline%uv(1:2,isurf,ivert))**2) < radsqr*fractol2sqr )
+           if ( .not.crit2 ) exit
+        end do
+     else
+        crit2 = .false.
+     end if
+     !
+     IF ( DEBUG ) THEN
+        PRINT *,'CRIT2, CRIT3 =', CRIT2, CRIT3
+        PRINT *,''
+     END IF
+     if ( crit3 .and. crit2 ) then
+        ivert = ivert + 1
+        cycle outer_loop
+     end if
+     !
+     !! insert midpoint
+     call insert_polyline_point( &
+          uv, &
+          xyz, &
+          stat, &
+          polyline, &
+          ivert )
+     if ( stat == 0 ) then
+        ! shift downstream polyline split points
+        where ( curve%isplit(2,:) > ivert ) curve%isplit(2,:) = curve%isplit(2,:) + 1
+     else
+        PRINT *,'refine_intersection_polyline: failed to insert midpoint on segment #', ivert
+        ivert = ivert + 1
+        cycle outer_loop
+     end if
+     !
+  end do outer_loop
+
+
+  IF ( DEBUG ) THEN
+     CALL GET_FREE_UNIT(FID)
+     OPEN(UNIT=FID, FILE='../debug/debug_rip_xyz1.dat', ACTION='WRITE')
+     DO IVERT = 1,POLYLINE%NP
+        WRITE (FID,*) POLYLINE%XYZ(1:3,IVERT)
+     END DO
+     CLOSE(FID)
+     OPEN(UNIT=FID, FILE='../debug/debug_rip_uv1.dat', ACTION='WRITE')
+     DO IVERT = 1,POLYLINE%NP
+        WRITE (FID,*) POLYLINE%UV(1:2,1:2,IVERT)
+     END DO
+     CLOSE(FID)
+
+     PAUSE
+  END IF
+  
+end subroutine refine_intersection_polyline
 
 
 

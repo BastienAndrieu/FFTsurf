@@ -5,7 +5,7 @@ addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
 
 nsurf = 6;
-ninstants = 123;
+ninstants = 18;
 n = 32;
 
 cls = colorcet( 'I2', 'N', nsurf );
@@ -13,7 +13,7 @@ cls = cls(randperm(nsurf),:);
 cls = CC( cls, 0.0, 0.8, 1.5 );
 
 fa = 0.5*ones(6,1);
-fa([4,5]) = 1;
+fa([3,4]) = 1;
 
 axlim = [0.6*repmat([-1,1],1,2), 0, 1];
 % axlim = [0,1.25,-0.5,0.5,0,0.75];

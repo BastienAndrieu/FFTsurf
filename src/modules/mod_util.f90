@@ -710,5 +710,28 @@ contains
     end if
     
   end subroutine reallocate_list
+
+
+
+
+  subroutine circular_permutation( &
+       list, &
+       n, &
+       ifirst )
+    implicit none
+    integer,  intent(in)    :: n
+    integer,  intent(inout) :: list(n)
+    integer,  intent(in)    :: ifirst
+    integer                 :: remap(n), i
+
+    remap(1:n-ifirst+1) = [(i, i=ifirst,n)]
+    remap(n-ifirst+2:n) = [(i, i=1,ifirst-1)]
+    list(1:n) = list(remap(1:n))
+    
+  end subroutine circular_permutation
+
+
+
+  
   
 end module mod_util

@@ -99,7 +99,7 @@ contains
        !
        change_face = .false.
        ! to do so, intersect the segment [uvtmp, uvtmp+duvtmp] with all the curve segments
-       ! that form the boundary of the domain (outer an inner wires of the face)
+       ! that form the boundary of the domain (outer and inner wires of the face)
        wires : do iwire = 0,brep%faces(ifacetmp)%ninner
           ! get index of first halfedge on the wire
           if ( iwire == 0 ) then ! <---------------------+
@@ -147,9 +147,14 @@ contains
                 lamb(1,:) = lamb(1,:) / lambmax
                 ! pick point closest to target point
                 iinter = maxloc(lamb(1,1:ninter),1)
-                w = lamb(2,iinter)
-                i1 = ihead + ipls(2,iinter) - 1
-                i2 = i1 + 1
+                !iinter = 1
+                !do jinter = 2,ninter
+                !   if ( lamb(1,jinter) > lamb(1,iinter) - EPSfp .and. &
+                !        lamb(2,jinter) < lamb(2,iinter) ) iinter = jinter
+                !end do
+                w = lamb(2,iinter) ! local abscissa along intersected polyline segment
+                i1 = ihead + ipls(2,iinter) - 1 ! origin vertex of the intersected polyline segment
+                i2 = i1 + 1 ! destination vertex of the intersected polyline segment
                 IF ( DEBUG ) THEN
                    PRINT *,'LAMBDA =',LAMB(:,IINTER)
                    PRINT *,'POLYLINE SEGMENT:'
@@ -160,6 +165,7 @@ contains
                    PRINT *,polyline%UV(1:2,sens,i1)
                    PRINT *,polyline%UV(1:2,sens,i2)
                 END IF
+                ! vector from origin to destination
                 vec = polyline%uv(1:2,sens,i2) - polyline%uv(1:2,sens,i1)
                 normvec = norm2(vec)
                 !
@@ -353,7 +359,7 @@ contains
                             end if ! <------------------+
                             pq = q - p
                             pu = uvtmp + duvtmp - p
-                            IF ( DEBUG ) THEN
+                            IF ( DEBUG .or. dot_product(pu,pq) > sum(pq**2) ) THEN
                                PRINT *,'U =',UVTMP
                                PRINT *,'D =',DUVTMP
                                PRINT *,'P =',P
@@ -362,12 +368,6 @@ contains
                                PAUSE
                             END IF
                             if ( dot_product(pu,pq) > sum(pq**2) ) then
-                               PRINT *,'U =',UVTMP
-                               PRINT *,'D =',DUVTMP
-                               PRINT *,'P =',P
-                               PRINT *,'Q =',Q
-                               PRINT *,'(PU.PQ)/(PQ.PQ) =',dot_product(pu,pq) / sum(pq**2)
-                               PAUSE
                                inside = .false.
                                RETURN
                             end if
@@ -381,11 +381,18 @@ contains
                       ! tangent to the circular approximation)
                       wtmp = dot_product(duvtmp, vec) / sum(vec**2)
                       if ( w > 0.5_fp ) wtmp = 1._fp - wtmp
+                      wtmp = max(0._fp, min(1._fp, wtmp))
+                      !if ( wtmp < 0._fp ) then
+                      !   i1 = i1 + 1
+                      !   i2 = i2 + 1
+                      !end if
                       IF ( DEBUG ) PRINT *,'NEARLY TANGENTIAL DISPLACEMENT'
                       IF ( DEBUG ) PRINT *,'WTMP =',WTMP
                       uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + &
                            wtmp*polyline%uv(:,:,i2)
                       ! relax to exact intersection curve
+                      !IF ( MAXVAL(ABS(UVINTER)) > 1.001_FP ) RETURN
+                      
                       call simultaneous_point_inversions( &
                            curve%surf, &
                            lowerb, &
@@ -638,7 +645,7 @@ contains
              PRINT *,'POLYLINE ENDPOINTS:'
              PRINT *,polyline%xyz(:,ifirst)
              PRINT *,polyline%xyz(:,ilast)
-             PAUSE
+             !PAUSE
              RETURN
           else
              IF ( DEBUG ) THEN

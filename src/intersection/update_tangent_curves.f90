@@ -5,14 +5,29 @@ subroutine update_intersection_curves( &
   use mod_tolerances
   implicit none
   type(type_intersection_data), intent(inout), target :: interdata
+  type(type_point_on_surface), pointer                :: pos => null()
   type(type_intersection_curve), pointer              :: curve => null()
   real(kind=fp)                                       :: uv(2,2), xyz(3,2), err
   real(kind=fp), dimension(4)                         :: lowerb, upperb
   integer                                             :: stat
-  integer                                             :: icurv, i, j
+  integer                                             :: ipoint, ipos, icurv, i, j
  
   upperb(:) = 1._fp + EPSuv
   lowerb = -upperb
+
+  do ipoint = 1,interdata%np
+     interdata%points(ipoint)%xyz(1:3) = 0._fp
+     pos => interdata%points(ipoint)%pos
+     do ipos = 1,interdata%points(ipoint)%npos
+        call eval( &
+             xyz(1:3,1), &
+             pos%surf, &
+             pos%uv )
+        interdata%points(ipoint)%xyz = interdata%points(ipoint)%xyz + xyz(1:3,1)
+        pos => pos%next
+     end do
+     interdata%points(ipoint)%xyz = interdata%points(ipoint)%xyz / real(interdata%points(ipoint)%npos, kind=fp)
+  end do
   
   do icurv = 1,interdata%nc ! <---------------------------------+
      !PRINT *,'ICURV =',ICURV

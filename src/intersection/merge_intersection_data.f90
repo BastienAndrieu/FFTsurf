@@ -72,6 +72,7 @@ subroutine merge_intersection_data( &
      IF ( DEBUG ) PRINT *,'...OK'
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
+        PRINT *,'PARAM_VECTOR =',interdata_global%curves(nc+ic)%param_vector
         return
      end if
 

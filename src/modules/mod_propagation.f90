@@ -118,8 +118,8 @@ contains
     real(kind=fp)                     :: dti, ti, dt6
     integer                           :: istep
 
-    m = size(surf%x%coef,1)!surf%x%degr(1)+1
-    n = size(surf%x%coef,2)!surf%x%degr(2)+1
+    m = size(surf%x%coef,1)
+    n = size(surf%x%coef,2)
 
     ! position vector (inverse transform)
     allocate(xyz(m,n,3))
@@ -182,8 +182,6 @@ contains
     deallocate(vvel)
     
     ! new Chebyshev coefficients (direct transform)
-    !surf%x%coef(m+1:size(surf%x%coef,1),:,:) = 0._fp
-    !surf%x%coef(:,n+1:size(surf%x%coef,2),:) = 0._fp
     call fcht2( &
          xyz, &
          surf%x%coef(1:m,1:n,1:3), &

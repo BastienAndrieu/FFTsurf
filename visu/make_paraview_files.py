@@ -38,8 +38,12 @@ irep = -1
 i1 = int(args[2])
 i2 = int(args[3])
 
-os.mkdir(cas)
-os.mkdir(cas + 'img/')
+if not os.path.exists(cas):
+        os.mkdir(cas)
+if not os.path.exists(cas + '/vtk/'):
+        os.mkdir(cas + '/vtk/')
+if not os.path.exists(cas + '/img/'):  
+        os.mkdir(cas + '/img/')
 for instant in range(i1,i2+1):
     newrep = False
     while True:
@@ -61,4 +65,4 @@ for instant in range(i1,i2+1):
     """
     #else:
     #write_vtk_displacement('rep_' + srep + '/disp_' + format(instant,'03'), xyz - xyz0)
-    write_vtk_mesh(cas + '/instant_' + format(instant,'03') + '.vtk', xyz, tri, ref)
+    write_vtk_mesh(cas + '/vtk/instant_' + format(instant,'03') + '.vtk', xyz, tri, ref)

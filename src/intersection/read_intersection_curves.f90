@@ -5,6 +5,7 @@ subroutine read_intersection_curves( &
   use mod_util
   use mod_diffgeom
   use mod_types_intersection
+  use mod_tolerances
   implicit none
   character(*),                 intent(in)    :: filename
   type(type_surface), target,   intent(in)    :: surf(:)
@@ -53,10 +54,10 @@ subroutine read_intersection_curves( &
           interdata, &
           [0._fp, 0._fp, 0._fp], &
           endpt, &
-          spread(spread([-1._fp, 1._fp], 2, 2), 3, 2) )
+          spread(spread([-1._fp-EPSuv, 1._fp+EPSuv], 2, 2), 3, 2) )
      interdata%curves(interdata%nc)%surf(1)%ptr => surf(pair(1))
      interdata%curves(interdata%nc)%surf(2)%ptr => surf(pair(2))
-     interdata%curves(interdata%nc)%isplit(2,:) = [1,np]
+     interdata%curves(interdata%nc)%isplit(2,1:2) = [1,np]
 
      allocate(interdata%curves(interdata%nc)%polyline)
      interdata%curves(interdata%nc)%polyline%np = np

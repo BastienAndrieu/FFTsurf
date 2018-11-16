@@ -83,6 +83,10 @@ contains
 
 
 
+
+  
+
+
   subroutine get_feature_edges( &
        brep, &
        feat_edge )
@@ -100,6 +104,7 @@ contains
 
   end subroutine get_feature_edges
 
+  
 
   subroutine get_feature_vertices( &
        brep, &
@@ -140,8 +145,11 @@ contains
                duv_ds, &                                             !    !
                dxyz_ds, &                                            !    !
                stat )                                                !    !
-          if ( stat /= 0 ) STOP 'get_feature_vertices : &            
-               &feature edge is not a transversal intersection'      !    !
+          if ( stat /= 0 ) then
+             
+             STOP 'get_feature_vertices : &            
+                  &feature edge is not a transversal intersection'   !    !
+          end if
           tangents(1:3,iend,jedge) = dxyz_ds(1:3,1)                  !    !
        end do ! <----------------------------------------------------+    !
     end do ! <------------------------------------------------------------+

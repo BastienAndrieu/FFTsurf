@@ -159,7 +159,7 @@ contains
 
     end if
 
-    if ( options%mode > 1 ) then
+    if ( options%mode > 1 ) then      
        ! Generate a first mesh that conforms to the BREP
        call generate_brep_conforming_mesh( &
             brep, &
@@ -236,6 +236,18 @@ contains
        IF ( .true. ) call check_uvs(brep, mesh)
 
        PAUSE
+
+       IF ( .TRUE. ) THEN
+          do i = 1,interdata%nc
+             if ( interdata%curves(i)%smooth ) then
+                PRINT *,'REFINE POLYLINE #',I
+                call refine_intersection_polyline( &
+                     interdata%curves(i), &
+                     1.d-4, &
+                     options%chord_err )
+             end if
+          end do
+       END IF
 
        ! Mesh smoothing
        call optim_jiao( &
@@ -319,183 +331,183 @@ contains
     bv2mv(:) = 0
     be2mv(:,:) = 0
 
-    faces : do iface = 1,brep%nf
-       ! write polynomial parametric surface 
-       call write_polynomial(brep%faces(iface)%surface%x, '../tmp/c.cheb')
-       !
-       ! open boundary points & edges files
-       call get_free_unit(fpts)
-       open(unit=fpts, file='../tmp/bpts.dat', action='write')
-       call get_free_unit(fedg)
-       open(unit=fedg, file='../tmp/bedg.dat', action='write')
-       !
-       npf = 0
-       wires : do iwire = 0,brep%faces(iface)%ninner ! <-----------------------------------+
-          ! first halfedge of the wire                                                     !
-          if ( iwire == 0 ) then ! <-------------------+                                   !
-             ihedg = brep%faces(iface)%outer           !                                   !
-          else ! --------------------------------------+                                   !
-             ihedg = brep%faces(iface)%inner(:,iwire)  !                                   !
-          end if ! <-----------------------------------+                                   !
-          ifirstedge = ihedg(1)                                                            !
-          !                                                                                !
-          ifirstpoint = npf + 1                                                            !
-          ! traverse the wire                                                              !
-          halfedges : do ! <------------------------------------------------------------+  !
-             ! get polyline points                                                      !  !
-             call get_polyline_endpoints( &
-                  brep, &
-                  ihedg, &
-                  ifirst, &
-                  ilast, &
-                  sens, &
-                  np )
-             !
-             if ( .not.allocated(loc2glob) .or. &
-                  size(loc2glob) < npf + np - 1 ) then ! <------+
-                call reallocate_list(loc2glob, npf + np + 100)  !
-             end if ! <-----------------------------------------+
-             !
-             if ( .not.allocated(idsf) .or. &
-                  size(idsf) < npf + np - 1 ) then ! <----------+
-                call reallocate_list(idsf, npf + np + 100)      !
-             end if ! <-----------------------------------------+
-             !
-             if ( .not.allocated(typf) .or. &
-                  size(typf) < npf + np - 1 ) then ! <----------+
-                call reallocate_list(typf, npf + np + 100)      !
-             end if ! <-----------------------------------------+
-             !
-             if ( allocated(uvf) .and. size(uvf,3) < np ) deallocate(uvf)
-             if ( .not.allocated(uvf) ) allocate(uvf(2,2,np))
-             ! polyligne uv dans le sens du contour de la face
-             if ( sens == 2 ) then
-                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&
-                     (1:2,[2,1],ifirst:ilast)
-             else
-                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&
-                     (1:2,1:2,ifirst:ilast:-1)
-             end if
-             !
-             if ( allocated(xyzf) .and. size(xyzf,2) < np ) deallocate(xyzf)
-             if ( .not.allocated(xyzf) ) allocate(xyzf(3,np))
-             xyzf(1:3,1:np) = brep%edges(ihedg(1))%curve%polyline%xyz&
-                  (1:3,ifirst:ilast:(-1)**sens)
-             !                                                                          !  !
-             ! get brep vertex index of first point
-             ivert = get_orig(brep, ihedg)
-             if ( bv2mv(ivert) == 0 ) then ! <-----------------------------------+
-                ! the brep vertex is not yet present in the mesh                 !
-                bv2mv(ivert) = mesh%nv + 1                                       !
-                if ( feat_vert(ivert) ) then ! <------------------------------+  !
-                   ! the mesh vertex is locked on a brep vertex               !  !
-                   idsf(npf+1) = ivert                                        !  !
-                   typf(npf+1) = 0                                            !  !
-                else ! -------------------------------------------------------+  !
-                   if ( feat_edge(ihedg(1)) ) then ! <---------------------+  !  !
-                      ! the mesh vertex is locked on a hyperedge           !  !  !
-                      idsf(npf+1) = ihedg(1)                               !  !  !
-                      typf(npf+1) = 1                                      !  !  !
-                   else ! -------------------------------------------------+  !  !
-                      ! the mesh vertex is free to move along a hyperface  !  !  !
-                      idsf(npf+1) = iface                                  !  !  !
-                      typf(npf+1) = 2                                      !  !  !
-                   end if ! <----------------------------------------------+  !  !
-                end if ! <----------------------------------------------------+  !
-                !                                                                !
-                ! append new vertex to the mesh                                  !
-                call append_vertices( &                                          !
-                     mesh, &                                                     !
-                     xyzf(1:3,1), &                                              !
-                     uvf(1:2,1:2,1), &                                           !
-                     idsf(npf+1), &                                              !
-                     typf(npf+1), &                                              !
-                     1 )                                                         !
-             else ! -------------------------------------------------------------+
-                if ( feat_edge(ihedg(1)) ) then ! <------------------------+     !
-                   if ( mesh%typ(bv2mv(ivert)) == 2 ) then ! <----------+  !     !
-                      mesh%ids(bv2mv(ivert)) = ihedg(1)                 !  !     !
-                      mesh%typ(bv2mv(ivert)) = 1                        !  !     !
-                      mesh%uv(1:2,1:2,bv2mv(ivert)) = uvf(1:2,[2,1],1)  !  !     !
-                   end if ! <-------------------------------------------+  !     !
-                end if ! <-------------------------------------------------+     !
-             end if ! <----------------------------------------------------------+
-             loc2glob(npf+1) = bv2mv(ivert)
-             !
-             if ( be2mv(1,ihedg(1)) == 0 ) then ! <-----------------------------------------+
-                ! the brep edge is not yet present in the mesh                              !
-                be2mv(1,ihedg(1)) = mesh%nv + 1                                             !
-                be2mv(2,ihedg(1)) = mesh%nv + np - 2                                        !
-                !                                                                           !
-                if ( feat_edge(ihedg(1)) ) then ! <-----------------------+                 !
-                   ! the mesh vertices are locked on a hyperedge          !                 !
-                   idsf(npf+2:npf+np-1) = ihedg(1)                        !                 !
-                   typf(npf+2:npf+np-1) = 1                               !                 !
-                else ! ---------------------------------------------------+                 !
-                   ! the mesh vertices are free to move along a hyperface !                 !
-                   idsf(npf+2:npf+np-1) = iface                           !                 !
-                   typf(npf+2:npf+np-1) = 2                               !                 !
-                end if ! <------------------------------------------------+                 !
-                !                                                                           !
-                if ( sens == 1 ) then ! <-----------------------------------+               !
-                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=np-2,1,-1)]  !               !
-                   call append_vertices( &                                  !               !
-                        mesh, &                                             !               !
-                        xyzf(1:3,np-1:2:-1), &                              !               !
-                        uvf(1:2,1:2,np-1:2:-1), &                           !               !
-                        idsf(npf+2:npf+np-1), &                             !               !
-                        typf(npf+2:npf+np-1), &                             !               !
-                        np-2 )                                              !               !
-                else ! -----------------------------------------------------+               !
-                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=1,np-2)]     !               !
-                   call append_vertices( &                                  !               !
-                        mesh, &                                             !               !
-                        xyzf(1:3,2:np-1), &                                 !               !
-                        uvf(1:2,1:2,2:np-1), &                              !               !
-                        idsf(npf+2:npf+np-1), &                             !               !
-                        typf(npf+2:npf+np-1), &                             !               !
-                        np-2 )                                              !               !
-                end if ! <--------------------------------------------------+               !
-             else ! ------------------------------------------------------------------------+
-                if ( sens == 1 ) then ! <-----------------------------------+               !
-                   loc2glob(npf+2:npf+np-1) = &                             !               !
-                        [(i, i=be2mv(2,ihedg(1)),be2mv(1,ihedg(1)),-1)]     !               !
-                else ! -----------------------------------------------------+               !
-                   loc2glob(npf+2:npf+np-1) = &                             !               !
-                        [(i, i=be2mv(1,ihedg(1)),be2mv(2,ihedg(1)))]        !               !
-                end if ! <--------------------------------------------------+               !
-             end if ! <---------------------------------------------------------------------+
-             !
-             ! write points...                            
-             do i = 1,np-1 ! <---------------------------+
-                write (fpts,*) uvf(:,1,i)                !
-             end do ! <----------------------------------+
-             ! ...and edges
-             do i = 1,np-2 ! <---------------------------+
-                write (fedg,*) npf + i, npf + i + 1      !
-             end do ! <----------------------------------+
-             !
-             npf = npf + np - 1
-             !
-             ! move on to the next halfedge on the wire
-             ihedg = get_next(brep, ihedg)
-             !
-             if ( ihedg(1) == ifirstedge ) then ! <------+
-                ! the wire is complete                   !
-                write (fedg,*) npf, ifirstpoint          !
-                exit                                     !
-             else ! -------------------------------------+
-                write (fedg,*) npf, npf+1                !
-             end if ! <----------------------------------+
-             !           
-          end do halfedges
-       end do wires
-       !
-       ! close files
-       close(fpts)
-       close(fedg)
-       !
-       ! run mesher
+    faces : do iface = 1,brep%nf ! <-----------------------------------------------------------+
+       ! write polynomial parametric surface                                                   !
+       call write_polynomial(brep%faces(iface)%surface%x, '../tmp/c.cheb')                     !
+       !                                                                                       !
+       ! open boundary points & edges files                                                    !
+       call get_free_unit(fpts)                                                                !
+       open(unit=fpts, file='../tmp/bpts.dat', action='write')                                 !
+       call get_free_unit(fedg)                                                                !
+       open(unit=fedg, file='../tmp/bedg.dat', action='write')                                 !
+       !                                                                                       !
+       npf = 0                                                                                 !
+       wires : do iwire = 0,brep%faces(iface)%ninner ! <-----------------------------------+   !
+          ! first halfedge of the wire                                                     !   !
+          if ( iwire == 0 ) then ! <-------------------+                                   !   !
+             ihedg = brep%faces(iface)%outer           !                                   !   !
+          else ! --------------------------------------+                                   !   !
+             ihedg = brep%faces(iface)%inner(:,iwire)  !                                   !   !
+          end if ! <-----------------------------------+                                   !   !
+          ifirstedge = ihedg(1)                                                            !   !
+          !                                                                                !   !
+          ifirstpoint = npf + 1                                                            !   !
+          ! traverse the wire                                                              !   !
+          halfedges : do ! <------------------------------------------------------------+  !   !
+             ! get polyline points                                                      !  !   !
+             call get_polyline_endpoints( &                                             !  !   !
+                  brep, &                                                               !  !   !
+                  ihedg, &                                                              !  !   !
+                  ifirst, &                                                             !  !   !
+                  ilast, &                                                              !  !   !
+                  sens, &                                                               !  !   !
+                  np )                                                                  !  !   !
+             !                                                                          !  !   !
+             if ( .not.allocated(loc2glob) .or. &                                       !  !   !
+                  size(loc2glob) < npf + np - 1 ) then ! <------+                       !  !   !
+                call reallocate_list(loc2glob, npf + np + 100)  !                       !  !   !
+             end if ! <-----------------------------------------+                       !  !   !
+             !                                                                          !  !   !
+             if ( .not.allocated(idsf) .or. &                                           !  !   !
+                  size(idsf) < npf + np - 1 ) then ! <----------+                       !  !   !
+                call reallocate_list(idsf, npf + np + 100)      !                       !  !   !
+             end if ! <-----------------------------------------+                       !  !   !
+             !                                                                          !  !   !
+             if ( .not.allocated(typf) .or. &                                           !  !   !
+                  size(typf) < npf + np - 1 ) then ! <----------+                       !  !   !
+                call reallocate_list(typf, npf + np + 100)      !                       !  !   !
+             end if ! <-----------------------------------------+                       !  !   !
+             !                                                                          !  !   !
+             if ( allocated(uvf) .and. size(uvf,3) < np ) deallocate(uvf)               !  !   !
+             if ( .not.allocated(uvf) ) allocate(uvf(2,2,np))                           !  !   !
+             ! polyligne uv dans le sens du contour de la face                          !  !   !
+             if ( sens == 2 ) then ! <----------------------------------------+         !  !   !
+                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&   !         !  !   !
+                     (1:2,[2,1],ifirst:ilast)                                 !         !  !   !
+             else ! ----------------------------------------------------------+         !  !   !
+                uvf(1:2,1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv&   !         !  !   !
+                     (1:2,1:2,ifirst:ilast:-1)                                !         !  !   !
+             end if ! <-------------------------------------------------------+         !  !   !
+             !                                                                          !  !   !
+             if ( allocated(xyzf) .and. size(xyzf,2) < np ) deallocate(xyzf)            !  !   !
+             if ( .not.allocated(xyzf) ) allocate(xyzf(3,np))                           !  !   !
+             xyzf(1:3,1:np) = brep%edges(ihedg(1))%curve%polyline%xyz&                  !  !   !
+                  (1:3,ifirst:ilast:(-1)**sens)                                         !  !   !
+             !                                                                          !  !   !
+             ! get brep vertex index of first point                                     !  !   !
+             ivert = get_orig(brep, ihedg)                                              !  !   !
+             if ( bv2mv(ivert) == 0 ) then ! <-----------------------------------+      !  !   !
+                ! the brep vertex is not yet present in the mesh                 !      !  !   !
+                bv2mv(ivert) = mesh%nv + 1                                       !      !  !   !
+                if ( feat_vert(ivert) ) then ! <------------------------------+  !      !  !   !
+                   ! the mesh vertex is locked on a brep vertex               !  !      !  !   !
+                   idsf(npf+1) = ivert                                        !  !      !  !   !
+                   typf(npf+1) = 0                                            !  !      !  !   !
+                else ! -------------------------------------------------------+  !      !  !   !
+                   if ( feat_edge(ihedg(1)) ) then ! <---------------------+  !  !      !  !   !
+                      ! the mesh vertex is locked on a hyperedge           !  !  !      !  !   !
+                      idsf(npf+1) = ihedg(1)                               !  !  !      !  !   !
+                      typf(npf+1) = 1                                      !  !  !      !  !   !
+                   else ! -------------------------------------------------+  !  !      !  !   !
+                      ! the mesh vertex is free to move along a hyperface  !  !  !      !  !   !
+                      idsf(npf+1) = iface                                  !  !  !      !  !   !
+                      typf(npf+1) = 2                                      !  !  !      !  !   !
+                   end if ! <----------------------------------------------+  !  !      !  !   !
+                end if ! <----------------------------------------------------+  !      !  !   !
+                !                                                                !      !  !   !
+                ! append new vertex to the mesh                                  !      !  !   !
+                call append_vertices( &                                          !      !  !   !
+                     mesh, &                                                     !      !  !   !
+                     xyzf(1:3,1), &                                              !      !  !   !
+                     uvf(1:2,1:2,1), &                                           !      !  !   !
+                     idsf(npf+1), &                                              !      !  !   !
+                     typf(npf+1), &                                              !      !  !   !
+                     1 )                                                         !      !  !   !
+             else ! -------------------------------------------------------------+      !  !   !
+                if ( feat_edge(ihedg(1)) ) then ! <------------------------+     !      !  !   !
+                   if ( mesh%typ(bv2mv(ivert)) == 2 ) then ! <----------+  !     !      !  !   !
+                      mesh%ids(bv2mv(ivert)) = ihedg(1)                 !  !     !      !  !   !
+                      mesh%typ(bv2mv(ivert)) = 1                        !  !     !      !  !   !
+                      mesh%uv(1:2,1:2,bv2mv(ivert)) = uvf(1:2,1:2,1)    !  !     !      !  !   !
+                   end if ! <-------------------------------------------+  !     !      !  !   !
+                end if ! <-------------------------------------------------+     !      !  !   !
+             end if ! <----------------------------------------------------------+      !  !   !
+             loc2glob(npf+1) = bv2mv(ivert)                                             !  !   !
+             !                                                                          !  !   !
+             if ( be2mv(1,ihedg(1)) == 0 ) then ! <------------------------------+      !  !   !
+                ! the brep edge is not yet present in the mesh                   !      !  !   !
+                be2mv(1,ihedg(1)) = mesh%nv + 1                                  !      !  !   !
+                be2mv(2,ihedg(1)) = mesh%nv + np - 2                             !      !  !   !
+                !                                                                !      !  !   !
+                if ( feat_edge(ihedg(1)) ) then ! <-----------------------+      !      !  !   !
+                   ! the mesh vertices are locked on a hyperedge          !      !      !  !   !
+                   idsf(npf+2:npf+np-1) = ihedg(1)                        !      !      !  !   !
+                   typf(npf+2:npf+np-1) = 1                               !      !      !  !   !
+                else ! ---------------------------------------------------+      !      !  !   !
+                   ! the mesh vertices are free to move along a hyperface !      !      !  !   !
+                   idsf(npf+2:npf+np-1) = iface                           !      !      !  !   !
+                   typf(npf+2:npf+np-1) = 2                               !      !      !  !   !
+                end if ! <------------------------------------------------+      !      !  !   !
+                !                                                                !      !  !   !
+                if ( sens == 1 ) then ! <-----------------------------------+    !      !  !   !
+                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=np-2,1,-1)]  !    !      !  !   !
+                   call append_vertices( &                                  !    !      !  !   !
+                        mesh, &                                             !    !      !  !   !
+                        xyzf(1:3,np-1:2:-1), &                              !    !      !  !   !
+                        uvf(1:2,1:2,np-1:2:-1), &                           !    !      !  !   !
+                        idsf(npf+2:npf+np-1), &                             !    !      !  !   !
+                        typf(npf+2:npf+np-1), &                             !    !      !  !   !
+                        np-2 )                                              !    !      !  !   !
+                else ! -----------------------------------------------------+    !      !  !   !
+                   loc2glob(npf+2:npf+np-1) = mesh%nv + [(i, i=1,np-2)]     !    !      !  !   !
+                   call append_vertices( &                                  !    !      !  !   !
+                        mesh, &                                             !    !      !  !   !
+                        xyzf(1:3,2:np-1), &                                 !    !      !  !   !
+                        uvf(1:2,1:2,2:np-1), &                              !    !      !  !   !
+                        idsf(npf+2:npf+np-1), &                             !    !      !  !   !
+                        typf(npf+2:npf+np-1), &                             !    !      !  !   !
+                        np-2 )                                              !    !      !  !   !
+                end if ! <--------------------------------------------------+    !      !  !   !
+             else ! -------------------------------------------------------------+      !  !   !
+                if ( sens == 1 ) then ! <-----------------------------------+    !      !  !   !
+                   loc2glob(npf+2:npf+np-1) = &                             !    !      !  !   !
+                        [(i, i=be2mv(2,ihedg(1)),be2mv(1,ihedg(1)),-1)]     !    !      !  !   !
+                else ! -----------------------------------------------------+    !      !  !   !
+                   loc2glob(npf+2:npf+np-1) = &                             !    !      !  !   !
+                        [(i, i=be2mv(1,ihedg(1)),be2mv(2,ihedg(1)))]        !    !      !  !   !
+                end if ! <--------------------------------------------------+    !      !  !   !
+             end if ! <----------------------------------------------------------+      !  !   !
+             !                                                                          !  !   !
+             ! write points...                                                          !  !   !
+             do i = 1,np-1 ! <---------------------------+                              !  !   !
+                write (fpts,*) uvf(:,1,i)                !                              !  !   !
+             end do ! <----------------------------------+                              !  !   !
+             ! ...and edges                                                             !  !   !
+             do i = 1,np-2 ! <---------------------------+                              !  !   !
+                write (fedg,*) npf + i, npf + i + 1      !                              !  !   !
+             end do ! <----------------------------------+                              !  !   !
+             !                                                                          !  !   !
+             npf = npf + np - 1                                                         !  !   !
+             !                                                                          !  !   !
+             ! move on to the next halfedge on the wire                                 !  !   !
+             ihedg = get_next(brep, ihedg)                                              !  !   !
+             !                                                                          !  !   !
+             if ( ihedg(1) == ifirstedge ) then ! <------+                              !  !   !
+                ! the wire is complete                   !                              !  !   !
+                write (fedg,*) npf, ifirstpoint          !                              !  !   !
+                exit                                     !                              !  !   !
+             else ! -------------------------------------+                              !  !   !
+                write (fedg,*) npf, npf+1                !                              !  !   !
+             end if ! <----------------------------------+                              !  !   !
+             !                                                                          !  !   !
+          end do halfedges ! <----------------------------------------------------------+  !   !
+       end do wires ! <--------------------------------------------------------------------+   !
+       !                                                                                       !
+       ! close files                                                                           !
+       close(fpts)                                                                             !
+       close(fedg)                                                                             !
+       !                                                                                       !
+       ! run mesher                                                                            !
        PRINT *,'MESH FACE #',IFACE
        call system( &!'/home/bastien/MeshGen/./meshgen.out &
             '/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
@@ -506,7 +518,7 @@ contains
             & ../tmp/tri.dat &
             & ../tmp/uv.dat &
             & ../tmp/xyz.dat' )
-       write (strnum,'(i3.3)') iface
+       write (strnum,'(i3.3)') iface                                                           !
        ! read face submesh                                                                     !
        call read_triangles( &                                                                  !
             '../tmp/tri.dat', &                                                                !
@@ -566,7 +578,7 @@ contains
        if ( hyperedges(ihype)%verts(1) < 1 ) then ! <---+
           ihedg = hyperedges(ihype)%halfedges(:,1)      !
           ivert = get_orig(brep, ihedg)                 !
-          hyperedges(ihype)%verts(1) = ivert            !
+          hyperedges(ihype)%verts(1:2) = ivert          !
        end if ! <---------------------------------------+
        !
        do iedge = 1,hyperedges(ihype)%ne ! <---------------+
@@ -769,6 +781,14 @@ contains
           end do
           IF ( MAX(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) > EPSxyz ) THEN
              PRINT *,'I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
+             do j = 1,2
+                iface = brep%edges(mesh%ids(i))%halfedges(j)%face
+                call eval( &
+                     xyzverif(:,j), &
+                     brep%faces(iface)%surface, &
+                     mesh%uv(:,j,i) )
+             end do
+             PRINT *,'    I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
           END IF
        case (2)
           call eval( &
@@ -830,7 +850,7 @@ contains
     use mod_geometry
     use mod_projection
     implicit none
-    real(kind=fp), parameter                               :: TOLang = 10._fp ! [degrees]
+    real(kind=fp), parameter                               :: TOLang = 30._fp ! [degrees]
     real(kind=fp), parameter                               :: TOLcosang = cos(CSTpi*TOLang/180._fp)
     character(*),                            intent(in)    :: fileoptions
     type(type_options),                      intent(inout) :: options
@@ -868,6 +888,7 @@ contains
     integer                                                :: iendpoint, ipos, imv, iip, ipv, jpv
     integer                                                :: ivert, jvert, kvert, lvert
     integer                                                :: ihype, icurv
+    integer                                                :: nfeatedg
     INTEGER :: I, J
     real(kind=fp), dimension(3,2) :: xyzverif
 
@@ -1025,22 +1046,22 @@ contains
     ! mark halfedges on BREP faces boundaries
     allocate(visited(3,mesh%nt), bnd_hedg(3,mesh%nt))
     visited(1:3,1:mesh%nt) = .false.
-    do iface = 1,mesh%nt
-       iref = mesh%ihf(iface)
-       do iedge = 1,3
-          if ( visited(iedge,iface) ) cycle
-          ihedg = mesh%twin(1:2,iedge,iface)
-          if ( ihedg(2) < 1 ) then
-             jref = -1
-          else
-             jref = mesh%ihf(ihedg(2))
-          end if
-          bnd_hedg(iedge,iface) = ( jref /= iref )
-          visited(iedge,iface) = .true.
-          bnd_hedg(ihedg(1),ihedg(2)) = bnd_hedg(iedge,iface)
-          visited(ihedg(1),ihedg(2)) = .true.
-       end do
-    end do
+    do iface = 1,mesh%nt ! <--------------------------------------+
+       iref = mesh%ihf(iface)                                     !
+       do iedge = 1,3 ! <--------------------------------------+  !
+          if ( visited(iedge,iface) ) cycle                    !  !
+          ihedg = mesh%twin(1:2,iedge,iface)                   !  !
+          if ( ihedg(2) < 1 ) then ! <--+                      !  !
+             jref = -1                  !                      !  !
+          else ! -----------------------+                      !  !
+             jref = mesh%ihf(ihedg(2))  !                      !  !
+          end if ! <--------------------+                      !  !
+          bnd_hedg(iedge,iface) = ( jref /= iref )             !  !
+          visited(iedge,iface) = .true.                        !  !
+          bnd_hedg(ihedg(1),ihedg(2)) = bnd_hedg(iedge,iface)  !  !
+          visited(ihedg(1),ihedg(2)) = .true.                  !  !
+       end do ! <----------------------------------------------+  !
+    end do ! <----------------------------------------------------+
     
     ! make intersection curves
     nc = 0
@@ -1108,15 +1129,20 @@ contains
              curve%polyline%uv(1:2,1:2,2:npolyverts-1) = &                                          !
                   mesh%uv(1:2,1:2,polyverts(2:npolyverts-1))                                        !
              !                                                                                      !
-             mesh%typ(polyverts(2:npolyverts-1)) = 1                                                !
-             mesh%ids(polyverts(2:npolyverts-1)) = interdata%nc                                     !
+             if ( curve%smooth ) then ! <---------------------------+                               !
+                mesh%typ(polyverts(2:npolyverts-1)) = 2             !                               !
+                mesh%ids(polyverts(2:npolyverts-1)) = surfpair(1)   !                               !
+             else ! ------------------------------------------------+                               !
+                mesh%typ(polyverts(2:npolyverts-1)) = 1             !                               !
+                mesh%ids(polyverts(2:npolyverts-1)) = interdata%nc  !                               !
+             end if ! <---------------------------------------------+                               !
              !                                                                                      !
-             call insert_column_after( &
-                  curve2verts, &
-                  npolyverts, &
-                  nc, &
-                  polyverts(1:npolyverts), &
-                  nc )
+             call insert_column_after( &                                                            !
+                  curve2verts, &                                                                    !
+                  npolyverts, &                                                                     !
+                  nc, &                                                                             !
+                  polyverts(1:npolyverts), &                                                        !
+                  nc )                                                                              !
              !                                                                                      !
              do iendpoint = 1,2 ! <--------------------------------------------------------------+  !
                 ipv = 1 + (npolyverts - 1)*(iendpoint - 1) ! polyline vertex                     !  !
@@ -1157,8 +1183,8 @@ contains
                       PAUSE
                    END IF
                    curve%polyline%uv(1:2,isurf,ipv) = pos%uv                                  !  !  !
-                end do incident_surfaces ! <--------------------------------------------------+  !  
-             end do ! <--------------------------------------------------------------------------+
+                end do incident_surfaces ! <--------------------------------------------------+  !  !
+             end do ! <--------------------------------------------------------------------------+  !
              !                                                                                      !
              ! CHECK UVs --------->>>
              do lvert = 2,npolyverts-1
@@ -1197,19 +1223,19 @@ contains
     end do
     deallocate(visited, bnd_hedg) 
 
-    IF ( .FALSE. ) THEN
-       DO IVERT = 1,INTERDATA%NP
-          POS => INTERDATA%POINTS(IVERT)%POS
-          PRINT *,'POINT #',IVERT
-          DO IPOS = 1,INTERDATA%POINTS(IVERT)%NPOS
-             IF ( .NOT.ASSOCIATED(POS%SURF) ) PRINT *,'N/A'
-             DO ISURF = 1,NSURF
-                IF ( ASSOCIATED(POS%SURF, SURF(ISURF)) ) PRINT *,'   SURF #',ISURF,', UV =',POS%UV
-             END DO
-             POS => POS%NEXT
-          END DO
-       END DO
-    END IF
+    !IF ( .FALSE. ) THEN
+    !   DO IVERT = 1,INTERDATA%NP
+    !      POS => INTERDATA%POINTS(IVERT)%POS
+    !      PRINT *,'POINT #',IVERT
+    !      DO IPOS = 1,INTERDATA%POINTS(IVERT)%NPOS
+    !         IF ( .NOT.ASSOCIATED(POS%SURF) ) PRINT *,'N/A'
+    !         DO ISURF = 1,NSURF
+    !            IF ( ASSOCIATED(POS%SURF, SURF(ISURF)) ) PRINT *,'   SURF #',ISURF,', UV =',POS%UV
+    !         END DO
+    !         POS => POS%NEXT
+    !      END DO
+    !   END DO
+    !END IF
     
     ! make BREP
     brep%nf = 0
@@ -1237,15 +1263,69 @@ contains
             trim(dir) // 'brep/intersection_curves.dat' )
        ! .................. <<
     
-    do ivert = 1,mesh%nv
-       select case ( mesh%typ(ivert) )
-       case (0)
-          mesh%ids(ivert) = interdata%points(mesh%ids(ivert))%ivert
-       case (1)
-          mesh%ids(ivert) = interdata%curves(mesh%ids(ivert))%iedge(1)
-       end select
-    end do
+    do ivert = 1,mesh%nv ! <------------------------------------------------------+
+       select case ( mesh%typ(ivert) ) ! <-----------------------------+          !
+       case (0) ! -----------------------------------------------------+          !
+          mesh%ids(ivert) = interdata%points(mesh%ids(ivert))%ivert    !          !
+       case (1) ! -----------------------------------------------------+          !
+          mesh%ids(ivert) = interdata%curves(mesh%ids(ivert))%iedge(1) !          !
+       end select ! <--------------------------------------------------+          !
+       !                                                                          !
+       if ( mesh%typ(ivert) == 0 ) then ! <------------------------------------+  !
+          nfeatedg = 0                                                         !  !
+          ihedg = brep%verts(mesh%ids(ivert))%halfedge ! outgoing              !  !
+          iface = get_face(brep, ihedg)                                        !  !
+          do ! <--------------------------------------------------+            !  !
+             if ( .not.is_smooth(brep, ihedg(1)) .or. &           !            !  !
+                  is_boundary_edge(brep, ihedg(1)) ) then ! <--+  !            !  !
+                nfeatedg = nfeatedg + 1                        !  !            !  !
+                if ( nfeatedg == 1 ) then ! <--+               !  !            !  !
+                   iedge = ihedg(1)            !               !  !            !  !
+                end if ! <---------------------+               !  !            !  !
+             end if ! <----------------------------------------+  !            !  !
+             ihedg = get_prev(brep, ihedg) ! ingoing              !            !  !
+             ihedg = get_twin(ihedg)       ! outgoing             !            !  !
+             jface = get_face(brep, ihedg)                        !            !  !
+             if ( jface == iface .or. jface < 1 ) exit            !            !  !
+          end do ! <----------------------------------------------+            !  !
+          !                                                                    !  !
+          if ( nfeatedg == 0 ) then ! <-------------------------------------+  !  !
+             mesh%typ(ivert) = 2                                            !  !  !
+             jvert = mesh%ids(ivert)                                        !  !  !
+             pos => brep%verts(jvert)%point%pos                             !  !  !
+             mesh%ids(ivert) = iface                                        !  !  !
+             do ipos = 1,brep%verts(jvert)%point%npos ! <------+            !  !  !
+                if ( associated(pos%surf, &                    !            !  !  !
+                     brep%faces(iface)%surface) ) then ! <--+  !            !  !  !
+                   mesh%uv(1:2,1,ivert) = pos%uv            !  !            !  !  !
+                   exit                                     !  !            !  !  !
+                end if ! <----------------------------------+  !            !  !  !
+                pos => pos%next                                !            !  !  !
+             end do ! <----------------------------------------+            !  !  !
+             !                                                              !  !  !
+          elseif ( nfeatedg == 2 ) then ! ----------------------------------+  !  !
+             mesh%typ(ivert) = 1                                            !  !  !
+             jvert = mesh%ids(ivert)                                        !  !  !
+             mesh%ids(ivert) = iedge                                        !  !  !
+             do jface = 1,2 ! <------------------------------------------+  !  !  !
+                iface = brep%edges(iedge)%halfedges(1+mod(jface,2))%face !  !  !  !
+                pos => brep%verts(jvert)%point%pos                       !  !  !  !
+                do ipos = 1,brep%verts(jvert)%point%npos ! <------+      !  !  !  !
+                   if ( associated(pos%surf, &                    !      !  !  !  !
+                        brep%faces(iface)%surface) ) then ! <--+  !      !  !  !  !
+                      mesh%uv(1:2,jface,ivert) = pos%uv        !  !      !  !  !  !
+                      exit                                     !  !      !  !  !  !
+                   end if ! <----------------------------------+  !      !  !  !  !
+                   pos => pos%next                                !      !  !  !  !
+                end do ! <----------------------------------------+      !  !  !  !
+             end do ! <--------------------------------------------------+  !  !  !
+          end if ! <--------------------------------------------------------+  !  !
+          !                                                                    !  !
+       end if ! <--------------------------------------------------------------+  !
+    end do ! <--------------------------------------------------------------------+
 
+    IF ( .true. ) call check_uvs(brep, mesh)
+    
     ! make hypergraph
     call make_hypergraph( &
          brep, &
@@ -1276,53 +1356,78 @@ contains
     close(fid)
     ! .................. <<
 
-    do iface = 1,mesh%nt
-       mesh%ihf(iface) = brep%faces(mesh%ihf(iface))%hyperface
-    end do
+    do iface = 1,mesh%nt ! <------------------------------------+
+       mesh%ihf(iface) = brep%faces(mesh%ihf(iface))%hyperface  !
+    end do ! <--------------------------------------------------+
 
-
-    do ihype = 1,hypergraph%nhe
-       path%nv = 0
-       do iedge = 1,hypergraph%hyperedges(ihype)%ne
-          ihedg = hypergraph%hyperedges(ihype)%halfedges(1:2,iedge)
-          do icurv = 1,interdata%nc
-             if ( interdata%curves(icurv)%iedge(1) == ihedg(1) ) then
-                if ( ihedg(2) == 2 ) then
-                   head = interdata%curves(icurv)%polyline%np
-                   tail = 2
-                   stride = -1
-                else
-                   head = 1
-                   tail = interdata%curves(icurv)%polyline%np - 1
-                   stride = 1
-                end if
-                if ( iedge == hypergraph%hyperedges(ihype)%ne ) then
-                   tail = tail + stride
-                end if
-                call insert_n_after( &
-                     path%verts, &
-                     path%nv, &
-                     (tail - head)/stride + 1, &
-                     curve2verts(head:tail:stride,icurv), &
-                     path%nv )
-                exit
-             end if
-          end do
-       end do
-
-       path%hyperedge = ihype
-       call append_path( &
-            mesh, &
-            path )
-    end do
+    do ihype = 1,hypergraph%nhe ! <--------------------------------------------------+
+       path%nv = 0                                                                   !
+       do iedge = 1,hypergraph%hyperedges(ihype)%ne ! <---------------------------+  !
+          ihedg = hypergraph%hyperedges(ihype)%halfedges(1:2,iedge)               !  !
+          do icurv = 1,interdata%nc ! <----------------------------------------+  !  !
+             if ( interdata%curves(icurv)%iedge(1) == ihedg(1) ) then ! <---+  !  !  !
+                if ( ihedg(2) == 2 ) then ! <----------------------------+  !  !  !  !
+                   head = interdata%curves(icurv)%polyline%np            !  !  !  !  !
+                   tail = 2                                              !  !  !  !  !
+                   stride = -1                                           !  !  !  !  !
+                else ! --------------------------------------------------+  !  !  !  !
+                   head = 1                                              !  !  !  !  !
+                   tail = interdata%curves(icurv)%polyline%np - 1        !  !  !  !  !
+                   stride = 1                                            !  !  !  !  !
+                end if ! <-----------------------------------------------+  !  !  !  !
+                if ( iedge == hypergraph%hyperedges(ihype)%ne ) then ! <-+  !  !  !  !
+                   tail = tail + stride                                  !  !  !  !  !
+                end if ! <-----------------------------------------------+  !  !  !  !
+                call insert_n_after( &                                      !  !  !  !
+                     path%verts, &                                          !  !  !  !
+                     path%nv, &                                             !  !  !  !
+                     (tail - head)/stride + 1, &                            !  !  !  !
+                     curve2verts(head:tail:stride,icurv), &                 !  !  !  !
+                     path%nv )                                              !  !  !  !
+                exit                                                        !  !  !  !
+             end if ! <-----------------------------------------------------+  !  !  !
+          end do ! <-----------------------------------------------------------+  !  !
+       end do ! <-----------------------------------------------------------------+  !
+       !                                                                             !
+       path%hyperedge = ihype                                                        !
+       call append_path( &                                                           !
+            mesh, &                                                                  !
+            path )                                                                   !
+    end do ! <-----------------------------------------------------------------------+
     
     deallocate(curve2verts)
+
+
+    call write_mesh_files( &
+         mesh, &
+         trim(dir) // 'mesh/tri.dat', &
+         trim(dir) // 'mesh/xyz.dat', &
+         trim(dir) // 'mesh/uv.dat', &
+         trim(dir) // 'mesh/idstyp.dat', &
+         trim(dir) // 'mesh/paths.dat' )
+
+
+    ! padd tangent intersection polylines with new points
+    IF ( .TRUE. ) THEN
+       do i = 1,interdata%nc
+          if ( interdata%curves(i)%smooth ) then
+             PRINT *,'REFINE POLYLINE #',I
+             call refine_intersection_polyline( &
+                  interdata%curves(i), &
+                  1.d-4, &
+                  options%chord_err )
+          end if
+       end do
+    END IF
 
 
   end subroutine init_from_mesh
 
 
 
+
+
+  
 
 
   subroutine extract_intersection_polyline_vertices( &

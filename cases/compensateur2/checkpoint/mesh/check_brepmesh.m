@@ -38,11 +38,11 @@ for i = 1:npths
     pth(i).hyperedge = str2num(fgetl(fid));
     pth(i).nv = str2num(fgetl(fid));
     pth(i).verts = zeros(1,pth(i).nv);
-    pth(i).s = zeros(pth(i).nv,1);
+%     pth(i).s = zeros(pth(i).nv,1);
     for j = 1:pth(i).nv
         l = str2num(fgetl(fid));
         pth(i).verts(j) = round(l(1));
-        pth(i).s(j) = l(2);
+%         pth(i).s(j) = l(2);
     end
 end
 fclose(fid);

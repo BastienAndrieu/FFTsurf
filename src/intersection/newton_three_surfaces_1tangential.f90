@@ -8,7 +8,9 @@ subroutine newton_three_surfaces_1tangential( &
   use mod_math
   use mod_linalg
   use mod_diffgeom
-  use mod_tolerances  
+  use mod_tolerances
+  USE MOD_UTIL
+  USE MOD_POLYNOMIAL
   implicit none
   LOGICAL, PARAMETER :: DEBUG = .false.!( GLOBALDEBUG .AND. .true. )
   integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
@@ -48,13 +50,17 @@ subroutine newton_three_surfaces_1tangential( &
      !! relax tangential intersection
      call simultaneous_point_inversions( &
           surftng, &
-          lowerb([1,2,5,6]), &
-          upperb([1,2,5,6]), &
+          lowerb([1,2,5,6]) - 100._fp*EPSuv, &
+          upperb([1,2,5,6]) + 100._fp*EPSuv, &
           stat, &
           uvtng, &
           xyz )
      if ( stat > 0 ) then
-        STOP 'relaxation onto tangential intersection failed :('
+        CALL WRITE_POLYNOMIAL(surf(1)%ptr%x, '../debug/debug_n3s1t_surf1.cheb')
+        CALL WRITE_POLYNOMIAL(surf(2)%ptr%x, '../debug/debug_n3s1t_surf2.cheb')
+        CALL WRITE_POLYNOMIAL(surf(3)%ptr%x, '../debug/debug_n3s1t_surf3.cheb')
+        CALL write_matrix(uv, 2, 3, '../debug/debug_n3s1t_uv.dat')
+        STOP 'newton_three_surfaces_1tangential : failed to relax onto tangential intersection :('
      end if
      uv(:,[1,3]) = uvtng
      IF ( DEBUG ) THEN
@@ -69,10 +75,10 @@ subroutine newton_three_surfaces_1tangential( &
              surf(isurf)%ptr, &
              uv(:,isurf) )
      end do
-     !IF ( DEBUG ) THEN
-     !   PRINT *,'XYZ='
-     !   CALL PRINT_MAT(transpose(XYZS))
-     !END IF
+     IF ( DEBUG ) THEN
+        PRINT *,'XYZ='
+        CALL PRINT_MAT(transpose(XYZS))
+     END IF
      
      r(1:3) = xyzs(:,1) - xyzs(:,2)
      r(4:6) = xyzs(:,1) - xyzs(:,3)
@@ -87,8 +93,8 @@ subroutine newton_three_surfaces_1tangential( &
 
      !! compute derivatives
      if ( sum(r(4:6)**2) > EPSxyzsqr ) then
-        IF ( DEBUG ) PRINT *,'|X1 - X3| = ',norm2(r(4:6))
-        STOP 'newton_three_surfaces_1tangential : not an intersection point'
+        PRINT *,'|X1 - X3| = ',norm2(r(4:6))
+        STOP 'newton_three_surfaces_1tangential : not an intersection point :('
      else
         ! tangent to tangential intersection curve
         call diffgeom_intersection( &
@@ -101,14 +107,8 @@ subroutine newton_three_surfaces_1tangential( &
         !IF ( DEBUG ) PRINT *,'STAT_CONTACTPOINT =',stat_contactpoint
         IF ( DEBUG ) PRINT *,'DUV_DS  =',duv_ds(:,1,:)
         !IF ( DEBUG ) PRINT *,'DXYZ_DS =',dxyz_ds(:,1)
-        !call diffgeom_intersection_curve( &
-        !     surftng, &
-        !     uv(:,[1,3]), &
-        !     duv_ds, &
-        !     dxyz_ds, &
-        !     stat_contactpoint, &
-        !     curvature )
         if ( stat_contactpoint /= 1 ) then
+           PRINT *,'STAT_CONTACTPOINT =',STAT_CONTACTPOINT
            STOP 'newton_three_surfaces_1tangential : not a tangential intersection curve'
         end if
      end if

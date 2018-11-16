@@ -5,7 +5,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurf = 2;
+nsurf = 8;
 PLOT_TREE = 0;
 PLOT_NORMALS = 0;
 
@@ -25,6 +25,7 @@ nc = str2num( fgetl( fid ) );
 aabb = 1e6*repmat([1,-1],1,3);
 for ic = 1:nc
     curves(ic).dummy = str2num( fgetl( fid ) );
+    curves(ic).smooth = str2num( fgetl( fid ) );
     %curves(ic).endpoints = str2num( fgetl( fid ) );
     curves(ic).uvbox = zeros( 2, 4 );
     for isurf = 1:2

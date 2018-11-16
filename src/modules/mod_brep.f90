@@ -321,7 +321,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .false.
+    LOGICAL, PARAMETER :: DEBUG = .true.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata
@@ -343,6 +343,7 @@ contains
     CHARACTER(3) :: STRNUM
 
     do isurf = 1,nsurf
+       
        ! build an embedded graph of intersection curves & points
        call build_intersections_graph( &
             surf(isurf), &
@@ -357,6 +358,24 @@ contains
             point2nod, &
             nod_uv, &
             nnod )
+       
+       IF ( DEBUG ) THEN
+          WRITE (STRNUM, '(I3.3)') ISURF
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='/d/bandrieu/GitHub/FFTsurf/test/Jouke/graph/graph_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NARC
+          DO IARC = 1,NARC
+             WRITE (FID,*) ARC2NOD(:,IARC)
+          END DO
+          DO IARC = 1,NARC
+             WRITE (FID,*) ARC_ANGLES(:,IARC)
+          END DO
+          WRITE (FID,*) NNOD
+          DO INOD = 1,NNOD
+             WRITE (FID,*) NOD_UV(:,INOD)
+          END DO
+          CLOSE(FID)
+       END IF
 
        ! make wires
        nwires = min(nnod, narc)
@@ -369,6 +388,18 @@ contains
             nwires, &
             wire2arc, &
             lenwire )
+
+       IF ( DEBUG ) THEN
+          WRITE (STRNUM, '(I3.3)') ISURF
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='/d/bandrieu/GitHub/FFTsurf/test/Jouke/graph/wires_'//strnum//'.dat', ACTION='WRITE')
+          WRITE (FID,*) NWIRES
+          DO IWIRE = 1,NWIRES
+             WRITE (FID,*) WIRE2ARC(1:LENWIRE(IWIRE),IWIRE)
+             WRITE (FID,*) ARC2NOD(1,WIRE2ARC(1:LENWIRE(IWIRE),IWIRE))!WIRENOD(1:LENWIRE(IWIRE),IWIRE)
+          END DO
+          CLOSE(FID)
+       END IF
 
        if ( nwires < 1 ) then
           deallocate(lenwire, wire2arc)
@@ -429,33 +460,7 @@ contains
        IF ( DEBUG ) THEN
           WRITE (STRNUM, '(I3.3)') ISURF
           CALL GET_FREE_UNIT(FID)
-          
-          OPEN(UNIT=FID, FILE='Jouke/graph/graph_'//strnum//'.dat', ACTION='WRITE')
-          WRITE (FID,*) NARC
-          DO IARC = 1,NARC
-             WRITE (FID,*) ARC2NOD(:,IARC)
-          END DO
-          DO IARC = 1,NARC
-             WRITE (FID,*) ARC_ANGLES(:,IARC)
-          END DO
-          WRITE (FID,*) NNOD
-          DO INOD = 1,NNOD
-             WRITE (FID,*) NOD_UV(:,INOD)
-          END DO
-          CLOSE(FID)
-
-          CALL GET_FREE_UNIT(FID)
-          OPEN(UNIT=FID, FILE='Jouke/graph/wires_'//strnum//'.dat', ACTION='WRITE')
-          WRITE (FID,*) NWIRES
-          DO IWIRE = 1,NWIRES
-             WRITE (FID,*) WIRE2ARC(1:LENWIRE(IWIRE),IWIRE)
-             WRITE (FID,*) ARC2NOD(1,WIRE2ARC(1:LENWIRE(IWIRE),IWIRE))!WIRENOD(1:LENWIRE(IWIRE),IWIRE)
-          END DO
-          CLOSE(FID)
-          
-          WRITE (STRNUM,'(I3.3)') ISURF
-          CALL GET_FREE_UNIT(FID)
-          OPEN(UNIT=FID, FILE='Jouke/graph/faces_'//strnum//'.dat', ACTION='WRITE')
+          OPEN(UNIT=FID, FILE='/d/bandrieu/GitHub/FFTsurf/test/Jouke/graph/faces_'//strnum//'.dat', ACTION='WRITE')
           WRITE (FID,*) NFACES
           DO IFACE = 1,NFACES
              WRITE (FID,*) WIRE2ARC(1:LENWIRE(OUTER(IFACE)),OUTER(IFACE))

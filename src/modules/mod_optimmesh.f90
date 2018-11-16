@@ -33,8 +33,8 @@ contains
     outer_loop : do
        k = k + 1
        PRINT *,''
-       PRINT *,'OUTER, K=',k
-       !IF ( K > 3 ) EXIT
+       !PRINT *,'OUTER, K=',k
+       !IF ( K > 10 ) EXIT
        do iface = 1,mesh%nt
           halfedges : do iedge = 1,3
              ivert = mesh%tri(iedge,iface)
@@ -63,14 +63,15 @@ contains
                       if ( ihype /= jhype ) cycle halfedges
                    end if
                 end if
-                
                 PRINT *,'CONTRACT EDGE',PAIRV
+                !IF ( K > 9 ) EXIT OUTER_LOOP
                 call edge_contraction( &
                      brep, &
                      hyperedges, &
                      nhe, &
                      mesh, &
                      [iedge,iface] )
+                !IF ( ANY(TYPIJ < 2) ) EXIT OUTER_LOOP
                 !RETURN
                 cycle outer_loop
              end if
@@ -119,6 +120,8 @@ contains
 
     verts = mesh%tri([ihedg(1), 1+mod(ihedg(1),3)],ihedg(2))
     PRINT *,'VERTS =',VERTS
+    !PRINT *,'XYZ ='
+    !CALL PRINT_MAT(TRANSPOSE(MESH%XYZ(1:3,VERTS)))
 
     ! geometry
     if ( mesh%typ(verts(1)) == mesh%typ(verts(2)) ) then
@@ -192,6 +195,11 @@ contains
                   uvnew(:,1), &
                   .false., &
                   stat )
+             !PRINT *,'STAT =',STAT
+             call eval( &
+                  xyznew, &
+                  brep%faces(idsnew)%surface, &
+                  uvnew(:,1) )
           end if
        end if
     else
@@ -449,7 +457,7 @@ contains
     use mod_projection
     USE MOD_TOLERANCES
     implicit none
-    real(kind=fp), parameter               :: EPSdxyz = 1.d-1 ! *min(h)
+    real(kind=fp), parameter               :: EPSdxyz = 5.d-2 ! *min(h)
     real(kind=fp), parameter               :: EPSdxyzsqr = EPSdxyz**2
     type(type_brep),         intent(in)    :: brep
     integer,                 intent(in)    :: nhe
@@ -545,9 +553,12 @@ contains
           WRITE (STRNUM, '(I2.2)') IPASS
           call write_tecplot_mesh_solv( &
                mesh, &
-               'optimmesh/optim_'//strnum//'.dat', &
+               '../test/optimmesh/optim_'//strnum//'.dat', &
                'pass_'//strnum, &
                hve )
+          call write_vtk_mesh( &
+               mesh, &
+               '../test/optimmesh/optim_'//strnum//'.vtk' )
        END IF
 
        
@@ -737,7 +748,7 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp(:,1), &
-                     .false., &!(passmax > 30 .and. ivert == 12), &!(passmax < 10 .and. ivert == 3984), &
+                     .false., &!(ivert == 404), &!(ivert == 16899), &!(ivert == 19951 .and. ipass > 11), &!
                      stat )
                 if ( stat > 0 ) then
                    PRINT *,'IVERT =',IVERT
