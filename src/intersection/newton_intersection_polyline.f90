@@ -26,7 +26,8 @@ subroutine newton_intersection_polyline( &
   real(kind=fp)                    :: r1(3), r2(3), jac(4,4), duv(4)
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                           :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_INTERSECTION_POLYLINE'
@@ -95,7 +96,10 @@ subroutine newton_intersection_polyline( &
           lowerb, &
           upperb, &
           duv, &
-          4 )
+          4, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
+          
      !PRINT *,'DUV* =',DUV
      
      !! update solution

@@ -75,7 +75,7 @@ for iarc in range(narc):
         dx = xy[arc_end[iarc,1]] - xy[arc_end[iarc,0]]
         s, nonsingular = solve_2x2(t[0,0], t[0,1], t[1,0], t[1,1], dx)
         cp[iarc,0] = xy[arc_end[iarc,0]]
-        if False:#nonsingular:
+        if nonsingular:
             cp[iarc,1] = xy[arc_end[iarc,0]] + s[0]*t[:,0]
         else:
             cp[iarc,1] = 0.5*(xy[arc_end[iarc,0]] + xy[arc_end[iarc,1]])

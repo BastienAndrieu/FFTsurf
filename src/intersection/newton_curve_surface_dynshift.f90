@@ -29,6 +29,7 @@ subroutine newton_curve_surface_dynshift( &
   real(kind=fp)                     :: resxyz
   real(kind=fp)                     :: grad(3), hess(3,3), dtuv(3), cond, errtuv
   integer                           :: it
+  integer                           :: stat_refl
   
   call evald2(ctt, curv, tuv(1))
 
@@ -91,8 +92,10 @@ subroutine newton_curve_surface_dynshift( &
           lowerb, &
           upperb, &
           dtuv, &
-          3 )
-
+          3, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
+     
      ! update solution
      tuv = tuv + dtuv
 

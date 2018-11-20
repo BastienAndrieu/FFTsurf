@@ -341,7 +341,8 @@ contains
        lowerb, &
        upperb, &
        dx, &
-       dim )
+       dim, &
+       stat )
     implicit none
     LOGICAL, PARAMETER :: DEBUG = .FALSE.
     INTEGER, PARAMETER :: ITMAX = 10
@@ -350,6 +351,7 @@ contains
     real(kind=fp), intent(in)    :: lowerb(dim)
     real(kind=fp), intent(in)    :: upperb(dim)
     real(kind=fp), intent(inout) :: dx(dim)
+    integer,       intent(out)   :: stat
     real(kind=fp)                :: xtmp(dim), dxtmp(dim), xtmp1(dim)
     real(kind=fp)                :: lambda, lambda_i
     integer                      :: ib, idim, it
@@ -365,7 +367,11 @@ contains
     dxtmp = dx
 
     ! check validity of bounds
-    if ( any(lowerb - upperb > EPSmath) ) STOP 'nd_box_reflexions : invalid bounds'
+    if ( any(lowerb - upperb > EPSmath) ) then
+       PRINT *,'nd_box_reflexions : invalid bounds'
+       stat = 3
+       return
+    end if
 
     ! check if x is inside feasible region...
     do idim = 1,dim
@@ -375,10 +381,13 @@ contains
             upperb(idim), &
             tolerance=EPSmath) ) then
           PRINT *, x(idim), ' not in interval', lowerb(idim), upperb(idim)
-          STOP 'nd_box_reflexions : starting point out of bounds'
+          PRINT *,'nd_box_reflexions : starting point out of bounds'
+          stat = 2
+          return
        end if
     end do
 
+    stat = 1
     it = 0
     do
        it = it + 1
@@ -405,6 +414,7 @@ contains
        if ( ib == 0 ) then
           xtmp = xtmp + dxtmp
           dx = xtmp - x
+          stat = 0
           return
        else
           xtmp = xtmp + lambda*dxtmp

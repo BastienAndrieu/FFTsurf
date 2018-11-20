@@ -28,7 +28,8 @@ subroutine newton_three_surfaces_1tangential( &
   integer                          :: stat_contactpoint
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                          :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''
      PRINT *,'NEWTON_THREE_SURFACES_1TANGENTIAL'
@@ -150,7 +151,9 @@ subroutine newton_three_surfaces_1tangential( &
           lowerb, &
           upperb, &
           duv, &
-          6 )
+          6, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
      !IF ( DEBUG ) PRINT *,'DUV =',DUV
      IF ( DEBUG ) THEN
         PRINT *,'DUV ='

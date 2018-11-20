@@ -403,7 +403,7 @@ program fftsurf
      end if
 
      if ( time >= options%timespan ) exit main_loop
-     PAUSE
+     !PAUSE
      
   end do main_loop
   call cpu_time(toc)

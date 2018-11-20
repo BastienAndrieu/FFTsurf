@@ -22,7 +22,8 @@ subroutine simultaneous_point_inversions( &
   real(kind=fp)                    :: dxyz_duv(3,2), mat(2,2), rhs(2), duv(2)
   real(kind=fp), dimension(2)      :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                          :: stat_refl
+  
   !do isurf = 1,2
   !   uv(1:2,isurf) = max(lowerb(2*isurf-1:2*isurf), min(upperb(2*isurf-1:2*isurf), uv(1:2,isurf)))
   !end do
@@ -81,7 +82,9 @@ subroutine simultaneous_point_inversions( &
              lowerb(2*isurf-1:2*isurf), &                                !  !
              upperb(2*isurf-1:2*isurf), &                                !  !
              duv, &                                                      !  !
-             2 )                                                         !  !
+             2, &                                                        !  !
+             stat_refl )                                                 !  !
+        if ( stat_refl > 0 ) return                                      !  !
         !                                                                !  !
         ! update solution                                                !  !
         uv(:,isurf) = uv(:,isurf) + duv                                  !  !

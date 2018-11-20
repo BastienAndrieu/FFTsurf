@@ -174,6 +174,18 @@ contains
 
        if ( allocated(feat_edge) ) deallocate(feat_edge)
        if ( allocated(feat_vert) ) deallocate(feat_vert)
+
+       IF ( .TRUE. ) THEN
+          do i = 1,interdata%nc
+             if ( interdata%curves(i)%smooth ) then
+                PRINT *,'REFINE POLYLINE #',I
+                call refine_intersection_polyline( &
+                     interdata%curves(i), &
+                     1.d-4, &
+                     options%chord_err )
+             end if
+          end do
+       END IF
        
        ! debugging >> ..................
        call write_connectivity( &
@@ -237,17 +249,17 @@ contains
 
        PAUSE
 
-       IF ( .TRUE. ) THEN
-          do i = 1,interdata%nc
-             if ( interdata%curves(i)%smooth ) then
-                PRINT *,'REFINE POLYLINE #',I
-                call refine_intersection_polyline( &
-                     interdata%curves(i), &
-                     1.d-4, &
-                     options%chord_err )
-             end if
-          end do
-       END IF
+       !IF ( .TRUE. ) THEN
+       !   do i = 1,interdata%nc
+       !      if ( interdata%curves(i)%smooth ) then
+       !         PRINT *,'REFINE POLYLINE #',I
+       !         call refine_intersection_polyline( &
+       !              interdata%curves(i), &
+       !              1.d-4, &
+       !              options%chord_err )
+       !      end if
+       !   end do
+       !END IF
 
        ! Mesh smoothing
        call optim_jiao( &
@@ -259,7 +271,7 @@ contains
             0.7_fp, &!PARAM_frac_conf2, &
             5, &!PARAM_ipass1, &
             15, &!PARAM_ipass2, &
-            30, &
+            50, &
             options%hmin, &
             options%hmax )
 

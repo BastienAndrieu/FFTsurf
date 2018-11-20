@@ -51,7 +51,7 @@ contains
     integer                                   :: ninter
     integer, allocatable                      :: ipls(:,:)
     real(kind=fp), allocatable                :: lamb(:,:)
-    integer                                   :: iinter, jinter, i1, i2
+    integer                                   :: iinter, i1, i2
     real(kind=fp)                             :: w, vec(2), normvec
     logical                                   :: in_open, on_border
     integer                                   :: stat, stat_circ
@@ -308,7 +308,8 @@ contains
                             PRINT *,'SENS =',SENS
                             PRINT *,'DET =',vec(1)*aux(2) - vec(2)*aux(1)
                          END IF
-                         if ( vec(1)*aux(2) - vec(2)*aux(1) > -EPSmath ) exit     !
+                         if ( vec(1)*aux(2) - vec(2)*aux(1) > EPSmath ) exit     !
+                         !if ( vec(1)*aux(2) - vec(2)*aux(1) > 1.d-6 ) exit
                          if ( sens == 1 ) vec = -vec                              !
                          ! target point inside circular approximation but outside !
                          ! linear approximation (happens only if the domain       !
@@ -381,6 +382,7 @@ contains
                       ! tangent to the circular approximation)
                       wtmp = dot_product(duvtmp, vec) / sum(vec**2)
                       if ( w > 0.5_fp ) wtmp = 1._fp - wtmp
+                      wtmp = max(0._fp, min(1._fp, wtmp))
                       !if ( wtmp < 0._fp ) then
                       !   i1 = i1 + 1
                       !   i2 = i2 + 1
@@ -391,6 +393,7 @@ contains
                            wtmp*polyline%uv(:,:,i2)
                       ! relax to exact intersection curve
                       !IF ( MAXVAL(ABS(UVINTER)) > 1.001_FP ) RETURN
+                      
                       call simultaneous_point_inversions( &
                            curve%surf, &
                            lowerb, &
@@ -643,7 +646,7 @@ contains
              PRINT *,'POLYLINE ENDPOINTS:'
              PRINT *,polyline%xyz(:,ifirst)
              PRINT *,polyline%xyz(:,ilast)
-             PAUSE
+             !PAUSE
              RETURN
           else
              IF ( DEBUG ) THEN

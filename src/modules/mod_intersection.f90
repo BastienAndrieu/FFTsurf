@@ -392,6 +392,7 @@ subroutine newton_curve_surface_dynshift( &
   real(kind=fp)                     :: resxyz
   real(kind=fp)                     :: grad(3), hess(3,3), dtuv(3), cond, errtuv
   integer                           :: it
+  integer                           :: stat_refl
   
   call evald2(ctt, curv, tuv(1))
 
@@ -454,8 +455,10 @@ subroutine newton_curve_surface_dynshift( &
           lowerb, &
           upperb, &
           dtuv, &
-          3 )
-
+          3, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
+     
      ! update solution
      tuv = tuv + dtuv
 
@@ -652,7 +655,8 @@ subroutine simultaneous_point_inversions( &
   real(kind=fp)                    :: dxyz_duv(3,2), mat(2,2), rhs(2), duv(2)
   real(kind=fp), dimension(2)      :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                          :: stat_refl
+  
   !do isurf = 1,2
   !   uv(1:2,isurf) = max(lowerb(2*isurf-1:2*isurf), min(upperb(2*isurf-1:2*isurf), uv(1:2,isurf)))
   !end do
@@ -711,7 +715,9 @@ subroutine simultaneous_point_inversions( &
              lowerb(2*isurf-1:2*isurf), &                                !  !
              upperb(2*isurf-1:2*isurf), &                                !  !
              duv, &                                                      !  !
-             2 )                                                         !  !
+             2, &                                                        !  !
+             stat_refl )                                                 !  !
+        if ( stat_refl > 0 ) return                                      !  !
         !                                                                !  !
         ! update solution                                                !  !
         uv(:,isurf) = uv(:,isurf) + duv                                  !  !
@@ -1960,7 +1966,8 @@ subroutine newton_three_surfaces( &
   real(kind=fp)                    :: r(6), jac(6,6), duv(6)
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf
-
+  integer                          :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_THREE_SURFACES'
@@ -2031,7 +2038,9 @@ subroutine newton_three_surfaces( &
           lowerb, &
           upperb, &
           duv, &
-          6 )
+          6, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
 
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)
@@ -2254,6 +2263,7 @@ subroutine newton_curve_surface( &
   integer                           :: it, rank
   logical                           :: linear_conv
   real(kind=fp)                     :: fac
+  integer                           :: stat_refl
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -2343,7 +2353,9 @@ subroutine newton_curve_surface( &
           lowerb, &
           upperb, &
           dtuv, &
-          3 )
+          3, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
      IF ( .false. ) PRINT *,'...OK'
 
      ! update solution
@@ -2430,6 +2442,7 @@ subroutine find_collineal_points( &
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
   real(kind=fp)                    :: cond, erruv, lambda
   integer                          :: it, isurf, ivar
+  integer                           :: stat_refl
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -2532,7 +2545,9 @@ subroutine find_collineal_points( &
              lowerb, &
              upperb, &
              duv, &
-             4 )
+             4, &
+             stat_refl )
+        if ( stat_refl > 0 ) return
      END IF
      ! update solution
      uv_collineal(:,1) = uv_collineal(:,1) + duv(1:2)
@@ -2603,7 +2618,8 @@ subroutine newton_three_surfaces_1tangential( &
   integer                          :: stat_contactpoint
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                          :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''
      PRINT *,'NEWTON_THREE_SURFACES_1TANGENTIAL'
@@ -2725,7 +2741,9 @@ subroutine newton_three_surfaces_1tangential( &
           lowerb, &
           upperb, &
           duv, &
-          6 )
+          6, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
      !IF ( DEBUG ) PRINT *,'DUV =',DUV
      IF ( DEBUG ) THEN
         PRINT *,'DUV ='
@@ -4050,7 +4068,8 @@ subroutine newton_intersection_polyline( &
   real(kind=fp)                    :: r1(3), r2(3), jac(4,4), duv(4)
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf, ivar
-
+  integer                           :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_INTERSECTION_POLYLINE'
@@ -4119,7 +4138,10 @@ subroutine newton_intersection_polyline( &
           lowerb, &
           upperb, &
           duv, &
-          4 )
+          4, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
+          
      !PRINT *,'DUV* =',DUV
      
      !! update solution

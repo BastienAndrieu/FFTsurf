@@ -22,7 +22,8 @@ subroutine newton_three_surfaces( &
   real(kind=fp)                    :: r(6), jac(6,6), duv(6)
   real(kind=fp)                    :: cond, erruv
   integer                          :: it, isurf
-
+  integer                          :: stat_refl
+  
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
      PRINT *,'NEWTON_THREE_SURFACES'
@@ -93,7 +94,9 @@ subroutine newton_three_surfaces( &
           lowerb, &
           upperb, &
           duv, &
-          6 )
+          6, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
 
      !! update solution
      uv(:,1) = uv(:,1) + duv(1:2)

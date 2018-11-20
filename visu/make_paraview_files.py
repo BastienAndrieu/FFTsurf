@@ -19,7 +19,7 @@ if len(args) < 2:
 if len(args) < 3:
 	args.append('0')
 if len(args) < 4:
-	args.append('0')
+	args.append(args[2])
 if len(args) < 5:
 	args.append('0')
 

@@ -64,6 +64,7 @@ contains
                    end if
                 end if
                 PRINT *,'CONTRACT EDGE',PAIRV
+                !PAUSE
                 !IF ( K > 9 ) EXIT OUTER_LOOP
                 call edge_contraction( &
                      brep, &
@@ -71,6 +72,16 @@ contains
                      nhe, &
                      mesh, &
                      [iedge,iface] )
+                
+                !call write_connectivity( &
+                !     '../debug/', &
+                !     mesh, &
+                !     1 )
+                !call write_xyz_positions( &
+                !     '../debug/', &
+                !     mesh, &
+                !     1 )
+                !IF ( ANY(TYPIJ < 2) ) PAUSE
                 !IF ( ANY(TYPIJ < 2) ) EXIT OUTER_LOOP
                 !RETURN
                 cycle outer_loop
@@ -120,6 +131,7 @@ contains
 
     verts = mesh%tri([ihedg(1), 1+mod(ihedg(1),3)],ihedg(2))
     PRINT *,'VERTS =',VERTS
+    
     !PRINT *,'XYZ ='
     !CALL PRINT_MAT(TRANSPOSE(MESH%XYZ(1:3,VERTS)))
 
@@ -133,10 +145,36 @@ contains
           uvnew  = 0.5 * sum(mesh%uv(:,:,verts), 3)
           idsnew = mesh%ids(verts(1))
           if ( typnew == 1 ) then
+             dxyz = 0.5_fp * (mesh%xyz(:,verts(2)) - mesh%xyz(:,verts(1)))
+             call diffgeom_intersection( &
+                  brep%edges(idsnew)%curve%surf, &
+                  mesh%uv(:,:,verts(1)), &
+                  duv_ds, &
+                  tng, &
+                  stat )
+             ds = dot_product(dxyz, tng(:,1))
+             duv = ds * duv_ds(:,1,:)
+             dxyz = ds * tng(:,1)
+             call projection_hyperedge( &
+                  brep, &
+                  hyperedges(brep%edges(mesh%ids(verts(1)))%hyperedge), &
+                  mesh%ids(verts(1)), &
+                  mesh%uv(:,:,verts(1)), &
+                  mesh%xyz(:,verts(1)), &
+                  duv, &
+                  dxyz, &
+                  idsnew, &
+                  uvnew, &
+                  .true., &
+                  stat )
              call eval( &
                   xyznew, &
-                  brep%edges(idsnew)%curve%surf(2)%ptr, &
+                  brep%edges(idsnew)%curve%surf(1)%ptr, &
                   uvnew(:,1) )
+             !call eval( &
+             !     xyznew, &
+             !     brep%edges(idsnew)%curve%surf(2)%ptr, &
+             !     uvnew(:,1) )
           else
              call eval( &
                   xyznew, &
@@ -196,6 +234,7 @@ contains
                   .false., &
                   stat )
              !PRINT *,'STAT =',STAT
+             if ( stat > 0 ) PAUSE
              call eval( &
                   xyznew, &
                   brep%faces(idsnew)%surface, &
@@ -503,12 +542,12 @@ contains
     upperb(:) = 2._fp
 
     ! compute triangle weights
-    IF ( .TRUE. ) THEN
+    IF ( .false. ) THEN
        wei(:) = 1._fp
     ELSE
        call compute_triangle_weights( &
             mesh, &
-            2._fp, &
+            5._fp, &
             1._fp, &
             wei )
     END IF
@@ -748,7 +787,8 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp(:,1), &
-                     .false., &!(ivert == 404), &!(ivert == 16899), &!(ivert == 19951 .and. ipass > 11), &!
+                     !(ivert == 13946),&! .or. ivert == 470 .or. ivert == 461),&!(ivert == 404 .and. ipass>13), &
+                     .false., &!(ivert == 16899), &!(ivert == 19951 .and. ipass > 11), &!
                      stat )
                 if ( stat > 0 ) then
                    PRINT *,'IVERT =',IVERT
@@ -845,7 +885,7 @@ contains
        if ( .false. ) PAUSE
 
        if ( maxdxyz/hminsqr < EPSdxyzsqr ) then
-          PRINT *,'MAX(DXYZ) << 1'
+          PRINT *,'MAX(DXYZ) << MIN(H)'
           exit
        end if
        

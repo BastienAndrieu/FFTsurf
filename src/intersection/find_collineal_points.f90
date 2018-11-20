@@ -36,6 +36,7 @@ subroutine find_collineal_points( &
   real(kind=fp)                    :: f(4), jac(4,4), duv(4)
   real(kind=fp)                    :: cond, erruv, lambda
   integer                          :: it, isurf, ivar
+  integer                           :: stat_refl
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -138,7 +139,9 @@ subroutine find_collineal_points( &
              lowerb, &
              upperb, &
              duv, &
-             4 )
+             4, &
+             stat_refl )
+        if ( stat_refl > 0 ) return
      END IF
      ! update solution
      uv_collineal(:,1) = uv_collineal(:,1) + duv(1:2)

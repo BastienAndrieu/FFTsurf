@@ -34,6 +34,7 @@ subroutine newton_curve_surface( &
   integer                           :: it, rank
   logical                           :: linear_conv
   real(kind=fp)                     :: fac
+  integer                           :: stat_refl
 
   IF ( DEBUG ) THEN
      PRINT *,''; PRINT *,'';
@@ -123,7 +124,9 @@ subroutine newton_curve_surface( &
           lowerb, &
           upperb, &
           dtuv, &
-          3 )
+          3, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
      IF ( .false. ) PRINT *,'...OK'
 
      ! update solution

@@ -7,8 +7,6 @@ module mod_projection
 contains
 
 
-  
-
   subroutine projection_hyperface( &
        brep, &
        iface, &
@@ -20,15 +18,11 @@ contains
        uvtmp, &
        debug, &
        stat_proj )
-    use mod_linalg
-    use mod_diffgeom
     use mod_types_brep
-    use mod_halfedge
     use mod_types_intersection
-    use mod_intersection
+    use mod_brep
     use mod_tolerances
-    use mod_geometry
-    use mod_polynomial
+    use mod_intersection
     implicit none
     logical, intent(in) :: debug
     real(kind=fp), parameter                  :: lambmax = 1.0_fp
@@ -41,36 +35,42 @@ contains
     integer,         intent(out)              :: ifacetmp
     real(kind=fp),   intent(out)              :: uvtmp(2)
     integer,         intent(out)              :: stat_proj
+    real(kind=fp), dimension(4)               :: lowerb, upperb
     real(kind=fp)                             :: duvtmp(2), xyztmp(3), dxyztmp(3)
     real(kind=fp)                             :: xyztarget(3)
+    integer                                   :: it
     logical                                   :: change_face
-    type(type_matrix)                         :: uvpoly(2)
+    integer                                   :: iwire, ihedg(2), istart
     type(type_intersection_curve), pointer    :: curve => null()
-    type(type_intersection_polyline), pointer :: polyline => null()
+    type(type_matrix)                         :: uvpoly(3)
+    real(kind=fp), allocatable                :: xyzpoly(:,:)
     integer                                   :: ihead, itail, np, sens
     integer                                   :: ninter
     integer, allocatable                      :: ipls(:,:)
     real(kind=fp), allocatable                :: lamb(:,:)
-    integer                                   :: iinter, i1, i2
-    real(kind=fp)                             :: w, vec(2), normvec
-    logical                                   :: in_open, on_border
-    integer                                   :: stat, stat_circ
-    real(kind=fp)                             :: uvinter(2,2), xyzinter(3)
-    real(kind=fp), dimension(4)               :: lowerb, upperb
+    integer                                   :: iinter, jpls, kpls, lpls
+    real(kind=fp)                             :: apls
+    real(kind=fp)                             :: uvinter(2,2)
+    logical                                   :: on_border
+    real(kind=fp)                             :: aux(2)
+    integer                                   :: ivar
+    integer                                   :: stat_tangent
+    real(kind=fp)                             :: duv_ds(2,2,2), dxyz_ds(3,2)
+    real(kind=fp), dimension(2)               :: vecjk, vecjo
+    integer                                   :: stat_circ
+    integer                                   :: subit
+    real(kind=fp)                             :: aplstmp
+    integer                                   :: stat_ptinv, stat_insert
+    real(kind=fp)                             :: deltar, det
+    logical                                   :: inside
     real(kind=fp)                             :: jac(3,2)
     logical                                   :: singular
-    integer                                   :: j
-    real(kind=fp)                             :: duv_ds(2,2,2), dxyz_ds(3,2)
-    real(kind=fp)                             :: ao(2), h, wtmp, wq, aux(2)
-    logical                                   :: inside
-    real(kind=fp), dimension(2)               :: p, q, pu, pq
-    integer                                   :: it, iwire, ihedg(2), istart, ivar
 
     IF ( DEBUG ) PRINT *,'PROJECTION HYPERFACE'
 
-    upperb(:) = 1._fp + EPSuv
+    upperb(1:4) = 1._fp + EPSuv
     lowerb = -upperb
-    
+
     ifacetmp = iface
     uvtmp = uv
     stat_proj = 1
@@ -78,15 +78,10 @@ contains
     duvtmp = duv
     xyztmp = xyz
     dxyztmp = dxyz
-    
+
     xyztarget = xyz + dxyz
 
     allocate(uvpoly(1)%mat(2,2))
-
-    IF ( DEBUG ) THEN
-       PRINT *,'DXYZ  =',dxyz
-       PRINT *,'DUV   =',duv
-    END IF
 
     it = 0
     faces : do
@@ -96,8 +91,9 @@ contains
        ! check whether the point uvtmp + duvtmp is inside/outside this domain
        uvpoly(1)%mat(:,1) = uvtmp
        uvpoly(1)%mat(:,2) = uvtmp + lambmax*duvtmp
-       !
+
        change_face = .false.
+
        ! to do so, intersect the segment [uvtmp, uvtmp+duvtmp] with all the curve segments
        ! that form the boundary of the domain (outer and inner wires of the face)
        wires : do iwire = 0,brep%faces(ifacetmp)%ninner
@@ -112,392 +108,414 @@ contains
           halfedges : do
              IF ( DEBUG ) PRINT *,'HALFEDGE',ihedg
              curve => brep%edges(ihedg(1))%curve
-             polyline => curve%polyline
-             ! get current halfedge's uv polyline
-             ihead = curve%isplit(2,brep%edges(ihedg(1))%isplit)
-             itail = curve%isplit(2,brep%edges(ihedg(1))%isplit + 1)
-             np = itail- ihead + 1
-             sens = 1 + mod(ihedg(2),2)
-             allocate(uvpoly(2)%mat(2,np))
-             uvpoly(2)%mat(1:2,1:np) = polyline%uv(1:2,sens,ihead:itail)
+             ! get current halfedge's uv polyline, oriented such that
+             ! the incident face's interior is on the left
+             call get_polyline_endpoints( &
+                  brep, &
+                  ihedg, &
+                  ihead, &
+                  itail, &
+                  sens, &
+                  np )
+             IF ( DEBUG ) PRINT *,'SENS =',sens
+             allocate(uvpoly(2)%mat(2,np), uvpoly(3)%mat(2,np), xyzpoly(3,np))
+             uvpoly(2)%mat(1:2,1:np) = curve%polyline%uv(1:2,sens,ihead:itail:(-1)**sens)
+             uvpoly(3)%mat(1:2,1:np) = curve%polyline%uv(1:2,ihedg(2),ihead:itail:(-1)**sens)
+             xyzpoly(1:3,1:np) = curve%polyline%xyz(1:3,ihead:itail:(-1)**sens)
              !
              ! compute intersection between the polyline and the uv displacement
              ninter = 0
              call intersect_2Dpolylines( &
-                  uvpoly, &
+                  uvpoly(1:2), &
                   [1,1], &
                   [2,np], &
                   ninter, &
                   ipls, &
                   lamb )
              !
+             if ( ninter > 0 ) lamb(1,:) = lamb(1,:) / lambmax ! renormalize lambda
+             !
              IF ( DEBUG ) THEN
-                uvpoly(1)%mat(:,2) = uvtmp + duvtmp
                 call debug_phf_polylines( &
-                     uvpoly, &
+                     uvpoly(1:2), &
                      ninter, &
                      ipls, &
                      lamb )
                 PRINT *,'--> CHECK POLYLINES'
                 PAUSE
              END IF
-             !
-             if ( ninter > 0 ) then
-                ! renormalize lambda
-                lamb(1,:) = lamb(1,:) / lambmax
-                ! pick point closest to target point
-                iinter = maxloc(lamb(1,1:ninter),1)
-                !iinter = 1
-                !do jinter = 2,ninter
-                !   if ( lamb(1,jinter) > lamb(1,iinter) - EPSfp .and. &
-                !        lamb(2,jinter) < lamb(2,iinter) ) iinter = jinter
-                !end do
-                w = lamb(2,iinter) ! local abscissa along intersected polyline segment
-                i1 = ihead + ipls(2,iinter) - 1 ! origin vertex of the intersected polyline segment
-                i2 = i1 + 1 ! destination vertex of the intersected polyline segment
+             !                                                                                            
+             if ( ninter > 0 ) then ! <----------------------------------------------------------------------+
+                ! pick intersection point closest to target point                                            !
+                iinter = maxloc(lamb(1,1:ninter),1)                                                          !
+                apls = lamb(2,iinter) ! local abscissa along intersected polyline segment                    !
+                ! if this point is in the interior of a polyline segment, snap it to the                     !
+                ! nearest polyline vertex                                                                    !
+                jpls = ipls(2,iinter)                                                                        !
+                if ( apls > 0.5_fp ) jpls = jpls + 1                                                         !
+                uvtmp = (1._fp - apls)*uvpoly(2)%mat(1:2,ipls(2,iinter)) + &                                 !
+                     apls*uvpoly(2)%mat(1:2,ipls(2,iinter)+1)                                                !
+                xyztmp = xyzpoly(1:3,jpls)                                                                   !
+                uvinter(1:2,sens) = uvpoly(2)%mat(1:2,jpls)                                                  !
+                uvinter(1:2,ihedg(2)) = uvpoly(3)%mat(1:2,jpls)                                              !
+                ! correct displacement                                                                       !
+                duvtmp = uvtmp + duvtmp - uvinter(1:2,sens)                                                  !
+                uvtmp = uvinter(1:2,sens)                                                                    !
+                do ivar = 1,2 ! <-----------------------+                                                    !
+                   call evald1( &                       !                                                    !
+                        jac(:,ivar), &                  !                                                    !
+                        brep%faces(ifacetmp)%surface, & !                                                    !
+                        uvtmp, &                        !                                                    !
+                        ivar )                          !                                                    !
+                end do ! <------------------------------+                                                    !
+                call solve_NxN( &                                                                            !
+                     duvtmp, &                                                                               !
+                     matmul(transpose(jac), jac), &                                                          !
+                     matmul(transpose(jac), xyztarget - xyztmp), &                                           !
+                     singular )                                                                              !
+                dxyztmp = matmul(jac, duvtmp)                                                                !
+                !dxyztmp = xyztarget - xyztmp                                                                 !
+                !                                                                                            !
                 IF ( DEBUG ) THEN
-                   PRINT *,'LAMBDA =',LAMB(:,IINTER)
-                   PRINT *,'POLYLINE SEGMENT:'
-                   PRINT *,'XYZ ='
-                   PRINT *,polyline%XYZ(1:3,i1)
-                   PRINT *,polyline%XYZ(1:3,i2)
-                   PRINT *,'UV ='
-                   PRINT *,polyline%UV(1:2,sens,i1)
-                   PRINT *,polyline%UV(1:2,sens,i2)
+                   PRINT *,'UVINTER =',UVINTER(1:2,SENS)
+                   PRINT *,'DUVTMP  =',duvtmp
                 END IF
-                ! vector from origin to destination
-                vec = polyline%uv(1:2,sens,i2) - polyline%uv(1:2,sens,i1)
-                normvec = norm2(vec)
-                !
-                ! check if the intersection point is in the interior of a polyline segment
-                ! or at one of its vertices
-                if ( is_in_open_interval(w*normvec, 0._fp, normvec, EPSuv) ) then ! <---+
-                   ! the intersection point in in the interior of a segment             !
-                   IF ( DEBUG ) PRINT *,'IN OPEN INTERVAL'                              !
-                   in_open = .true.                                                     !
-                   ! snap uvtmp to the closest polyline vertex (i.e. to the face's      !
-                   ! boundary)                                                          ! 
-                   if ( w > 0.5_fp ) then ! <--------------+                            !
-                      w = 1._fp                            !                            !
-                      uvinter = polyline%uv(:,:,i2)        !                            !
-                      xyztmp = polyline%xyz(:,i2)          !                            !
-                   else ! ---------------------------------+                            !
-                      w = 0._fp                            !                            !
-                      uvinter = polyline%uv(:,:,i1)        !                            !
-                      xyztmp = polyline%xyz(:,i1)          !                            !
-                   end if ! <------------------------------+                            !
-                   ! update uv displacement                                             !
-                   duvtmp = uvtmp + duvtmp - uvinter(:,sens)                            !
-                   ! update uv coordinates                                              !
-                   uvtmp = uvinter(:,sens)                                              !
-                   ! update xyz displacement                                            !
-                   do ivar = 1,2 ! <-----------------------+                            !
-                      call evald1( &                       !                            !
-                           jac(:,ivar), &                  !                            !
-                           brep%faces(ifacetmp)%surface, & !                            !
-                           uvtmp, &                        !                            !
-                           ivar )                          !                            !
-                   end do ! <------------------------------+                            !
-                   call solve_NxN( &                                                    !
-                        duvtmp, &                                                       !
-                        matmul(transpose(jac), jac), &                                  !
-                        matmul(transpose(jac), xyztarget - xyztmp), &                   !
-                        singular )                                                      !
-                   dxyztmp = matmul(jac, duvtmp)                                        !
-                else ! -----------------------------------------------------------------+
-                   ! the intersection point is a polyline vertex, so it lies exactly on !
-                   ! the face's boundary                                                !
-                   in_open = .false.                                                    !
-                   IF ( DEBUG ) PRINT *,'AT POLYLINE POINT'                             !
-                   uvinter = (1._fp - w)*polyline%uv(:,:,i1) + w*polyline%uv(:,:,i2)    !
-                   duvtmp = uvtmp + duvtmp - uvinter(:,sens)                            !
-                   uvtmp = uvinter(:,sens)                                              !
-                end if ! <--------------------------------------------------------------+
-                !
-                IF ( DEBUG ) THEN
-                   PRINT *,'EXACT INTERSECTION POINT (POLYLINE VERTEX):'
-                   PRINT *,'UV  =',UVINTER(:,SENS)
-                   PRINT *,'UVinter =',UVINTER
-                   PRINT *,'XYZ =',XYZTMP
-                   PRINT *,'DUV =',duvtmp
-                END IF
-                !
+                !                                                                                            !
+                ! special treatment if the point is on a natural border of the parametric square             !
+                ! (prevents robustness issues in tangential surface intersections)                           !
                 on_border = .false.
-                do j = 1,2 ! <---------------------------------------------------------+
-                   aux = uvpoly(2)%mat(j,[i1,i2]-ihead+1)                              !
-                   if ( all(abs(aux) > 1._fp - EPSuv) .and. &                          !
-                        product(aux) > 0._fp ) then ! <-----------------------------+  !
-                      on_border = .true.                                            !  !
-                      stat_circ = 2 ! infinite radius                               !  !
-                      ao(:) = 0._fp                                                 !  !
-                      ao(j) = -uvtmp(j)                                             !  !
-                      ! ao is the unit, inward-pointing normal to the face boundary !  !
-                      IF ( DEBUG ) THEN                                             !  !
-                         PRINT *,'ON BORDER'                                        !  !
-                         PRINT *,'INWARD NORMAL =',AO                               !  !
-                      END IF                                                        !  !
-                      exit                                                          !  !
-                   end if ! <-------------------------------------------------------+  !
-                end do ! <-------------------------------------------------------------+
-                !
-                if ( .not.on_border ) then ! <-----------------------------------------+
-                   !! use circular approximation                                       !
-                   ! compute the exact tangent direction to the curve                  !
-                   call diffgeom_intersection( &                                       !
-                        curve%surf, &                                                  !
-                        uvinter, &                                                     !
-                        duv_ds, &                                                      !
-                        dxyz_ds, &                                                     !
-                        stat )                                                         !
-                   if ( stat > 1 ) then
-                      PRINT *,'STAT DIFFGEOM_INTERSECTION =',STAT
-                      call debug_phf_diffgeom( &
-                           curve, &
-                           uvinter )
-                      STAT_PROJ = 2
-                      RETURN
-                   end if
-                   !                                                                   !
-                   ! pick correct orientation                                          !
-                   duv_ds = sign(1._fp, dot_product(duv_ds(:,1,sens), vec)) * duv_ds   !
-                   if ( sens == 1 ) duv_ds = -duv_ds ! the face is on the left side    !
-                   if ( w > 0.5_fp ) vec = -vec                                        !
-                   !                                                                   !
-                   IF ( DEBUG ) THEN
-                      PRINT *,'CIRCULAR APPROXIMATION'
-                      PRINT *,'AB = ',VEC
-                      PRINT *,'TANGENT =',DUV_DS(:,1,SENS)
-                      PRINT *,'DUV =',DUVTMP
-                   END IF
-                   call circular_approximation( &                                      !
-                        duv_ds(:,1,sens), &                                            !
-                        vec, &                                                         !
-                        ao, &                                                          !
-                        stat_circ )                                                    !
-                end if ! <-------------------------------------------------------------+
-                !
-                if ( stat_circ < 2 ) then ! <------------------------------------------+
-                   ! finite radius                                                     !
-                   if ( sum(duvtmp**2) > sum(ao**2) ) then
-                      PRINT *,'/!\ INVALID CIRCULAR APPROXIMATION: |DUV|/R =',norm2(duvtmp)/norm2(ao)
-                      PAUSE
-                      RETURN
-                   end if
-                   h = sum((duvtmp - ao)**2) - sum(ao**2)                              !
-                   if ( stat_circ == 1 ) h = -h ! face boundary locally concave        !
-                   inside = ( h < -EPSmath )                                           !
-                   !                                                                   !
-                   IF ( DEBUG) THEN
-                      PRINT *,'STAT_CIRC =',STAT_CIRC
-                      PRINT *,'AO =',AO,', |RAD| =',NORM2(AO)
-                      PRINT *,'|UV + DUV - O|/|RAD| =',SQRT(sum((duvtmp - ao)**2) / sum(ao**2))
-                      PRINT *,'H/L =',h / NORM2(DUVTMP)
-                      PRINT *,'L/R =',SQRT(SUM(DUVTMP**2) / SUM(AO**2))
-                      PRINT *,'H/R =',h / NORM2(AO)
-                   END IF
-                   !                                                                   !
-                   if ( inside ) then ! <-------------------------------------------+
-                      do ! <------------------------------------------------------+
-                         aux = uvtmp + duvtmp - polyline%uv(:,sens,i1)            !
-                         vec = polyline%uv(1:2,sens,i2) - polyline%uv(1:2,sens,i1)!
-                         if ( sens == 1 ) vec = -vec                              !
+                stat_circ = 0                                                                                !
+                do ivar = 1,2 ! <---------------------------------------------------------------------+      !
+                   aux(1) = uvtmp(ivar)                                                               !      !
+                   kpls = jpls + 1                                                                    !      !
+                   if ( jpls == np ) kpls = np - 1                                                    !      !
+                   aux(2) = uvpoly(2)%mat(ivar,kpls)                                                  !      !
+                   if ( all(abs(aux) > 1._fp - EPSuv) .and. product(aux) > 0._fp ) then ! <---------+ !      !
+                      vecjk = uvpoly(2)%mat(1:2,kpls) - uvpoly(2)%mat(1:2,jpls)                     ! !      !
+                      if ( kpls < jpls ) vecjk = -vecjk                                             ! !      !
+                      duv_ds(1:2,1,sens) = vecjk                                                    ! !      !
+                      ! pick correct polyline segment                                               ! !      !
+                      if ( dot_product(duv_ds(1:2,1,sens), duvtmp) > 0._fp ) then ! <--+            ! !      !
+                         kpls = jpls + 1                                               !            ! !      !
+                      else ! ----------------------------------------------------------+            ! !      !
+                         kpls = jpls - 1                                               !            ! !      !
+                      end if ! <-------------------------------------------------------+            ! !      !
+                      if ( jpls == np ) kpls = np - 1                                               ! !      !
+                      if ( jpls == 1 ) kpls = 2                                                     ! !      !
+                      vecjk = uvpoly(2)%mat(1:2,kpls) - uvpoly(2)%mat(1:2,jpls)                     ! !      !
+                      !                                                                             ! !      !
+                      on_border = .true.
+                      stat_circ = 2                                                                 ! !      !
+                      vecjo = [-duv_ds(2,1,sens), duv_ds(1,1,sens)]                                 ! !      !
+                      exit                                                                          ! !      !
+                   end if ! <-----------------------------------------------------------------------+ !      !
+                end do ! <----------------------------------------------------------------------------+      !
+                !                                                                                            !
+                if ( stat_circ == 0 ) then ! <--------------------------------------------------------+      !
+                   ! compute the exact tangent direction to the curve                                 !      !
+                   call diffgeom_intersection( &                                                      !      !
+                        curve%surf, &                                                                 !      !
+                        uvinter, &                                                                    !      !
+                        duv_ds, &                                                                     !      !
+                        dxyz_ds, &                                                                    !      !
+                        stat_tangent )                                                                !      !
+                   ! pick correct orientation (incident face's interior on the left)                  !      !
+                   kpls = jpls + 1                                                                    !      !
+                   if ( jpls == np ) kpls = np - 1                                                    !      !
+                   vecjk = uvpoly(2)%mat(1:2,kpls) - uvpoly(2)%mat(1:2,jpls)                          !      !
+                   if ( kpls < jpls ) vecjk = -vecjk                                                  !      !
+                   if ( dot_product(duv_ds(1:2,1,sens), vecjk) < 0._fp ) duv_ds = -duv_ds             !      !
+                   !                                                                                  !      !
+                   ! pick correct polyline segment                                                    !      !
+                   if ( dot_product(duv_ds(1:2,1,sens), duvtmp) > 0._fp ) then ! <------------------+ !      !
+                      kpls = jpls + 1                                                               ! !      !
+                      if ( jpls == np ) goto 100
+                   else ! --------------------------------------------------------------------------+ !      !
+                      kpls = jpls - 1                                                               ! !      !
+                      if ( jpls == 1 ) goto 100
+                   end if ! <-----------------------------------------------------------------------+ !      !
+                   if ( jpls == np ) kpls = np - 1                                                    !      !
+                   if ( jpls == 1 ) kpls = 2                                                          !      !
+                   vecjk = uvpoly(2)%mat(1:2,kpls) - uvpoly(2)%mat(1:2,jpls)                          !      !
+                   !                                                                                  !      !
+                   ! use circular approximation                                                       !      !
+                   call circular_approximation( &                                                     !      !
+                        duv_ds(1:2,1,sens), &                                                         !      !
+                        vecjk, &                                                                      !      !
+                        vecjo, &                                                                      !      !
+                        stat_circ )                                                                   !      !
+                end if ! <----------------------------------------------------------------------------+      !
+                IF ( DEBUG ) THEN
+                   PRINT *,'ON BORDER?',ON_BORDER
+                   PRINT *,'TANGENT =',DUV_DS(1:2,1,SENS)
+                   PRINT *,'TNG.DUV =',dot_product(duv_ds(1:2,1,sens), duvtmp)
+                   PRINT *,'J, K    =',JPLS, KPLS,'/',NP
+                   PRINT *,'VECJK   =',VECJK
+                   PRINT *,'VECJO   =',VECJO
+                   PAUSE
+                END IF
+                !                                                                                            !
+                if ( stat_circ < 2 ) then ! <--------------------------------------------------------------+ !
+                   ! finite radius                                                                         ! !
+                   deltar = sum((duvtmp - vecjo)**2) - sum(vecjo**2)                                       ! !
+                   if ( stat_circ == 1 ) deltar = -deltar ! domain boundary locally concave                ! !
+                   inside = ( deltar < -EPSmath )                                                          ! !
+                   !                                                                                       ! !
+                   if ( inside ) then ! <----------------------------------------------------------------+ ! !
+                      subit = 0                                                                          ! ! !
+                      do ! <---------------------------------------------------------------------------+ ! ! !
+                         aux = uvtmp + duvtmp - uvpoly(2)%mat(1:2,jpls)                                ! ! ! ! 
+                         vecjk = uvpoly(2)%mat(1:2,kpls) - uvpoly(2)%mat(1:2,jpls)                     ! ! ! !
+                         det = vecjk(1)*aux(2) - vecjk(2)*aux(1)                                       ! ! ! !
+                         if ( kpls < jpls ) det = -det                                                 ! ! ! !
                          IF ( DEBUG ) THEN
-                            PRINT *,'POLYLINE SEGMENT :'
-                            PRINT *,polyline%uv(1:2,sens,i1)
-                            PRINT *,polyline%uv(1:2,sens,i2)
-                            PRINT *,'SENS =',SENS
-                            PRINT *,'DET =',vec(1)*aux(2) - vec(2)*aux(1)
+                            PRINT *,'J, K =',JPLS, KPLS
+                            PRINT *,'AUX  =',AUX
+                            PRINT *,'VJK  =', VECJK
+                            PRINT *,'DET  =',DET
+                            PAUSE
                          END IF
-                         if ( vec(1)*aux(2) - vec(2)*aux(1) > -EPSmath ) exit     !
-                         if ( sens == 1 ) vec = -vec                              !
-                         ! target point inside circular approximation but outside !
-                         ! linear approximation (happens only if the domain       !
-                         ! is locally convex)                                     !
-                         wtmp = dot_product(aux, vec) / sum(vec**2)               !
-                         IF ( DEBUG ) PRINT *,'WTMP =',WTMP
-                         uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + &         !
-                              wtmp*polyline%uv(:,:,i2)                            !
-                         p = uvinter(:,sens)                                      !
-                         ! relax to exact intersection curve                      !
-                         call simultaneous_point_inversions( &                    !
-                              curve%surf, &                                       !
-                              lowerb, &                                           !
-                              upperb, &                                           !
-                              stat, &                                             !
-                              uvinter, &                                          !
-                              xyzinter )                                          !
-                         if ( stat > 0 ) then
-                            ! failed to converge :(
-                            PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
-                            PRINT *,'UVTMP  =',UVTMP
-                            PRINT *,'DUVTMP =',DUVTMP
-                            PRINT *,'UVPOLY ='
-                            PRINT *,POLYLINE%UV(:,SENS,I1)
-                            PRINT *,POLYLINE%UV(:,SENS,I2)
-                            call debug_phf_simptinv( &
-                                 curve, &
-                                 (1._fp - wtmp)*polyline%uv(:,:,i1) + &
-                                 wtmp*polyline%uv(:,:,i2) )
-                            RETURN 
-                         else
-                            q = uvinter(:,sens)
-                            wq = dot_product(q - polyline%uv(:,sens,i1), vec) &
-                                 / sum(vec**2)
-                            ! refine polyline
-                            call insert_point_in_curve( &
-                                 curve, &
-                                 uvinter, &
-                                 xyzinter, &
-                                 i1, &
-                                 debug, &
-                                 stat )
-                            !
-                            IF ( DEBUG ) PRINT *,'WQ =',WQ
-                            if ( wq < wtmp ) then ! <---+
-                               i1 = i1 + 1              !
-                               i2 = i2 + 1              !
-                            end if ! <------------------+
-                            pq = q - p
-                            pu = uvtmp + duvtmp - p
-                            IF ( DEBUG .or. dot_product(pu,pq) > sum(pq**2) ) THEN
-                               PRINT *,'U =',UVTMP
-                               PRINT *,'D =',DUVTMP
-                               PRINT *,'P =',P
-                               PRINT *,'Q =',Q
-                               PRINT *,'(PU.PQ)/(PQ.PQ) =',dot_product(pu,pq) / sum(pq**2)
-                               PAUSE
-                            END IF
-                            if ( dot_product(pu,pq) > sum(pq**2) ) then
-                               inside = .false.
-                               RETURN
+                         if ( det > EPSmath ) exit                                                     ! ! ! !
+                         ! target point inside circular approximation but outside linear approx.       ! ! ! !
+                         ! (happens only if the domain is locally convex)                              ! ! ! !
+                         aplstmp = dot_product(aux, vecjk) / sum(vecjk**2)                             ! ! ! !
+                         uvinter(1:2,sens) = (1._fp - aplstmp)*uvpoly(2)%mat(1:2,jpls) + &             ! ! ! !
+                              aplstmp*uvpoly(2)%mat(1:2,kpls)                                          ! ! ! !
+                         uvinter(1:2,ihedg(2)) = (1._fp - aplstmp)*uvpoly(3)%mat(1:2,jpls) + &         ! ! ! !
+                              aplstmp*uvpoly(3)%mat(1:2,kpls)                                          ! ! ! !
+                         aux = uvinter(1:2,sens)                                                       ! ! ! !
+                         ! relax to exact intersection curve                                           ! ! ! !
+                         call simultaneous_point_inversions( &                                         ! ! ! !
+                              curve%surf, &                                                            ! ! ! !
+                              lowerb, &                                                                ! ! ! !
+                              upperb, &                                                                ! ! ! !
+                              stat_ptinv, &                                                            ! ! ! !
+                              uvinter, &                                                               ! ! ! !
+                              xyztmp )                                                                 ! ! ! !
+                         !                                                                             ! ! ! !
+                         if ( stat_ptinv > 0 ) then ! <----------------------------------------------+ ! ! ! !
+                            PRINT *,'projection_hyperface: FAILED TO RELAX TANGENTIAL INTERSECTION'  ! ! ! ! !
+                            uvinter(1:2,sens) = (1._fp - aplstmp)*uvpoly(2)%mat(1:2,jpls) + &        ! ! ! ! !
+                                 aplstmp*uvpoly(2)%mat(1:2,kpls)                                     ! ! ! ! !
+                            uvinter(1:2,ihedg(2)) = (1._fp - aplstmp)*uvpoly(3)%mat(1:2,jpls) + &    ! ! ! ! !
+                                 aplstmp*uvpoly(3)%mat(1:2,kpls)                                     ! ! ! ! !
+                            PRINT *,'UVPOLY =',uvinter                                               ! ! ! ! ! 
+                            call debug_phf_simptinv( &                                               ! ! ! ! !
+                                 curve, &                                                            ! ! ! ! !
+                                 uvinter )                                                           ! ! ! ! !
+                            PAUSE
+                            RETURN                                                                   ! ! ! ! !
+                         else ! ---------------------------------------------------------------------+ ! ! ! !
+                            apls = dot_product(uvinter(1:2,sens) - uvpoly(2)%mat(1:2,jpls),&
+                                 vecjk) / sum(vecjk**2)     ! ! ! ! !
+                            IF ( DEBUG ) PRINT *,'ATMP, A =',APLSTMP, APLS
+                            !apls = dot_product(uvinter(1:2,sens) - uvtmp, vecjk) / sum(vecjk**2)     ! ! ! ! !
+                            ! refine polyline                                                        ! ! ! ! !
+                            if ( sens == 1 ) then
+                               lpls = np - max(jpls, kpls) + 1
+                            else
+                               lpls = min(jpls, kpls)
                             end if
-                         end if
-                      end do
-                   end if
-                   !
-                   if ( .not.inside .and. &
-                        h < 5.d-2 * norm2(duvtmp) ) then
-                      ! the target point is just outside (the displacement is nearly
-                      ! tangent to the circular approximation)
-                      wtmp = dot_product(duvtmp, vec) / sum(vec**2)
-                      if ( w > 0.5_fp ) wtmp = 1._fp - wtmp
-                      wtmp = max(0._fp, min(1._fp, wtmp))
-                      !if ( wtmp < 0._fp ) then
-                      !   i1 = i1 + 1
-                      !   i2 = i2 + 1
-                      !end if
-                      IF ( DEBUG ) PRINT *,'NEARLY TANGENTIAL DISPLACEMENT'
-                      IF ( DEBUG ) PRINT *,'WTMP =',WTMP
-                      uvinter = (1._fp - wtmp)*polyline%uv(:,:,i1) + &
-                           wtmp*polyline%uv(:,:,i2)
-                      ! relax to exact intersection curve
-                      !IF ( MAXVAL(ABS(UVINTER)) > 1.001_FP ) RETURN
-                      
-                      call simultaneous_point_inversions( &
-                           curve%surf, &
-                           lowerb, &
-                           upperb, &
-                           stat, &
-                           uvinter, &
-                           xyzinter )
-                      if ( stat > 0 ) then
-                         ! failed to converge :(
-                         PRINT *,'FAILED TO RELAX ON TANGENTIAL INTERSECTION'
-                         call debug_phf_simptinv( &
-                                 curve, &
-                                 (1._fp - wtmp)*polyline%uv(:,:,i1) + &
-                                 wtmp*polyline%uv(:,:,i2) )
-                         RETURN 
-                      else
-                         duvtmp = uvinter(1:2,sens) - uvtmp
-                         IF ( DEBUG ) PRINT *,'MODIF DUVTMP =',duvtmp
-                         wtmp = dot_product(duvtmp, vec) / sum(vec**2)
-                         if ( w > 0.5_fp ) wtmp = 1._fp - wtmp
-                         if ( wtmp > 1._fp ) then
-                            i1 = i1 + 1
-                         elseif ( wtmp < 0._fp ) then
-                            i1 = i1 - 1
-                         end if
-                         ! refine polyline
-                         call insert_point_in_curve( &
-                              curve, &
-                              uvinter, &
-                              xyzinter, &
-                              i1, &
-                              debug, &
-                              stat )
-                         inside = .true.
+                            call insert_point_in_curve( &                                            ! ! ! ! !
+                                 curve, &                                                            ! ! ! ! !
+                                 uvinter, &                                                          ! ! ! ! !
+                                 xyztmp, &                                                           ! ! ! ! !
+                                 lpls, &                                                             ! ! ! ! !
+                                 debug, &                                                            ! ! ! ! !
+                                 stat_insert )                                                       ! ! ! ! !
+                            deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
+                            call get_polyline_endpoints( &
+                                 brep, &
+                                 ihedg, &
+                                 ihead, &
+                                 itail, &
+                                 sens, &
+                                 np )
+                            allocate(uvpoly(2)%mat(2,np), uvpoly(3)%mat(2,np), xyzpoly(3,np))
+                            uvpoly(2)%mat(1:2,1:np) = curve%polyline%uv(1:2,sens,ihead:itail:(-1)**sens)
+                            uvpoly(3)%mat(1:2,1:np) = curve%polyline%uv(1:2,ihedg(2),ihead:itail:(-1)**sens)
+                            xyzpoly(1:3,1:np) = curve%polyline%xyz(1:3,ihead:itail:(-1)**sens)
+                            !                                                                        ! ! ! ! !
+                            if ( apls > aplstmp ) then ! <----+                                      ! ! ! ! !
+                               if ( jpls > kpls ) then ! <--+ !                                      ! ! ! ! !
+                                  jpls = jpls + 1           ! !                                      ! ! ! ! !
+                                  kpls = jpls - 1           ! !                                      ! ! ! ! !
+                               end if ! <-------------------+ !                                      ! ! ! ! !
+                            else ! ---------------------------+                                      ! ! ! ! !
+                               if ( jpls < kpls ) then ! <--+ !                                      ! ! ! ! !
+                                  jpls = jpls + 1           ! !                                      ! ! ! ! !
+                                  kpls = jpls - 1           ! !                                      ! ! ! ! !
+                               end if ! <-------------------+ !                                      ! ! ! ! !
+                            end if ! <------------------------+                                      ! ! ! ! !
+                            !                                                                        ! ! ! ! !
+                            if ( dot_product(uvtmp + duvtmp - aux, uvinter(1:2,sens) - aux) > &      ! ! ! ! !
+                                 sum((uvinter(1:2,sens) - aux)**2) ) then ! <----------------------+ ! ! ! ! !
+                               PRINT *, '(PU.PQ)/(PQ.PQ) =', &                                     ! ! ! ! ! !
+                                    dot_product(uvtmp + duvtmp - aux, uvinter(1:2,sens) - aux)     ! ! ! ! ! !
+                               PAUSE                                                               ! ! ! ! ! !
+                               inside = .false.                                                    ! ! ! ! ! !
+                               return                                                              ! ! ! ! ! !
+                            end if ! <-------------------------------------------------------------+ ! ! ! ! !
+                         end if ! <------------------------------------------------------------------+ ! ! ! !
+                         subit = subit + 1                                                             ! ! ! !
+                         if ( subit > 10 ) RETURN                                                      ! ! ! !
+                      end do ! <-----------------------------------------------------------------------+ ! ! !
+                      !                                                                                  ! ! !
+                   end if ! <----------------------------------------------------------------------------+ ! !
+                   !                                                                                       ! !
+                   if ( .not.inside .and. deltar < 5.d-2 * norm2(duvtmp) ) then ! <----------------------+ ! !
+                      IF ( DEBUG ) PRINT *,'NEARLY TANGENTIAL DISPLACEMENT'                              ! ! !
+                      ! the target point is just outside the local circular approximation of the domain  ! ! !
+                      ! (the displacement is nearly tangent to the circular boundary)                    ! ! !
+                      aplstmp = dot_product(duvtmp, vecjk) / sum(vecjk**2)                               ! ! !
+                      uvinter(1:2,sens) = (1._fp - aplstmp)*uvpoly(2)%mat(1:2,jpls) + &                  ! ! !
+                           aplstmp*uvpoly(2)%mat(1:2,kpls)                                               ! ! !
+                      uvinter(1:2,ihedg(2)) = (1._fp - aplstmp)*uvpoly(3)%mat(1:2,jpls) + &              ! ! !
+                           aplstmp*uvpoly(3)%mat(1:2,kpls)                                               ! ! !
+                      aux = uvinter(1:2,sens)                                                            ! ! !
+                      ! relax to exact intersection curve                                                ! ! !
+                      call simultaneous_point_inversions( &                                              ! ! !
+                           curve%surf, &                                                                 ! ! !
+                           lowerb, &                                                                     ! ! !
+                           upperb, &                                                                     ! ! !
+                           stat_ptinv, &                                                                 ! ! !
+                           uvinter, &                                                                    ! ! !
+                           xyztmp )                                                                      ! ! !
+                      if ( stat_ptinv > 0 ) then ! <---------------------------------------------------+ ! ! !
+                         PRINT *,'projection_hyperface: FAILED TO RELAX ON TANGENTIAL INTERSECTION'    ! ! ! !
+                         uvinter(1:2,sens) = (1._fp - aplstmp)*uvpoly(2)%mat(1:2,jpls) + &             ! ! ! !
+                              aplstmp*uvpoly(2)%mat(1:2,kpls)                                          ! ! ! !
+                         uvinter(1:2,ihedg(2)) = (1._fp - aplstmp)*uvpoly(3)%mat(1:2,jpls) + &         ! ! ! !
+                              aplstmp*uvpoly(3)%mat(1:2,kpls)                                          ! ! ! !
+                         PRINT *,'UVPOLY =',uvinter                                                    ! ! ! ! 
+                         call debug_phf_simptinv( &                                                    ! ! ! !
+                              curve, &                                                                 ! ! ! !
+                              uvinter )                                                                ! ! ! !
+                         PAUSE
+                         RETURN                                                                        ! ! ! !
+                      else ! --------------------------------------------------------------------------+ ! ! !
+                         duvtmp = uvinter(1:2,sens) - uvtmp                                            ! ! ! !
+                         apls = dot_product(duvtmp, vecjk) / sum(vecjk**2)                             ! ! ! !
+                         if ( apls < 0._fp ) then ! <-----+                                            ! ! ! !
+                            jpls = jpls - 1               !                                            ! ! ! !
+                            kpls = kpls - 1               !                                            ! ! ! !
+                         elseif ( apls > 1._fp ) then ! --+                                            ! ! ! !
+                            jpls = jpls + 1               !                                            ! ! ! !
+                            kpls = kpls + 1               !                                            ! ! ! !
+                         end if ! <-----------------------+                                            ! ! ! !
+                         if ( sens == 1 ) then ! <--------+                                            ! ! ! !
+                            jpls = np - jpls + 1          !                                            ! ! ! !
+                            kpls = np - kpls + 1          !                                            ! ! ! !
+                         end if ! <-----------------------+                                            ! ! ! !
+                         ! refine polyline                                                             ! ! ! !
+                         call insert_point_in_curve( &                                                 ! ! ! !
+                              curve, &                                                                 ! ! ! !
+                              uvinter, &                                                               ! ! ! !
+                              xyztmp, &                                                                ! ! ! !
+                              min(jpls, kpls), &                                                       ! ! ! !
+                              debug, &                                                                 ! ! ! !
+                              stat_insert )                                                            ! ! ! !
+                         inside = .true.                                                               ! ! ! !
+                         !RETURN!****
+                      end if ! <-----------------------------------------------------------------------+ ! ! !
+                   end if ! <----------------------------------------------------------------------------+ ! !
+                   !                                                                                       ! !
+                else ! ------------------------------------------------------------------------------------+ !
+                   ! infinite radius                                                                       ! !
+                   !inside = ( dot_product(vecjo, duvtmp) > EPSmath )                                       ! !
+                   vecjo = vecjo / hypot(vecjo(1), vecjo(2))
+                   det = dot_product(vecjo, duvtmp)
+                   IF ( DEBUG ) PRINT *,'DOT =',det
+                   if ( abs(det) < EPSuv ) then
+                      if ( det < 0._fp ) then
+                         duvtmp = duvtmp - 2._fp*det*vecjo
+                         det = dot_product(vecjo, duvtmp) ! -det
+                         dxyztmp = matmul(jac, duvtmp)
+                         xyztarget = xyztmp + dxyztmp
+                         IF ( DEBUG ) PRINT *,'CORRECTION DUVTMP, DOT =',dot_product(vecjo, duvtmp)
                       end if
+                      inside = .true.
                    end if
-                else
-                   ! infinite radius
-                   inside = ( dot_product(ao,duvtmp) > -EPSmath )
-                end if
-                IF ( DEBUG ) PRINT *,'INSIDE?',INSIDE
-                change_face = .not.inside
-                !
-                if ( change_face ) then ! <----------------------------+
-                   ! change brep face                                  !
-                   ifacetmp = get_face(brep, get_twin(ihedg))          !
-                   ! uv coordinates in new face                        !
-                   uvtmp = uvinter(1:2,ihedg(2))                       !
-                   ! new point displacement                            !
-                   do ivar = 1,2 ! <-----------------------+           !
-                      call evald1( &                       !           !
-                           jac(:,ivar), &                  !           !
-                           brep%faces(ifacetmp)%surface, & !           !
-                           uvtmp, &                        !           !
-                           ivar )                          !           !
-                   end do ! <------------------------------+           !
-                   call solve_NxN( &                                   !
-                        duvtmp, &                                      !
-                        matmul(transpose(jac), jac), &                 !
-                        matmul(transpose(jac), xyztarget - xyztmp), &  !
-                        singular )                                     !
-                   dxyztmp = matmul(jac, duvtmp)                       !
-                   IF ( DEBUG ) THEN ! -----------------------+        !
-                      PRINT *,'CHANGE BREP FACE -->',IFACETMP !        !
-                      PRINT *,'  UVTMP =',uvtmp               !        !
-                      PRINT *,' DUVTMP =',duvtmp              !        !
-                      PRINT *,' XYZTMP =',xyztmp              !        !
-                      PRINT *,'DXYZTMP =',dxyztmp             !        !
-                   END IF ! <---------------------------------+        !
-                end if ! <---------------------------------------------+
-                IF ( DEBUG ) PAUSE
-             end if
+                   inside = ( det > 0._fp )                      
+                end if ! <---------------------------------------------------------------------------------+ !
+                !                                                                                            !
+                IF ( DEBUG ) PRINT *,'INSIDE?',INSIDE                                                        !
+                change_face = .not.inside                                                                    !
+                !                                                                                            !
+                if ( change_face ) then ! <----------------------------------------------------------------+ !
+                   ! change brep face                                                                      ! !
+                   ifacetmp = get_face(brep, get_twin(ihedg))                                              ! !
+                   ! uv coordinates in new face                                                            ! !
+                   uvtmp = uvinter(1:2,ihedg(2))                                                           ! !
+                   ! new point displacement                                                                ! !
+                   do ivar = 1,2 ! <-----------------------+                                               ! !
+                      call evald1( &                       !                                               ! !
+                           jac(:,ivar), &                  !                                               ! !
+                           brep%faces(ifacetmp)%surface, & !                                               ! !
+                           uvtmp, &                        !                                               ! !
+                           ivar )                          !                                               ! !
+                   end do ! <------------------------------+                                               ! !
+                   call solve_NxN( &                                                                       ! !
+                        duvtmp, &                                                                          ! !
+                        matmul(transpose(jac), jac), &                                                     ! !
+                        matmul(transpose(jac), xyztarget - xyztmp), &                                      ! !
+                        singular )                                                                         ! !
+                   dxyztmp = matmul(jac, duvtmp)                                                           ! !
+                   IF ( DEBUG ) THEN ! -----------------------+                                            ! !
+                      PRINT *,'CHANGE BREP FACE -->',IFACETMP !                                            ! !
+                      PRINT *,'  UVTMP =',uvtmp               !                                            ! !
+                      PRINT *,' DUVTMP =',duvtmp              !                                            ! !
+                      PRINT *,' XYZTMP =',xyztmp              !                                            ! !
+                      PRINT *,'DXYZTMP =',dxyztmp             !                                            ! !
+                   END IF ! <---------------------------------+                                            ! !
+                end if ! <---------------------------------------------------------------------------------+ !
+                IF ( DEBUG ) PAUSE                                                                           !
+                !                                                                                            !
+             end if ! <--------------------------------------------------------------------------------------+
              !
-             deallocate(uvpoly(2)%mat)
+             100 deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
              if ( change_face ) exit wires
              !
              ! move on to the next halfedge on the wire
              ihedg = get_next(brep, ihedg)
              if ( get_orig(brep, ihedg) == istart ) exit halfedges
           end do halfedges
-          !
+
        end do wires
-       !
+
        if ( .not.change_face ) then
-          IF ( DEBUG ) PRINT *,'CONVERGED, IT =',IT
+          IF ( DEBUG ) PRINT *,'CONVERGED, IT =',it
           stat_proj = 0
           exit faces
        end if
-       !
+
        it = it + 1
-       IF ( IT > BREP%NF ) THEN
+       if ( it > 2*brep%nf ) then
           PRINT *,'*** FAILED TO PROJECT ON HYPERFACE ***'
-          DUVTMP(:) = 0._FP
-          EXIT faces
-       END IF
+          duvtmp(1:2) = 0._fp
+          ifacetmp = iface
+          uvtmp = uv
+          exit faces
+       end if
+
     end do faces
 
     uvtmp = uvtmp + duvtmp
     deallocate(uvpoly(1)%mat)
-    
+
   end subroutine projection_hyperface
 
 
 
-  
+
+
+
+
+
+
+
+
+
   subroutine circular_approximation( &
        t, &
        ab, &
@@ -535,10 +553,24 @@ contains
        end if
        ao = rad*ao
     end if
-    
+
   end subroutine circular_approximation
 
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   subroutine projection_hyperedge( &
        brep, &
@@ -584,7 +616,7 @@ contains
     stat_proj = 1
     upperb(:) = 2._fp
     lowerb = -upperb
-    
+
     do jedge = 1,hyperedge%ne
        if ( hyperedge%halfedges(1,jedge) == iedge ) then
           ihedg = hyperedge%halfedges(:,jedge)
@@ -606,7 +638,7 @@ contains
     duvtmp = duv
     xyztmp = xyz
     dxyztmp = dxyz
-    
+
     do k = 1,hyperedge%ne
        IF ( DEBUG ) THEN
           PRINT *,'IHEDGE =', IHEDG
@@ -618,7 +650,7 @@ contains
        END IF
 
        xyztarget = xyztmp + dxyztmp
-       
+
        p = real((-1)**sens, kind=fp) * curve%param_vector
        wfirst = dot_product(p, polyline%xyz(:,ifirst))
        wlast  = dot_product(p, polyline%xyz(:,ilast))
@@ -626,7 +658,7 @@ contains
        IF ( DEBUG ) THEN
           PRINT *,'WFIRST, WLAST, W =',wfirst, wlast, w
        END IF
-       
+
        if ( is_in_closed_interval(w, wfirst, wlast, tolerance=EPSuv) ) then
           ! relax temporary point onto true intersection underlying the hyperedge
           uvtmp = uvtmp + duvtmp ! initial iterate
@@ -701,12 +733,12 @@ contains
 
        end if
     end do
-    
+
     uvtmp = uv
     iedgetmp = iedge
     PRINT *,'projection_hyperedge : failed to reproject'
     RETURN
-    
+
   end subroutine projection_hyperedge
 
 
@@ -729,7 +761,7 @@ contains
     integer,                       intent(in)    :: iprev
     logical,                       intent(in)    :: debug
     integer,                       intent(out)   :: stat
-    
+
     ! add polyline point
     call insert_polyline_point( &
          uvinter, &
@@ -738,19 +770,19 @@ contains
          curve%polyline, &
          iprev )
     if ( stat == 0 ) then
-       IF ( DEBUG ) PRINT *,'NEW POINT INSERTED IN POLYLINE : UV =',uvinter
+       IF ( DEBUG ) PRINT *,'NEW POINT INSERTED IN POLYLINE : UV =',uvinter, ', IVERT =',iprev+1
        ! shift downstream polyline split points
        where ( curve%isplit(2,:) > iprev ) &
             curve%isplit(2,:) = curve%isplit(2,:) + 1
     end if
-    
+
   end subroutine insert_point_in_curve
 
 
 
 
 
-  
+
 
   subroutine debug_phf_polylines( &
        uvpoly, &
@@ -785,7 +817,7 @@ contains
        WRITE (13,*) LAMB(:,I)
     END DO
     CLOSE(13)
-    
+
   end subroutine debug_phf_polylines
 
 
@@ -797,11 +829,11 @@ contains
     implicit none
     type(type_intersection_curve), intent(in) :: curve
     real(kind=fp),                 intent(in) :: uvinter(2,2)
-    
+
     CALL WRITE_POLYNOMIAL(curve%surf(1)%ptr%x, '/d/bandrieu/GitHub/FFTsurf/test/Jouke/debug_diffgeominter_surf1.cheb')
     CALL WRITE_POLYNOMIAL(curve%surf(2)%ptr%x, '/d/bandrieu/GitHub/FFTsurf/test/Jouke/debug_diffgeominter_surf2.cheb')
     PRINT *,'UV =',UVINTER
-    
+
   end subroutine debug_phf_diffgeom
 
 
@@ -813,7 +845,7 @@ contains
     implicit none
     type(type_intersection_curve), intent(in) :: curve
     real(kind=fp),                 intent(in) :: uvinter(2,2)
-    
+
     CALL WRITE_POLYNOMIAL(curve%surf(1)%ptr%x, '/d/bandrieu/GitHub/FFTsurf/test/Jouke/debug_relaxtng_surf1.cheb')
     CALL WRITE_POLYNOMIAL(curve%surf(2)%ptr%x, '/d/bandrieu/GitHub/FFTsurf/test/Jouke/debug_relaxtng_surf2.cheb')
     PRINT *,'UVinter0 =',uvinter
@@ -852,7 +884,8 @@ contains
     real(kind=fp)                     :: r(3), dxyz_duv(3,2), n(3), rn
     real(kind=fp)                     :: mat(2,2), rhs(2), cond, duv(2), erruv
     integer                           :: it, ivar
-    
+    integer                           :: stat_refl
+
     stat = 1
 
     IF ( DEBUG ) THEN
@@ -869,7 +902,7 @@ contains
             uv )
 
        r = xyz - xyzproj
-       
+
        do ivar = 1,2 ! <---------------+
           call evald1( &               !
                dxyz_duv(:,ivar), &     !
@@ -880,7 +913,7 @@ contains
        n = cross(dxyz_duv(:,1), dxyz_duv(:,2))
        n = n / norm2(n)
        rn = dot_product(r,n)
-       
+
        mat = matmul(transpose(dxyz_duv), dxyz_duv)
        rhs = matmul(transpose(dxyz_duv), r)
 
@@ -904,11 +937,13 @@ contains
             lowerb, &
             upperb, &
             duv, &
-            2 )
+            2, &
+            stat_refl )
+       if ( stat_refl > 0 ) return
 
        ! update solution
        uv = uv + duv
-       
+
        ! termination criterion
        if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then
           if ( sum(r**2) - rn**2 < EPSxyzsqr ) then
@@ -924,11 +959,7 @@ contains
           return
        end if
     end do
-    
+
   end subroutine projection_surface
-
-
-
-  
 
 end module mod_projection
