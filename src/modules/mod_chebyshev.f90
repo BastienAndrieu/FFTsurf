@@ -406,15 +406,15 @@ contains
        a, &
        b )
     implicit none
-    integer, intent(in)           :: N
-    real*8,  intent(out)          :: x(N+1)
-    real*8,  intent(in), optional :: a, b
-    integer                       :: i = 0
+    integer, intent(in)                  :: N
+    real(kind=fp),  intent(out)          :: x(N+1)
+    real(kind=fp),  intent(in), optional :: a, b
+    integer                              :: i = 0
 
     if ( N == 0 ) then
-       x = 0._fp
+       x(1) = 0._fp
     else
-       x = cos(CSTpi * [(real(i, kind=fp) / real(N, kind=fp), i=0,N)])
+       x(1:N+1) = cos(CSTpi * [(real(i, kind=fp) / real(N, kind=fp), i=0,N)])
     end if
 
     if ( present(a) .and. present(b) ) then
