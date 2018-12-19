@@ -294,7 +294,7 @@ contains
     character(7), parameter :: fmt = 'ES13.6'
     type(type_surface_mesh), intent(in) :: mesh
     character(*),            intent(in) :: filename
-    integer                             :: fid, i, j
+    integer                             :: fid, i, j, nf
 
     call get_free_unit(fid)
     open(unit=fid, file=filename, action='write')
@@ -307,8 +307,19 @@ contains
        write (fid,*)
     end do
 
-    do j = 1,mesh%nt
-       write (fid,'(A1,1x,I0,1x,I0,1x,I0)') 'f', mesh%tri(1:3,j)
+    !do j = 1,mesh%nt
+    !   write (fid,'(A1,1x,I0,1x,I0,1x,I0)') 'f', mesh%tri(1:3,j)
+    !end do
+
+    do i = 1,maxval(mesh%ihf(1:mesh%nt))
+       nf = count(mesh%ihf(1:mesh%nt) == i)
+       if ( nf > 0 ) then
+          write (fid,'(A10,I0)') 'usemtl mat', i
+          do j = 1,mesh%nt
+             if (mesh%ihf(j) == i) write (fid,'(A1,1x,I0,1x,I0,1x,I0)') 'f', mesh%tri(1:3,j)
+          end do
+          write (fid,*) 
+       end if
     end do
     
     close(fid)
@@ -817,6 +828,37 @@ contains
 
   end subroutine write_xyz_positions
 
+
+
+
+  subroutine free_mesh( &
+       mesh )
+    implicit none
+    type(type_surface_mesh), intent(inout) :: mesh
+    integer                                :: ipath
+
+    if ( allocated(mesh%v2h) )  deallocate(mesh%v2h)
+    if ( allocated(mesh%twin) ) deallocate(mesh%twin)
+    if ( allocated(mesh%tri) )  deallocate(mesh%tri)
+    if ( allocated(mesh%xyz) )  deallocate(mesh%xyz)
+    if ( allocated(mesh%uv) )   deallocate(mesh%uv)
+    if ( allocated(mesh%ids) )  deallocate(mesh%ids)
+    if ( allocated(mesh%typ) )  deallocate(mesh%typ)
+    if ( allocated(mesh%ihf) )  deallocate(mesh%ihf)
+    
+    if ( allocated(mesh%paths) ) then
+       do ipath = 1,mesh%npaths
+          if ( allocated(mesh%paths(ipath)%verts) ) deallocate(mesh%paths(ipath)%verts)
+          if ( allocated(mesh%paths(ipath)%s) )     deallocate(mesh%paths(ipath)%s)
+       end do
+       deallocate(mesh%paths)
+    end if
+
+    mesh%nv = 0
+    mesh%nt = 0
+    mesh%npaths = 0
+    
+  end subroutine free_mesh
 
   
 end module mod_mesh

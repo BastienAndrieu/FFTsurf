@@ -19,8 +19,8 @@ program fftsurf
 
   ! --------------------------------------------------------------
   ! Parameters
-  integer, parameter                    :: freq_checkpoint = 1!0
-  integer, parameter                    :: PARAM_passmax = 30
+  integer, parameter                    :: freq_checkpoint = 10
+  integer, parameter                    :: PARAM_passmax = 30!
   real(kind=fp), parameter              :: PARAM_frac_conf1 = 1._fp
   real(kind=fp), parameter              :: PARAM_frac_conf2 = 0.7_fp
   integer, parameter                    :: PARAM_ipass1 = 0!5
@@ -44,7 +44,7 @@ program fftsurf
   ! --------------------------------------------------------------
   ! Surface mesh
   type(type_surface_mesh)               :: mesh
-  real(kind=fp), allocatable            :: xyzprev(:,:), dxyz(:,:)
+  real(kind=fp), allocatable            :: xyzprev(:,:), xyztmp(:,:), dxyz(:,:)
   integer                               :: stat_corresp, stat_regen_path
   integer                               :: ivert, iface
   ! --------------------------------------------------------------
@@ -57,6 +57,7 @@ program fftsurf
   ! --------------------------------------------------------------
   integer :: i, j
   character(3)                          :: strnum, strnum3
+  integer :: nf_old
 
   !! Read argument (options file name)
   narg = command_argument_count()
@@ -158,7 +159,7 @@ program fftsurf
           mesh, &
           instant )
 
-     allocate(xyzprev(3,mesh%nv), dxyz(3,mesh%nv))
+     allocate(xyzprev(3,mesh%nv), xyztmp(3,mesh%nv), dxyz(3,mesh%nv))
 
      call write_vtk_mesh( &
           mesh, &
@@ -175,6 +176,8 @@ program fftsurf
   call cpu_time(tic)
   if ( options%mode > 0 ) allocate(interdata_new, brep_new)
   if ( options%mode > 1 ) allocate(hypergraph_new)
+
+  if ( options%mode > 1 ) nf_old = brep_old%nf
   main_loop : do
      ! checkpoint
      if ( mod(instant,freq_checkpoint) == 0 ) then
@@ -230,7 +233,7 @@ program fftsurf
              to   = interdata_new )
 
         call update_intersection_curves(interdata_new)
-        
+
         call make_brep( &
              surf, &
              nsurf, &
@@ -239,6 +242,8 @@ program fftsurf
              options%chord_err, &
              options%hmin, &
              options%hmax )
+        print *,'nf_old =',nf_old
+        
         ! debugging >> ..................
         call write_brep_files( &
              brep_new, &
@@ -277,14 +282,19 @@ program fftsurf
            end do
            close(fid)
            ! .................. <<
-           
-           call update_mesh_correspondance( &
-                brep_old, &
-                brep_new, &
-                hypergraph_old, &
-                hypergraph_new, &
-                mesh, &
-                stat_corresp )
+
+           if ( brep_new%nf /= nf_old ) then
+              stat_corresp = 1
+           else
+              call update_mesh_correspondance( &
+                   brep_old, &
+                   brep_new, &
+                   hypergraph_old, &
+                   hypergraph_new, &
+                   mesh, &
+                   stat_corresp )
+           end if
+
            if ( stat_corresp > 0 ) then
               call make_checkpoint( &
                    options, &
@@ -296,9 +306,15 @@ program fftsurf
               PRINT *,'failed to update mesh correspondance, made a checkpoint'
               STOP
            end if
+
+           nf_old = brep_new%nf
            !PAUSE
 
            !xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
+           call write_tecplot_mesh( &
+                mesh, &
+                '../debug/pre_deform0.dat', &
+                'avant' )
 
            ! Regenerate features mesh
            ! uv, ids
@@ -334,14 +350,20 @@ program fftsurf
            call spring_displacement_smoothing( &
                 mesh, &
                 dxyz, &
-                1 )
-           xyzprev = mesh%xyz(1:3,1:mesh%nv) + dxyz
-           mesh%xyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) + dxyz
+                20 )
+           xyztmp = mesh%xyz(1:3,1:mesh%nv) + dxyz
+           xyzprev = mesh%xyz(1:3,1:mesh%nv) !*
+           mesh%xyz(1:3,1:mesh%nv) = xyztmp!*mesh%xyz(1:3,1:mesh%nv) + dxyz !*
            ! ********
            !call write_xyz_positions( &
            !     '../debug/', &
            !     mesh, &
            !     0 )
+           call write_tecplot_mesh( &
+                mesh, &
+                '../debug/pre_deform1.dat', &
+                'smooth displacements' )
+           !mesh%xyz(1:3,1:mesh%nv) = xyzprev
            ! ********
 
            !PAUSE
@@ -354,17 +376,48 @@ program fftsurf
                    mesh%uv(:,1,ivert) )                                      !
            end do ! <--------------------------------------------------------+
 
-           IF ( .false. ) THEN
-              dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
+           call write_tecplot_mesh( &
+                mesh, &
+                '../debug/pre_deform2.dat', &
+                'update f(uv)' )
+
+           IF ( .true. ) THEN
+              !dxyz(1:3,1:mesh%nv) = xyzprev(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
+              dxyz(1:3,1:mesh%nv) = xyztmp(1:3,1:mesh%nv) - mesh%xyz(1:3,1:mesh%nv)
+              !xyzprev = mesh%xyz(1:3,1:mesh%nv)!***
+              !mesh%xyz(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv) + dxyz(1:3,1:mesh%nv)!***
+              !call write_tecplot_mesh( &
+              !  mesh, &
+              !  '../debug/pre_deform4.dat', &
+              !  'verif' )
+              !mesh%xyz(1:3,1:mesh%nv) = xyzprev!***
               call pre_deformation( &
                    brep_new, &
                    mesh, &
                    dxyz )
+
+              !do ivert = 1,mesh%nv ! <-------------------------------------------------+
+              !select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
+              !case (0) ! -------------------------------------------------------+   !
+              !   mesh%xyz(:,ivert) = brep_new%verts(mesh%ids(ivert))%point%xyz  !   !
+              !case (1) ! -------------------------------------------------------+   !
+              !   iface = brep_new%edges(mesh%ids(ivert))%halfedges(2)%face      !   !
+              !   call eval( &                                                   !   !
+              !        mesh%xyz(1:3,ivert), &                                        !   !
+              !        brep_new%faces(iface)%surface, &                          !   !
+              !        mesh%uv(:,1,ivert) )                                      !   !
+              !end select ! <----------------------------------------------------+   !
+              !end do ! <---------------------------------------------------------------+
+           
               ! ********
               !call write_xyz_positions( &
               !     '../debug/', &
               !     mesh, &
               !     1 )
+              call write_tecplot_mesh( &
+                mesh, &
+                '../debug/pre_deform3.dat', &
+                'pre-deformed' )
               ! ********
               !PAUSE
            END IF
@@ -399,7 +452,7 @@ program fftsurf
 
         interdata_old => interdata_new
         brep_old => brep_new
-
+        
      end if
 
      if ( time >= options%timespan ) exit main_loop
@@ -485,10 +538,10 @@ contains
           write (fid,*) surfpair
           write (fid,*) interdata%curves(icurv)%polyline%np
           do i = 1,interdata%curves(icurv)%polyline%np
-             write (fid,*) interdata%curves(icurv)%polyline%xyz(1:3,i)
+             write (fid,'(ES22.15,1X,ES22.15,1X,ES22.15)') interdata%curves(icurv)%polyline%xyz(1:3,i)
           end do
           do i = 1,interdata%curves(icurv)%polyline%np
-             write (fid,*) interdata%curves(icurv)%polyline%uv(1:2,1:2,i)
+             write (fid,'(ES22.15,1X,ES22.15,1X,ES22.15,1X,ES22.15)') interdata%curves(icurv)%polyline%uv(1:2,1:2,i)
           end do
        end if
     end do
@@ -527,7 +580,7 @@ contains
        !mesh%paths(ipath)%s(1) = 0._fp
        ihype = mesh%paths(ipath)%hyperedge
        ivert = hypergraph%hyperedges(ihype)%verts(1)
-       mesh%paths(ipath)%s(1) = norm2(mesh%xyz(1:3,mesh%paths(ipath)%verts(1)) - brep%verts(ivert)%point%xyz)
+       mesh%paths(ipath)%s(1) = 0._fp!norm2(mesh%xyz(1:3,mesh%paths(ipath)%verts(1)) - brep%verts(ivert)%point%xyz)
        do ivert = 2,mesh%paths(ipath)%nv
           mesh%paths(ipath)%s(ivert) = mesh%paths(ipath)%s(ivert-1) + &
                norm2(mesh%xyz(:,mesh%paths(ipath)%verts(ivert)) - &
@@ -808,6 +861,10 @@ contains
     real(kind=fp)                          :: disti, distj, xyzv(3)
 
     ! BREP face ->  BREP face
+    if ( brep_old%nf /= brep_new%nf ) then
+       stat = 2
+       return
+    end if
     f2f(1:brep_old%nf) = [(iface, iface=1,brep_old%nf)] ! ***
 
     ! hyperface -> hyperface

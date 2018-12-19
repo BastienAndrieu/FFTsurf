@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from src/modules/mod_projection.f90
-MD5:3b80eafc8ca9c9a8506e8d7fe39b6f47 -- If you edit this, you'll get what you deserve.
+MD5:aa9cfa47939cc75fc02d62d571839620 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -490,7 +490,7 @@ DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 EXPLICIT (CONSTANT (
 INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ())
 0 '2')) 0 () () () 0 0)
-180 'debug' '' '' 171 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+180 'debug' '' '' 171 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (LOGICAL 4 0 0 0 LOGICAL ()) 0 0 () () 0 () () () 0 0)
 181 'stat_proj' '' '' 171 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0
 0 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)

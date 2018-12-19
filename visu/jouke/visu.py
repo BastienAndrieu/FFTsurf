@@ -51,7 +51,7 @@ renderView.ViewSize = [800, 600]
 renderView.OrientationAxesVisibility = 0 # hide xyz axes
 
 
-if False:
+if True:
     renderView.UseLight = 0 # no shading
     # create a new 'Mesh Quality'
     meshQuality1 = MeshQuality(Input=instants)
@@ -73,8 +73,6 @@ if False:
     meshQuality1Display.Representation = 'Surface With Edges'
     # get color transfer function/color map for 'Quality'
     qualityLUT = GetColorTransferFunction('Quality')
-    # get opacity transfer function/opacity map for 'Quality'
-    qualityPWF = GetOpacityTransferFunction('Quality')
     # hide data in view
     Hide(instants, renderView)
     # hide color bar/color legend
@@ -86,8 +84,6 @@ if False:
     qualityLUT.AutomaticRescaleRangeMode = 'Never'
     # Rescale transfer function
     qualityLUT.RescaleTransferFunction(minq, maxq)
-    # Rescale transfer function
-    qualityPWF.RescaleTransferFunction(minq, maxq)
     # get color legend/bar for qualityLUT in current view
     qualityLUTColorBar = GetScalarBar(qualityLUT, renderView)
     # Properties modified on qualityLUTColorBar

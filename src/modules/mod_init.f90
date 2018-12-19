@@ -171,6 +171,9 @@ contains
             hypergraph%hyperedges(1:hypergraph%nhe), &
             hypergraph%nhe, &
             mesh )
+       do i = 1,mesh%nt
+          mesh%ihf(i) = brep%faces(mesh%ihf(i))%hyperface
+       end do
 
        if ( allocated(feat_edge) ) deallocate(feat_edge)
        if ( allocated(feat_vert) ) deallocate(feat_vert)
@@ -274,7 +277,6 @@ contains
             50, &
             options%hmin, &
             options%hmax )
-
 
        ! CHECK UVs
        IF ( .true. ) call check_uvs(brep, mesh)
@@ -530,6 +532,8 @@ contains
             & ../tmp/tri.dat &
             & ../tmp/uv.dat &
             & ../tmp/xyz.dat' )
+       !PAUSE
+       
        write (strnum,'(i3.3)') iface                                                           !
        ! read face submesh                                                                     !
        call read_triangles( &                                                                  !
@@ -568,7 +572,8 @@ contains
        call append_triangles( &                                                                !
             mesh, &                                                                            !
             trif(1:3,1:ntrif), &                                                               !
-            [(brep%faces(iface)%hyperface, i=1,ntrif)], &                                      !
+            ![(brep%faces(iface)%hyperface, i=1,ntrif)], &                                      !
+            [(iface, i=1,ntrif)], &                                                            !
             ntrif )                                                                            !
        !                                                                                       !
        ! add new mesh vertices                                                                 !

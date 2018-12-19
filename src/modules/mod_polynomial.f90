@@ -186,7 +186,7 @@ contains
          unit = fileunit, &
          file = filename, &
          action = "write" )
-    write (unit=fileunit, fmt=*) poly%degr(1:poly%nvar)+1, poly%dim
+    write (unit=fileunit, fmt='(I0,1x,I0,1x,I0)') poly%degr(1:poly%nvar)+1, poly%dim
     if ( poly%nvar == 1 ) then
        do j = 1,poly%dim
           do i = 1,poly%degr(1)+1

@@ -1584,7 +1584,9 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
-        PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
+        IF ( isurf == 3 .or. jsurf == 3 ) then
+           PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
+        end IF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -1610,7 +1612,7 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              stat_degeneracy ) 
-        IF ( .true. ) THEN
+        IF ( isurf == 3 .or. jsurf == 3 ) then!.true. ) THEN
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
            !IF ( NUVXYZ > 0 ) THEN
            !   CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
@@ -1911,9 +1913,14 @@ subroutine merge_intersection_data( &
           hmin, &
           hmax )
      IF ( DEBUG ) PRINT *,'...OK'
+     IF ( interdata_global%curves(nc+ic)%polyline%np < 2 ) THEN
+        PRINT *,'CURVE #', nc+ic,', POLYLINE%NP =', interdata_global%curves(nc+ic)%polyline%np
+        PAUSE
+     END IF
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
         PRINT *,'PARAM_VECTOR =',interdata_global%curves(nc+ic)%param_vector
+        PAUSE
         return
      end if
 
@@ -1932,6 +1939,7 @@ subroutine merge_intersection_data( &
              stat )
         if ( stat > 0 ) then
            PRINT *,'STAT_INTERSECT_INTERSECTION_CURVES = ',STAT
+           PAUSE
            return
         end if
      end do
@@ -2807,7 +2815,7 @@ subroutine trace_intersection_polyline( &
   !               = 4 if an high-order tangential contact point was encountered
   !               = 5 if backtracking did not terminate successfully
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   real(kind=fp), parameter                        :: FRACbacktrack = 0.5_fp
   real(kind=fp), parameter                        :: EPSbacktrack = real(1d-2, kind=fp)
   type(ptr_surface),                intent(in)    :: surf(2)
@@ -2998,6 +3006,7 @@ subroutine trace_intersection_polyline( &
   end do outer ! <---------------------------------------------------------------+
 
   ! last point
+  polyline%np = max(1, polyline%np)
   call insert_polyline_point( &
        uv_endpoints(1:2,1:2,2), &
        xyz_endpoints(1:3,2), &

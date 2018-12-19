@@ -22,7 +22,7 @@ subroutine trace_intersection_polyline( &
   !               = 4 if an high-order tangential contact point was encountered
   !               = 5 if backtracking did not terminate successfully
   implicit none
-  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .false. )
+  LOGICAL, PARAMETER :: DEBUG = ( GLOBALDEBUG .AND. .true. )
   real(kind=fp), parameter                        :: FRACbacktrack = 0.5_fp
   real(kind=fp), parameter                        :: EPSbacktrack = real(1d-2, kind=fp)
   type(ptr_surface),                intent(in)    :: surf(2)
@@ -213,6 +213,7 @@ subroutine trace_intersection_polyline( &
   end do outer ! <---------------------------------------------------------------+
 
   ! last point
+  polyline%np = max(1, polyline%np)
   call insert_polyline_point( &
        uv_endpoints(1:2,1:2,2), &
        xyz_endpoints(1:3,2), &

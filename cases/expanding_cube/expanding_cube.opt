@@ -1,6 +1,6 @@
 # pas de temps
 timestep
-5.000000e-03
+1.000000e-02
 
 # duree totale
 timespan
@@ -15,7 +15,7 @@ directory
 # 2 : vortex
 # 3 : rotation autour de l axe z
 propagation
-2
+1
 
 # mode
 # 0 : propagation des surfaces
@@ -26,10 +26,10 @@ mode
 2
 # chordal error
 chord
-3.225225e-03
+1.000000e-04
 # hmin
 hmin
-1.513904e-02
+1.000000e-02
 # hmax
 hmax
-3.421455e-02
+3.000000e-02

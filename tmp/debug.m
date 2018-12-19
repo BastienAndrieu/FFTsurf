@@ -31,3 +31,4 @@ camlight(30,30);
 
 figure;
 semilogy(l,'.-');
+legend({'u';'x'});

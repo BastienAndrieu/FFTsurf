@@ -5,8 +5,8 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/Intersections/');
 
-nsurf = 8;
-PLOT_TREE = 0;
+nsurf = 2;
+PLOT_TREE = 1;
 PLOT_NORMALS = 0;
 
 cl = colorcet( 'I2', 'N', nsurf );

@@ -123,12 +123,10 @@ contains
     separable = .false.
 
     do iaxe = 1,3
-       m(1) = max( minval( xyz1(:,iaxe) ), &
-            minval( xyz2(:,iaxe) ) ) ! max(min)
-       m(2) = min( maxval( xyz1(:,iaxe) ), &
-            maxval( xyz2(:,iaxe) ) ) ! min(max)
+       m(1) = max( minval(xyz1(:,iaxe)), minval(xyz2(:,iaxe)) ) ! max(min)
+       m(2) = min( maxval(xyz1(:,iaxe)), maxval(xyz2(:,iaxe)) ) ! min(max)
 
-       if ( m(2) < -EPSfp .and. m(1) > EPSfp ) then
+       if ( m(2) < -EPSmath .and. m(1) > EPSmath ) then
           ! separating cartesian plane found 
           vec(:) = 0._fp
           vec(iaxe) = 1._fp

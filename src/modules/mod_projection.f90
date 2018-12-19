@@ -24,7 +24,7 @@ contains
     use mod_tolerances
     use mod_intersection
     implicit none
-    logical, intent(in) :: debug
+    logical, intent(inout) :: debug
     real(kind=fp), parameter                  :: lambmax = 1.0_fp
     type(type_brep), intent(in)               :: brep
     integer,         intent(in)               :: iface
@@ -65,7 +65,8 @@ contains
     logical                                   :: inside
     real(kind=fp)                             :: jac(3,2)
     logical                                   :: singular
-
+    logical                                   :: skipnext
+    
     IF ( DEBUG ) PRINT *,'PROJECTION HYPERFACE'
 
     upperb(1:4) = 1._fp + EPSuv
@@ -74,6 +75,16 @@ contains
     ifacetmp = iface
     uvtmp = uv
     stat_proj = 1
+
+    if ( norm2(duv) < EPSuv ) then
+       IF ( DEBUG ) THEN
+          PRINT *,'|DUV| << 1'
+          PAUSE
+       END IF
+       uvtmp = uv
+       stat_proj = 0
+       return
+    end if
 
     duvtmp = duv
     xyztmp = xyz
@@ -89,8 +100,8 @@ contains
        ! the provisional point uvtmp is inside the parametric domain of
        ! the face ifacetmp (possibly on its boundary)
        ! check whether the point uvtmp + duvtmp is inside/outside this domain
-       uvpoly(1)%mat(:,1) = uvtmp
-       uvpoly(1)%mat(:,2) = uvtmp + lambmax*duvtmp
+       !uvpoly(1)%mat(:,1) = uvtmp
+       !uvpoly(1)%mat(:,2) = uvtmp + lambmax*duvtmp
 
        change_face = .false.
 
@@ -105,7 +116,10 @@ contains
           end if ! <-------------------------------------+
           !
           istart = get_orig(brep, ihedg) ! first brep vertex on the wire
+          skipnext = .false.
           halfedges : do
+             uvpoly(1)%mat(:,1) = uvtmp
+             uvpoly(1)%mat(:,2) = uvtmp + lambmax*duvtmp
              IF ( DEBUG ) PRINT *,'HALFEDGE',ihedg
              curve => brep%edges(ihedg(1))%curve
              ! get current halfedge's uv polyline, oriented such that
@@ -141,6 +155,8 @@ contains
                      ninter, &
                      ipls, &
                      lamb )
+                PRINT *,'UVTMP  =',UVTMP
+                PRINT *,'DUVTMP =',DUVTMP
                 PRINT *,'--> CHECK POLYLINES'
                 PAUSE
              END IF
@@ -150,11 +166,12 @@ contains
                 iinter = maxloc(lamb(1,1:ninter),1)                                                          !
                 apls = lamb(2,iinter) ! local abscissa along intersected polyline segment                    !
                 ! if this point is in the interior of a polyline segment, snap it to the                     !
-                ! nearest polyline vertex                                                                    !
+                ! nearest polyline vertex (with index jpls)                                                  !
                 jpls = ipls(2,iinter)                                                                        !
                 if ( apls > 0.5_fp ) jpls = jpls + 1                                                         !
                 uvtmp = (1._fp - apls)*uvpoly(2)%mat(1:2,ipls(2,iinter)) + &                                 !
                      apls*uvpoly(2)%mat(1:2,ipls(2,iinter)+1)                                                !
+                IF ( DEBUG ) PRINT *,'UVPOLY =',uvtmp
                 xyztmp = xyzpoly(1:3,jpls)                                                                   !
                 uvinter(1:2,sens) = uvpoly(2)%mat(1:2,jpls)                                                  !
                 uvinter(1:2,ihedg(2)) = uvpoly(3)%mat(1:2,jpls)                                              !
@@ -177,7 +194,7 @@ contains
                 !dxyztmp = xyztarget - xyztmp                                                                 !
                 !                                                                                            !
                 IF ( DEBUG ) THEN
-                   PRINT *,'UVINTER =',UVINTER(1:2,SENS)
+                   PRINT *,'UVTMP* =', UVTMP
                    PRINT *,'DUVTMP  =',duvtmp
                 END IF
                 !                                                                                            !
@@ -229,10 +246,28 @@ contains
                    ! pick correct polyline segment                                                    !      !
                    if ( dot_product(duv_ds(1:2,1,sens), duvtmp) > 0._fp ) then ! <------------------+ !      !
                       kpls = jpls + 1                                                               ! !      !
-                      if ( jpls == np ) goto 100
+                      !if ( jpls == np ) goto 100
+                      if ( jpls == np ) then
+                         deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
+                         ! move on to the next halfedge on the wire
+                         ihedg = get_next(brep, ihedg)
+                         IF ( DEBUG ) PRINT *,'MOVE ON TO NEXT HALFEDGE...'
+                         if ( get_orig(brep, ihedg) == istart ) exit halfedges
+                         cycle halfedges
+                      end if
                    else ! --------------------------------------------------------------------------+ !      !
                       kpls = jpls - 1                                                               ! !      !
-                      if ( jpls == 1 ) goto 100
+                      !if ( jpls == 1 ) goto 100
+                      if ( jpls == 1 ) then
+                         deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
+                         skipnext = .true.
+                         ! return to the previous halfedge on the wire
+                         ihedg = get_prev(brep, ihedg)
+                         IF ( DEBUG ) PRINT *,'BACK TO PREVIOUS HALFEDGE...'
+                         !DEBUG = .TRUE.
+                         !PAUSE
+                         cycle halfedges
+                      end if
                    end if ! <-----------------------------------------------------------------------+ !      !
                    if ( jpls == np ) kpls = np - 1                                                    !      !
                    if ( jpls == 1 ) kpls = 2                                                          !      !
@@ -365,6 +400,7 @@ contains
                    !                                                                                       ! !
                    if ( .not.inside .and. deltar < 5.d-2 * norm2(duvtmp) ) then ! <----------------------+ ! !
                       IF ( DEBUG ) PRINT *,'NEARLY TANGENTIAL DISPLACEMENT'                              ! ! !
+                      IF ( DEBUG ) PRINT *,'DR/R =',deltar/norm2(vecjo),', DR/|DUV| =',deltar/norm2(duvtmp)
                       ! the target point is just outside the local circular approximation of the domain  ! ! !
                       ! (the displacement is nearly tangent to the circular boundary)                    ! ! !
                       aplstmp = dot_product(duvtmp, vecjk) / sum(vecjk**2)                               ! ! !
@@ -395,6 +431,8 @@ contains
                          RETURN                                                                        ! ! ! !
                       else ! --------------------------------------------------------------------------+ ! ! !
                          duvtmp = uvinter(1:2,sens) - uvtmp                                            ! ! ! !
+                         !duvtmp(:) = 0._fp!uvtmp + duvtmp - uvinter(1:2,sens)
+                         !uvtmp = uvinter(1:2,sens)
                          apls = dot_product(duvtmp, vecjk) / sum(vecjk**2)                             ! ! ! !
                          if ( apls < 0._fp ) then ! <-----+                                            ! ! ! !
                             jpls = jpls - 1               !                                            ! ! ! !
@@ -473,18 +511,26 @@ contains
                 !                                                                                            !
              end if ! <--------------------------------------------------------------------------------------+
              !
-             100 deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
+!100          deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
+             deallocate(uvpoly(2)%mat, uvpoly(3)%mat, xyzpoly)
              if ( change_face ) exit wires
              !
              ! move on to the next halfedge on the wire
              ihedg = get_next(brep, ihedg)
              if ( get_orig(brep, ihedg) == istart ) exit halfedges
+             if ( skipnext ) then
+                ihedg = get_next(brep, ihedg)
+                skipnext = .false.
+                IF ( DEBUG ) PRINT *,'SKIP HALFEDGE...'
+                if ( get_orig(brep, ihedg) == istart ) exit halfedges
+             end if
           end do halfedges
 
        end do wires
 
        if ( .not.change_face ) then
           IF ( DEBUG ) PRINT *,'CONVERGED, IT =',it
+          IF ( DEBUG ) PRINT *,'UVNEW =',uvtmp + duvtmp
           stat_proj = 0
           exit faces
        end if

@@ -128,6 +128,7 @@ contains
     integer                                :: ikp, jkp, irm, jrm, inew, imx
     integer                                :: it, iv, ip, ihype
     integer                                :: v_old2new(mesh%nv), t_old2new(mesh%nt)
+    logical :: debugproj
 
     verts = mesh%tri([ihedg(1), 1+mod(ihedg(1),3)],ihedg(2))
     PRINT *,'VERTS =',VERTS
@@ -222,6 +223,7 @@ contains
                   matmul(transpose(tng), tng), &
                   matmul(transpose(tng), dxyz), &
                   singular )
+             debugproj = .false.
              call projection_hyperface( &
                   brep, &
                   mesh%ids(verts(1)), &
@@ -231,7 +233,7 @@ contains
                   dxyz, &
                   idsnew, &
                   uvnew(:,1), &
-                  .false., &
+                  debugproj, &
                   stat )
              !PRINT *,'STAT =',STAT
              if ( stat > 0 ) PAUSE
@@ -535,6 +537,7 @@ contains
     CHARACTER(2) :: STRNUM
     INTEGER :: FID, I, J, subit
     REAL(KIND=FP) :: DXYZVISU(3,MESH%NV)
+    logical :: debugproj
 
     CALL GET_FREE_UNIT(FID)
 
@@ -547,7 +550,7 @@ contains
     ELSE
        call compute_triangle_weights( &
             mesh, &
-            5._fp, &
+            2._fp, &
             1._fp, &
             wei )
     END IF
@@ -778,6 +781,9 @@ contains
 
              if ( check_change ) then
                 !PRINT *,'IVERT =',IVERT
+                !debugproj = (ivert == 23977 .and. passmax<50 .and. &
+                !     mesh%uv(1,1,ivert) < -0.738_fp  .and. mesh%uv(2,1,ivert) < -0.985_fp)!.false.!
+                debugproj = .false.
                 call projection_hyperface( &
                      brep, &
                      iface, &
@@ -787,8 +793,7 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp(:,1), &
-                     !(ivert == 13946),&! .or. ivert == 470 .or. ivert == 461),&!(ivert == 404 .and. ipass>13), &
-                     .false., &!(ivert == 16899), &!(ivert == 19951 .and. ipass > 11), &!
+                     debugproj, &
                      stat )
                 if ( stat > 0 ) then
                    PRINT *,'IVERT =',IVERT
@@ -1194,6 +1199,10 @@ subroutine write_tecplot_mesh_displacement2( &
           front(nfront) = ivert
        end if
     end do
+    if ( nfront < 1 ) then
+       wt(1:mesh%nt) = 1._fp
+       return
+    end if
     dv(:) = huge(1._fp)
     dv(front(1:nfront)) = 0._fp
     visited(front(1:nfront)) = .true.
@@ -1258,21 +1267,25 @@ subroutine write_tecplot_mesh_displacement2( &
     use mod_projection
     use mod_tolerances
     implicit none
+    real(kind=fp), parameter               :: EPShmin = 1.d-3
     type(type_brep),         intent(in)    :: brep
     type(type_surface_mesh), intent(inout) :: mesh
     real(kind=fp),           intent(inout) :: dxyz(3,mesh%nv)
     integer, dimension(mesh%nv)            :: idsnew
     real(kind=fp)                          :: duv(2), uvnew(2), xyzproj(3)
     real(kind=fp)                          :: dxyz_duv(3,2)
+    real(kind=fp)                          :: hmin
     logical                                :: singular
     logical                                :: check_change
     integer                                :: stat
     integer                                :: ivert, jvert, ivar, ihedg(2), iface, jface
+    logical :: debugproj
 
     PRINT *,'PRE_DEFORMATION'
+    debugproj = .false.
     
     idsnew(1:mesh%nv) = mesh%ids(1:mesh%nv)
-    do ivert = 1,mesh%nv
+    vertices : do ivert = 1,mesh%nv
        if ( mesh%typ(ivert) < 2 ) cycle
        do ivar = 1,2 ! <-------------------------------+
           call evald1( &                               !
@@ -1284,7 +1297,7 @@ subroutine write_tecplot_mesh_displacement2( &
        call solve_NxN( &
             duv, &
             matmul(transpose(dxyz_duv), dxyz_duv), &
-            -matmul(transpose(dxyz_duv), dxyz(:,ivert)), &
+            matmul(transpose(dxyz_duv), dxyz(:,ivert)), &
             singular )
        !
        dxyz(1:3,ivert) = matmul(dxyz_duv, duv)
@@ -1294,9 +1307,11 @@ subroutine write_tecplot_mesh_displacement2( &
        iface = mesh%ids(ivert)   ! brep face index
        check_change = ( maxval(abs(duv)) > 1._fp + EPSuv - maxval(abs(mesh%uv(:,1,ivert))) )
        if ( .not.check_change ) then
+          hmin = huge(1._fp)
           adjacent_verts : do ! <------------------------------------------------------+
              jvert = get_dest(mesh, ihedg) ! mesh vertex index                         !
              jface = mesh%ids(jvert)       ! brep face index                           !
+             hmin = min(hmin, sum((mesh%xyz(:,jvert) - mesh%xyz(:,ivert))**2))
              ! (quasi) necessary conditions for a change of supporting brep face:      !
              ! - at least one adjacent vertex is supported by a different brep face;   !
              ! - this vertex is in the halfspace pointed by the xyz displacement.      !
@@ -1304,7 +1319,7 @@ subroutine write_tecplot_mesh_displacement2( &
                 if ( dot_product(dxyz(1:3,ivert), &                                 !  !
                      mesh%xyz(:,jvert) - mesh%xyz(:,ivert)) > 0._fp ) then ! <---+  !  !
                    check_change = .true.                                         !  !  !
-                   exit adjacent_verts                                           !  !  !
+                   !exit adjacent_verts                                           !  !  !
                 end if ! <-------------------------------------------------------+  !  !
              end if ! <-------------------------------------------------------------+  !
              ! move on to next adjacent vertex                                         !
@@ -1312,9 +1327,17 @@ subroutine write_tecplot_mesh_displacement2( &
              ihedg = get_twin(mesh, ihedg) ! ingoing mesh halfedge                     !
              if ( ihedg(2) < 1 .or. ihedg(2) ==  mesh%v2h(2,ivert) ) exit              !
           end do adjacent_verts ! <----------------------------------------------------+
+          if ( sum(dxyz(1:3,ivert)**2) < hmin*EPShmin**2 ) then
+             !PRINT *,'IVERT =', IVERT, ', |DXYZ| =',NORM2(dxyz(1:3,ivert)),', HMIN =',SQRT(HMIN)
+             dxyz(1:3,ivert) = 0._fp
+             cycle vertices
+          end if
        end if
        !
        if ( check_change ) then
+          !debugproj = (ivert == 21116)
+          !debugproj = (ivert == 23977 .and. &
+          !           mesh%uv(1,1,ivert) < -0.739_fp  .and. mesh%uv(2,1,ivert) < -0.986_fp)
           call projection_hyperface( &
                brep, &
                iface, &
@@ -1324,7 +1347,7 @@ subroutine write_tecplot_mesh_displacement2( &
                dxyz(1:3,ivert), &
                idsnew(ivert), &
                uvnew, &
-               .false., &
+               debugproj, &
                stat )
           if ( stat > 0 ) then
              PRINT *,'IVERT =',IVERT
@@ -1352,7 +1375,7 @@ subroutine write_tecplot_mesh_displacement2( &
        else
           mesh%uv(1:2,1,ivert) = uvnew
        end if
-    end do
+    end do vertices
 
     mesh%ids(1:mesh%nv) = idsnew(1:mesh%nv)
 

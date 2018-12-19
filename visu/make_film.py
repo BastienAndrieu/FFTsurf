@@ -8,6 +8,7 @@ from PIL import Image
 # 2: fps
 # 3: duree premiere image
 # 4: duree derniere image
+# 5: nom fichier film
 
 args = sys.argv
 if len(args) < 2:
@@ -41,7 +42,7 @@ flist.close()
 files = os.popen("ls " + cas + "/img/*.jpeg").readlines()
 
 if len(args) < 4:
-    nrep0 = 0
+    nrep0 = 1
 else:
     nrep0 = int(round(float(args[3])*float(fps)))
 
@@ -49,6 +50,15 @@ if len(args) < 5:
     nrep1 = nrep0
 else:
     nrep1 = int(round(float(args[4])*float(fps)))
+
+nrep0 = max(1, nrep0)
+nrep1 = max(1, nrep1)
+
+if len(args) < 6:
+    filename = film
+else:
+    filename = args[5]
+
 
 f = open("liste", "w")
 for i in range(nrep0):
@@ -60,6 +70,6 @@ for i in range(nrep1):
 f.close()
 
 os.system("mencoder " + cmd + " /dev/null mf://@liste")
-os.system("mencoder " + cmd + " " + cas +"/film.mp4 mf://@liste")
+os.system("mencoder " + cmd + " " + cas + "/" + filename + ".mp4 mf://@liste")
 os.system("rm -f divx2pass.log liste")
 

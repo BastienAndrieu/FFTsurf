@@ -77,7 +77,7 @@ contains
        vvel )
     use mod_math
     implicit none
-    real(kind=fp), parameter   :: period = 1._fp
+    real(kind=fp), parameter   :: period = 4._fp
     integer,       intent(in)  :: m, n
     real(kind=fp), intent(in)  :: xyz(m,n,3)
     real(kind=fp), intent(in)  :: time
@@ -95,6 +95,31 @@ contains
     !IF ( TIME > 0.15 ) VVEL = 0._FP
 
   end subroutine velocity_vectors_vortex
+
+
+  
+
+
+   subroutine velocity_vectors_enright( &
+       xyz, &
+       m, &
+       n, &
+       time, &
+       vvel )
+    use mod_math
+    implicit none
+    real(kind=fp), parameter   :: period = 3._fp
+    integer,       intent(in)  :: m, n
+    real(kind=fp), intent(in)  :: xyz(m,n,3)
+    real(kind=fp), intent(in)  :: time
+    real(kind=fp), intent(out) :: vvel(m,n,3)
+
+    vvel(1:m,1:n,1) = 2._fp*sin(CSTpi*xyz(1:m,1:n,1))**2 * sin(2._fp*CSTpi*xyz(1:m,1:n,2)) * sin(2._fp*CSTpi*xyz(1:m,1:n,3))
+    vvel(1:m,1:n,2) = -sin(2._fp*CSTpi*xyz(1:m,1:n,1)) * sin(CSTpi*xyz(1:m,1:n,2))**2 * sin(2._fp*CSTpi*xyz(1:m,1:n,3))
+    vvel(1:m,1:n,3) = -sin(2._fp*CSTpi*xyz(1:m,1:n,1)) * sin(2._fp*CSTpi*xyz(1:m,1:n,2)) * sin(CSTpi*xyz(1:m,1:n,3))**2
+    vvel = vvel * cos(CSTpi * time/period)
+
+  end subroutine velocity_vectors_enright
 
 
 
@@ -160,6 +185,14 @@ contains
                   xyz + dti*vvel(1:m,1:n,1:3,istep-1), &
                   m, &
                   n, &
+                  vvel(1:m,1:n,1:3,istep) )
+             !
+          case (4) ! enright
+             call velocity_vectors_enright( &
+                  xyz + dti*vvel(1:m,1:n,1:3,istep-1), &
+                  m, &
+                  n, &
+                  ti, &
                   vvel(1:m,1:n,1:3,istep) )
              !
           end select

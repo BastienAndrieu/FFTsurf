@@ -283,6 +283,8 @@ contains
   
 
 
+
+  
   subroutine get_uv_polyline( &
        brep, &
        ihedg, &
@@ -308,6 +310,8 @@ contains
     uv(1:2,1:np) = brep%edges(ihedg(1))%curve%polyline%uv(:,sens,ifirst:ilast:(-1)**sens)
     
   end subroutine get_uv_polyline
+
+
   
   
 
@@ -326,6 +330,7 @@ contains
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata
     type(type_BREP),              intent(inout) :: brep
+    integer                                     :: stat
     integer, dimension(interdata%nc)            :: arc2curve, arc2split, arc_sens
     integer                                     :: arc2nod(2,interdata%nc)
     real(kind=fp)                               :: arc_angles(2,interdata%nc)
@@ -343,7 +348,8 @@ contains
     CHARACTER(3) :: STRNUM
 
     do isurf = 1,nsurf
-       
+       !PRINT *,''
+       !PRINT *,'ISURF =',ISURF
        ! build an embedded graph of intersection curves & points
        call build_intersections_graph( &
             surf(isurf), &
@@ -357,7 +363,8 @@ contains
             nod2point, &
             point2nod, &
             nod_uv, &
-            nnod )
+            nnod, &
+            stat )
        
        IF ( DEBUG ) THEN
           WRITE (STRNUM, '(I3.3)') ISURF
@@ -376,6 +383,12 @@ contains
           END DO
           CLOSE(FID)
        END IF
+
+       IF ( STAT > 0 ) then
+          PRINT *,'ISURF =',ISURF
+          PRINT *,'STAT =',STAT
+          STOP ':('
+       end IF
 
        ! make wires
        nwires = min(nnod, narc)
@@ -570,12 +583,14 @@ contains
        nod2point, &
        point2nod, &
        nod_uv, &
-       nnod )
+       nnod, &
+       stat )
     use mod_diffgeom
     use mod_types_intersection
+    use mod_tolerances
     implicit none
     type(type_surface), target,   intent(in)    :: surf
-    type(type_intersection_data), intent(inout) :: interdata
+    type(type_intersection_data), target, intent(inout) :: interdata
     integer,                      intent(inout) :: arc2curve(:)
     integer,                      intent(inout) :: arc2split(:)
     integer,                      intent(inout) :: arc_sens(:)
@@ -586,27 +601,35 @@ contains
     integer,                      intent(out)   :: point2nod(interdata%np)
     real(kind=fp),                intent(inout) :: nod_uv(:,:)
     integer,                      intent(out)   :: nnod
+    integer,                      intent(out)   :: stat
+    type(type_intersection_curve), pointer      :: curve => null()
     real(kind=fp)                               :: duv_ds(2)
-    integer                                     :: icurv, jsurf, isplit, jsplit, ksplit, ipoint, jnod
+    integer                                     :: icurv, jsurf
+    integer                                     :: isplit, jsplit, ksplit
+    integer                                     :: ipoint, jpoint, jnod
 
     narc = 0
     nnod = 0
     point2nod(:) = 0
 
+    stat = 0
     do icurv = 1,interdata%nc ! <-----------------------------------------------------+
+       curve => interdata%curves(icurv)
        do jsurf = 1,2 ! <---------------------------------------------------------+   !
-          if ( associated(interdata%curves(icurv)%surf(jsurf)%ptr, surf) ) exit   !   !
+          if ( associated(curve%surf(jsurf)%ptr, surf) ) exit   !   !
        end do ! <-----------------------------------------------------------------+   !
        if ( jsurf > 2 ) cycle                                                         !
        !                                                                              !
+       !PRINT *,'ICURV, JSURF =', icurv, jsurf
        !! Add a node for each split point                                             !
-       ! set the first split point index :                                            !
+       ! set the first split point index:                                             !
        !   if jsurf == 1, traverse the split points in reverse order                  !
        !   "         " 2, "                          " direct order                   !
-       isplit = 1 + (2 - jsurf)*(interdata%curves(icurv)%nsplit - 1)                  !
-       do jsplit = 1,interdata%curves(icurv)%nsplit ! <---------------------+         !
+       isplit = 1 + (2 - jsurf)*(curve%nsplit - 1)                  !
+       do jsplit = 1,curve%nsplit ! <---------------------+         !
           ! get intersection point index                                    !         !
-          ipoint = interdata%curves(icurv)%isplit(1,isplit)                 !         !
+          ipoint = curve%isplit(1,isplit)                 !         !
+          !PRINT *,'JSPLIT, ISPLIT, IPOINT =', jsplit, isplit, ipoint
           if ( point2nod(ipoint) == 0 ) then ! <------------------------+   !         !
              ! add a new node                                           !   !         !
              nnod = nnod + 1                                            !   !         !
@@ -615,9 +638,14 @@ contains
              ! ...and vice versa                                        !   !         !
              point2nod(ipoint) = nnod                                   !   !         !
              ! get polyline point index                                 !   !         !
-             ipoint = interdata%curves(icurv)%isplit(2,isplit)          !   !         !
+             ipoint = curve%isplit(2,isplit)          !   !         !
              ! get coordinates of the embedded node                     !   !         !
-             nod_uv(1:2,nnod) = interdata%curves(icurv)%polyline%uv&    !   !         !
+             IF ( ipoint < 1 .OR. &
+                  ipoint > curve%polyline%NP ) THEN
+                STAT = 1
+                RETURN
+             END IF
+             nod_uv(1:2,nnod) = curve%polyline%uv&    !   !         !
                   (1:2,jsurf,ipoint)                                    !   !         !
           end if ! <----------------------------------------------------+   !         !
           ! move on to the next split point                                 !         !
@@ -625,8 +653,9 @@ contains
        end do ! <-----------------------------------------------------------+         !
        !                                                                              !
        !! Add an arc for each curve segment (between 2 split points)                  !
-       isplit = 1 + (2 - jsurf)*(interdata%curves(icurv)%nsplit - 2)                  !
-       do jsplit = 1,interdata%curves(icurv)%nsplit - 1 ! <-----------------+         !
+       isplit = 1 + (2 - jsurf)*(curve%nsplit - 2)                  !
+       do jsplit = 1,curve%nsplit - 1 ! <-----------------+         !
+          !PRINT *,'JSPLIT, ISPLIT =', jsplit, isplit
           ! add a new arc                                                   !         !
           narc = narc + 1                                                   !         !
           ! assign it to the intersection curve segment                     !         !
@@ -638,17 +667,41 @@ contains
           ksplit = isplit                                                   !         !
           do jnod = 1,2 ! <---------------------------------------------+   !         !
              ! get intersection point index                             !   !         !
-             ipoint = interdata%curves(icurv)%isplit(1,ksplit+2-jsurf)  !   !         !
+             ipoint = curve%isplit(1,ksplit+2-jsurf)                    !   !         !
+             !PRINT *,'JNOD, IPOINT =', jnod, ipoint
              ! set endpoint node index                                  !   !         !
              arc2nod(jnod,narc) = point2nod(ipoint)                     !   !         !
              ! get polyline point index                                 !   !         !
-             ipoint = interdata%curves(icurv)%isplit(2,ksplit+2-jsurf)  !   !         !
+             ipoint = curve%isplit(2,ksplit+2-jsurf)                    !   !         !
+             jpoint = ipoint + (-1)**(jsurf + jnod + 1)            
+             !PRINT *,'IPOLYPOINT, JPOLYPOINT, NP =', ipoint, jpoint, curve%polyline%np
+             IF ( ipoint < 1 .OR. &
+                  ipoint > curve%polyline%NP .OR. &
+                  jpoint < 1 .OR. &
+                  jpoint > curve%polyline%NP ) THEN
+                STAT = 2
+                RETURN
+             END IF
              ! compute tangent to the embedded arc at current endpoint  !   !         !
-             duv_ds = &                                                 !   !         !
-                  interdata%curves(icurv)%polyline%uv&                  !   !         !
-                  (:,jsurf,ipoint + (2-jnod)*(-1)**jsurf) - &           !   !         !
-                  interdata%curves(icurv)%polyline%uv&                  !   !         !
-                  (:,jsurf,ipoint + (1-jnod)*(-1)**jsurf)               !   !         !
+             do
+                duv_ds = &
+                     curve%polyline%uv(1:2,jsurf,jpoint) - &
+                     curve%polyline%uv(1:2,jsurf,ipoint)
+                if ( sum(duv_ds**2) > EPSuvsqr ) then
+                   exit
+                else
+                   jpoint = jpoint + (-1)**(jsurf + jnod + 1)
+                   !PRINT *,'|DUV_DS| << 1, JPOLYPOINT =',jpoint
+                   !PAUSE
+                end if
+             end do
+             duv_ds = real((-1)**(jnod+1), kind=fp) * duv_ds
+             !PRINT *,'IARC, INOD, DUV_DS =', narc, arc2nod(jnod,narc), duv_ds
+             !duv_ds = &                                                 !   !         !
+             !     curve%polyline%uv&                                    !   !         !
+             !     (:,jsurf,ipoint + (2-jnod)*(-1)**jsurf) - &           !   !         !
+             !     curve%polyline%uv&                                    !   !         !
+             !     (:,jsurf,ipoint + (1-jnod)*(-1)**jsurf)               !   !         !
              ! convert to angle                                         !   !         !
              arc_angles(jnod,narc) = atan2(duv_ds(2), duv_ds(1))        !   !         !
              ksplit = ksplit + (-1)**jsurf                              !   !         !

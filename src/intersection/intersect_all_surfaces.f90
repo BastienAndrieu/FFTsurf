@@ -81,7 +81,9 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
-        PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
+        IF ( isurf == 3 .or. jsurf == 3 ) then
+           PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
+        end IF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -107,7 +109,7 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              stat_degeneracy ) 
-        IF ( .true. ) THEN
+        IF ( isurf == 3 .or. jsurf == 3 ) then!.true. ) THEN
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
            !IF ( NUVXYZ > 0 ) THEN
            !   CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &

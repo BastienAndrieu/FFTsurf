@@ -70,9 +70,14 @@ subroutine merge_intersection_data( &
           hmin, &
           hmax )
      IF ( DEBUG ) PRINT *,'...OK'
+     IF ( interdata_global%curves(nc+ic)%polyline%np < 2 ) THEN
+        PRINT *,'CURVE #', nc+ic,', POLYLINE%NP =', interdata_global%curves(nc+ic)%polyline%np
+        PAUSE
+     END IF
      if ( stat > 0 ) then
         PRINT *,'STAT_TRACE_INTERSECTION_POLYLINE = ',STAT
         PRINT *,'PARAM_VECTOR =',interdata_global%curves(nc+ic)%param_vector
+        PAUSE
         return
      end if
 
@@ -91,6 +96,7 @@ subroutine merge_intersection_data( &
              stat )
         if ( stat > 0 ) then
            PRINT *,'STAT_INTERSECT_INTERSECTION_CURVES = ',STAT
+           PAUSE
            return
         end if
      end do

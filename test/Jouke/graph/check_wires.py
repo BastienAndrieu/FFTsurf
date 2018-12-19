@@ -104,7 +104,7 @@ la = lq
 fig, ax = plt.subplots(1,2, figsize=(12,6))
 
 # raw graph
-cm = plt.get_cmap('Set2')#'rainbow')
+cm = plt.get_cmap('Set2')#'rainbow')#
 cl = [cm(1.*i/narc) for i in range(narc)]
 
 for iarc in range(narc):
@@ -112,6 +112,7 @@ for iarc in range(narc):
         xya = np.matmul(np.transpose(cp[iarc,:,:]), b)
         ax[0].plot(xya[0], xya[1], '-', color=cl[iarc], lw=lwa)
         xym = 0.25*cp[iarc,0] + 0.5*cp[iarc,1] + 0.25*cp[iarc,2]
+        #ax[0].text(xym[0], xym[1], str(iarc+1), color=cl[iarc])
         dxym = cp[iarc,2] - cp[iarc,0]
         ldxym = np.hypot(dxym[0], dxym[1])
         if ldxym > 1.e-15:
@@ -126,7 +127,7 @@ for iarc in range(narc):
 for inod in range(nnod):
     if True:
         ax[0].plot(xy[inod,0], xy[inod,1], 'k.', markersize=10)
-        ax[0].text(xy[inod,0], xy[inod,1], str(inod))
+        ax[0].text(xy[inod,0], xy[inod,1], str(inod+1))
 ax[0].set_title('Raw graph', size = 12, weight = 'bold')
 
 

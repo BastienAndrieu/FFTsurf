@@ -100,3 +100,16 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/import_geometry.out
 echo "...util.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/util.f90 -o test/obj/util.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/util.out test/obj/util.o obj/mod_util.o
+
+echo "...demo_vortex.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_vortex.f90 -o test/obj/demo_vortex.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_vortex.out test/obj/demo_vortex.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...demo_enright.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_enright.f90 -o test/obj/demo_enright.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_enright.out test/obj/demo_enright.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
+
+echo "...chebyshev.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/chebyshev.f90 -o test/obj/chebyshev.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/chebyshev.out test/obj/chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
