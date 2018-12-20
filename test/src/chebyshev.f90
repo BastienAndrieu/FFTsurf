@@ -12,7 +12,7 @@ program chebyshev
   integer, parameter         :: n_verif = 10000
 
   real(kind=fp)              :: x(n_verif), f(n_verif,3), y(n_verif,3), z(n_verif,2)
-  real(kind=fp), allocatable :: xcgl(:), fcgl(:,:)
+  real(kind=fp), allocatable :: xcgl(:), fcgl(:,:), DN(:,:), w(:)
   type(type_polynomial)      :: INf(3), DNf(2)
   real*8                     :: stride
   integer                    :: N, i, j, fid, fid2, fid3
@@ -40,6 +40,12 @@ program chebyshev
 
      call fun1(xcgl, N+1, fcgl)
 
+     allocate(DN(N+1,N+1), w(N+1))
+     call cheb_diffmatrix_cgl(N, DN)
+     
+     w = matmul(DN, fcgl(1:N+1,1))
+     print *, N, maxval(abs(w - fcgl(1:N+1,2))) / maxval(abs(fcgl(1:N+1,2)))
+     
      do j = 1,3 ! <------------------------------+
         call reset_polynomial( &                 !
              INf(j), &                           !
@@ -91,6 +97,7 @@ program chebyshev
      end if
 
      deallocate(xcgl, fcgl)
+     deallocate(DN, w)
   end do
   close(fid)
   close(fid2)

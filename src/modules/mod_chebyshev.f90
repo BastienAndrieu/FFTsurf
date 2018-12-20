@@ -402,19 +402,19 @@ contains
   
   subroutine cgl_nodes( &
        x, &
-       N, &
+       degr, &
        a, &
        b )
     implicit none
-    integer, intent(in)                  :: N
-    real(kind=fp),  intent(out)          :: x(N+1)
+    integer,        intent(in)           :: degr
+    real(kind=fp),  intent(out)          :: x(degr+1)
     real(kind=fp),  intent(in), optional :: a, b
     integer                              :: i = 0
 
-    if ( N == 0 ) then
+    if ( degr == 0 ) then
        x(1) = 0._fp
     else
-       x(1:N+1) = cos(CSTpi * [(real(i, kind=fp) / real(N, kind=fp), i=0,N)])
+       x(1:degr+1) = cos(CSTpi * [(real(i, kind=fp) / real(degr, kind=fp), i=0,degr)])
     end if
 
     if ( present(a) .and. present(b) ) then
@@ -422,6 +422,50 @@ contains
     end if
 
   end subroutine cgl_nodes
+
+
+
+
+
+  subroutine cheb_diffmatrix_cgl( &
+       degr, &
+       D )
+    implicit none
+    integer,        intent(in)  :: degr
+    real(kind=fp),  intent(out) :: D(degr+1,degr+1)
+    real(kind=fp)               :: x(degr+1)
+    integer                     :: j, l, N, hN
+
+    N = degr+1
+    D(1:N,1:N) = 0._fp
+    
+    call cgl_nodes(x, degr)
+
+    hN = N/2
+    if ( mod(N,2) /= 0 ) hN = hN + 1
+
+    ! diagonal entries
+    D(1,1) = (2._fp*degr**2 + 1._fp) / 6._fp
+    D(N,N) = -D(1,1)
+    do j = 2,hN
+       D(j,j) = -0.5_fp * x(j) / sin(real(j-1, kind=fp)*CSTpi / real(degr, kind=fp))**2
+       l = N-j+1
+       if ( l > hN ) D(l,l) = -D(j,j)
+    end do
+
+    ! off-diagonal entries
+    do l = 2,N
+       do j = 1,l-1
+          D(j,l) = -0.5_fp*real((-1)**(j+l), kind=fp) / (&
+               sin(0.5_fp*real(j+l-2, kind=fp)*CSTpi / real(degr, kind=fp)) * &
+               sin(0.5_fp*real(j-l, kind=fp)*CSTpi / real(degr, kind=fp)) )
+          if ( j == 1 ) D(j,l) = 2.0_fp * D(j,l)
+          if ( l == N ) D(j,l) = 0.5_fp * D(j,l)
+          D(N-j+1,N-l+1) = -D(j,l)
+       end do
+    end do
+    
+  end subroutine cheb_diffmatrix_cgl
   
 
 end module mod_chebyshev
