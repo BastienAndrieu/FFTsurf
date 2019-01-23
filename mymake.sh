@@ -113,3 +113,8 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_enright.out te
 echo "...chebyshev.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/chebyshev.f90 -o test/obj/chebyshev.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/chebyshev.out test/obj/chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...complexite_chebyshev.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/complexite_chebyshev.f90 -o test/obj/complexite_chebyshev.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/complexite_chebyshev.out test/obj/complexite_chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack

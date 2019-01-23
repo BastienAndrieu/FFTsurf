@@ -426,6 +426,34 @@ contains
 
 
 
+  subroutine cg_nodes( &
+       x, &
+       degr, &
+       a, &
+       b )
+    implicit none
+    integer,        intent(in)           :: degr
+    real(kind=fp),  intent(out)          :: x(degr)
+    real(kind=fp),  intent(in), optional :: a, b
+    integer                              :: i = 0
+
+    if ( degr == 0 ) then
+       return
+    elseif ( degr == 1 ) then
+       x(1) = 0._fp
+    else
+       x(1:degr) = cos(CSTpi * [(real(2*i+1, kind=fp) / real(2*degr, kind=fp), i=0,degr-1)])
+    end if
+
+    if ( present(a) .and. present(b) ) then
+       x = 0.5_fp * ((a-b)*x + a + b)
+    end if
+
+  end subroutine cg_nodes
+
+
+
+
 
   subroutine cheb_diffmatrix_cgl( &
        degr, &
@@ -466,6 +494,54 @@ contains
     end do
     
   end subroutine cheb_diffmatrix_cgl
-  
+
+
+
+
+
+
+
+
+
+  subroutine fcht1_zeros( &
+       f, &
+       c, &
+       m, &
+       dim, &
+       epsilon )
+    implicit none
+    integer,       intent(in)           :: m, dim
+    real(kind=fp), intent(in)           :: f(m,dim)
+    real(kind=fp), intent(out)          :: c(m,dim)
+    real(kind=fp), intent(in), optional :: epsilon
+    !real(kind=fp), allocatable          :: w(:)
+    !integer                             :: mprev, p, j
+    real(kind=fp)                       :: w(3*m+15)
+    integer                             :: p, j
+    !save w, mprev
+    !data mprev /0/
+
+    !call manage_wsave( &
+    !     w, &
+    !     p, &
+    !     m, &
+    !     mprev )
+    call dcosqi(m,w)
+    p = 3*m+15
+
+    c = f / real( 2*m, kind=fp )
+    
+    do j = 1,dim
+       call dcosqb( m, c(1:m,j), w(1:p) )
+    end do
+
+    c(1,1:dim) = 0.5_fp * c(1,1:dim)
+
+    if ( present(epsilon) ) then
+       where ( abs(c) < epsilon ) c = 0._fp
+    end if
+
+  end subroutine fcht1_zeros
+
 
 end module mod_chebyshev
