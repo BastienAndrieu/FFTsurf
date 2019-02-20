@@ -13,6 +13,7 @@ program demo_EoS_brep
   use mod_init
   use mod_optimmesh
   use mod_halfedge
+  use mod_polynomial
   
   !-------------------------------------------------
   implicit none
@@ -34,6 +35,12 @@ program demo_EoS_brep
   integer                                 :: ihedg(2)
 
   real(kind=fp)                           :: xyzverif(3,2)
+
+
+  integer                    :: np, degr
+  type(type_polynomial)      :: c
+  real(kind=fp)              :: cond, errL2
+  real(kind=fp), allocatable :: x(:), y(:,:)
   !-------------------------------------------------
 
   call get_free_unit(fid)
@@ -95,6 +102,37 @@ program demo_EoS_brep
        'demo_EoS_brep/debug/intersection_points.dat', &
        'demo_EoS_brep/debug/intersection_curves.dat' )
   ! <<<---
+
+
+  ! --->>> TEST CHEBFIT1
+  icurv = 1!3
+  np = interdata%curves(icurv)%polyline%np
+  degr = max(1, int(0.25*real(np)) - 1)
+  call reset_polynomial(c, 1, 1, [degr], 3)
+  allocate(x(np), y(np,3))
+  y(1:np,1:3) = transpose(interdata%curves(icurv)%polyline%xyz(1:3,1:np))
+  x(1) = 0._fp
+  do ivert = 2,np
+     x(ivert) = x(ivert-1) + norm2(y(ivert,1:3) - y(ivert-1,1:3))
+  end do
+  x = 2._fp*x/x(np) - 1._fp
+  
+  call chebfit1( &
+       x, &
+       y, &
+       np, &
+       3, &
+       c%coef(1:degr+1,1:3,1), &
+       degr, &
+       cond, &
+       errL2 )
+
+  print *,'cond =',cond,', errL2 =', errL2
+  call write_polynomial(c, 'demo_EoS_brep/debug/chebfit1_c.cheb')
+  call write_matrix(y, np, 3, 'demo_EoS_brep/debug/chebfit1_y.cheb')
+  ! <<<---
+  
+  
        
   !! make brep
   brep%nv = 0
@@ -217,8 +255,7 @@ program demo_EoS_brep
        'demo_EoS_brep/mesh/', &
        mesh, &
        0 )
-
-  !STOP
+  STOP
 
   if ( .true. ) then
      call optim_jiao_uv( &

@@ -14,7 +14,7 @@ end
 cl = colorcet( 'I2', 'N', nf );
 cl = CC( cl, 0.0, 0.8, 1.5 );
 
-modevisu = 2;
+modevisu = 1;
 
 
 if modevisu == 1

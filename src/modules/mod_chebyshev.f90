@@ -544,4 +544,70 @@ contains
   end subroutine fcht1_zeros
 
 
+
+
+
+
+
+  
+  subroutine chebfit1( &
+       x, &
+       y, &
+       m, &
+       n, &
+       c, &
+       degr, &
+       cond, &
+       errL2 )
+    use mod_linalg
+    implicit none
+    integer,       intent(in)  :: m, n
+    integer,       intent(in)  :: degr
+    real(kind=fp), intent(in)  :: x(m)
+    real(kind=fp), intent(in)  :: y(m,n)
+    real(kind=fp), intent(out) :: c(degr+1,n)
+    real(kind=fp), intent(out) :: cond
+    real(kind=fp), intent(out) :: errL2
+    real(kind=fp)              :: T(m,degr+1)
+    real(kind=fp)              :: A(degr+1,degr+1), b(degr+1,n)
+    integer                    :: rank
+    real(kind=fp)              :: z(m,n)
+    integer                    :: i
+
+    T(1:m,1) = 1._fp
+    T(1:m,2) = x
+    do i = 3,degr+1
+       T(1:m,i) = 2._fp*x(1:m)*T(1:m,i-1) - T(1:m,i-2)
+    end do
+
+    A = transpose(matmul(transpose(T), T))
+    b = matmul(transpose(T), y)
+    call linsolve_svd( &
+         c, &
+         A, &
+         b, &
+         degr+1, &
+         degr+1, &
+         n, &
+         cond, &
+         rank, &
+         EPSmath )
+
+    call clenshaw( &
+         z, &
+         c, &
+         x, &
+         m, &
+         degr, &
+         n )
+    
+    errL2 = sqrt(sum((z - y)**2) / real(n, kind=fp))
+    
+  end subroutine chebfit1
+
+
+
+
+
+  
 end module mod_chebyshev
