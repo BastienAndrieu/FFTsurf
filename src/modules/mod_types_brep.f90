@@ -32,7 +32,7 @@ module mod_types_brep
   
   type type_BREPvertex
      type(type_intersection_point), pointer :: point => null()
-     integer                                :: halfedge(2) = 0 ! [#edge, #halfedge]
+     integer                                :: halfedge(2) = 0 ! [#edge, #halfedge] (outgoing)
   end type type_BREPvertex
 
 

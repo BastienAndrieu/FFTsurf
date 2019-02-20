@@ -1475,6 +1475,206 @@ subroutine write_tecplot_mesh_displacement2( &
   end subroutine spring_displacement_smoothing
 
 
+
+
+
+
+
+
+
+
+
+
+
+  subroutine optim_jiao_uv( &
+       brep, &
+       mesh, &
+       frac_conf1, &
+       frac_conf2, &
+       ipass1, &
+       ipass2, &
+       passmax, &
+       hmin, &
+       hmax )
+    USE MOD_UTIL
+    use mod_diffgeom
+    use mod_intersection
+    use mod_types_brep
+    use mod_brep
+    use mod_mesh
+    use mod_halfedge
+    use mod_linalg
+    use mod_projection
+    USE MOD_TOLERANCES
+    implicit none
+    real(kind=fp), parameter               :: EPSdxyz = 5.d-2 ! *min(h)
+    real(kind=fp), parameter               :: EPSdxyzsqr = EPSdxyz**2
+    type(type_brep),         intent(in)    :: brep
+    type(type_surface_mesh), intent(inout) :: mesh
+    real(kind=fp),           intent(in)    :: frac_conf1
+    real(kind=fp),           intent(in)    :: frac_conf2
+    integer,                 intent(in)    :: ipass1
+    integer,                 intent(in)    :: ipass2
+    integer,                 intent(in)    :: passmax
+    real(kind=fp),           intent(in)    :: hmin
+    real(kind=fp),           intent(in)    :: hmax
+    real(kind=fp)                          :: hve(mesh%nv), rc(mesh%nv)
+    real(kind=fp)                          :: wei(mesh%nt)
+    real(kind=fp)                          :: hminsqr
+    real(kind=fp)                          :: ener(mesh%nt)
+    real(kind=fp)                          :: grad(3,mesh%nv)
+    real(kind=fp)                          :: hess(3,3,mesh%nv)
+    real(kind=fp)                          :: duv(2,mesh%nv), dxyz(3)
+    real(kind=fp)                          :: tng(3,2)
+    logical                                :: singular
+    integer                                :: ivert, iface
+    integer                                :: ipass, ivar
+    real(kind=fp)                          :: maxdxyz, maxdxyz_rc
+    real(kind=fp)                          :: frac_conf_ramp
+    real(kind=fp)                          :: etot, etot0, etotprev
+    real(kind=fp)                          :: detot, detot0
+
+    ! compute triangle weights
+    IF ( .false. ) THEN
+       wei(:) = 1._fp
+    ELSE
+       call compute_triangle_weights( &
+            mesh, &
+            2._fp, &
+            1._fp, &
+            wei )
+    END IF
+
+    do ipass = 1,passmax
+       PRINT *,''
+       PRINT *,'OPTIM PASS',IPASS,'/',PASSMAX
+       ! compute target edge lengths at vertices
+       if ( .false. ) then!ipass < 6 ) then
+          hve(:) = 1._fp
+       else
+          IF ( .false. ) THEN
+             hve(:) = huge(1._fp)
+             do ivert = 1,mesh%nv
+                if ( mesh%typ(ivert) /= 2 ) cycle
+                call eval_minimum_curvature_radius( &
+                     brep%faces(mesh%ids(ivert))%surface, &
+                     mesh%uv(:,1,ivert), &
+                     hve(ivert) )
+             end do
+          ELSE
+             call discrete_minimum_curvature_radius( &
+                  mesh, &
+                  hve )
+          END IF
+          rc = 0.25_fp * hve**2
+          !hve = min(minval(hve)*hmax/hmin, hve)
+          !PRINT *,''!MIN(HVE) =', real(minval(hve)), minloc(hve,1)
+          hve = hve/minval(hve)
+          hve = min(hmax/hmin, hve)
+          !hve = min(3._fp, hve)
+          ! normalize to [0,1] for plotting
+          !hve = (hve - minval(hve)) / (maxval(hve) - minval(hve))
+
+          call smooth_function_mesh( &
+               mesh, &
+               hve, &
+               30 )
+       end if
+
+       ! compute energy, gradient and hessian
+       if ( ipass < ipass1 ) then
+          frac_conf_ramp = frac_conf1
+       elseif ( ipass > ipass2 ) then
+          frac_conf_ramp = frac_conf2
+       else
+          frac_conf_ramp = frac_conf1 + ( real(ipass - ipass1, kind=fp) / real(ipass2 - ipass1, kind=fp) ) * &
+               (frac_conf2 - frac_conf1) 
+       end if
+       PRINT *,'FRAC_CONF_RAMP =',frac_conf_ramp
+       call energy_jiao( &
+            mesh%nt, &
+            mesh%tri(1:3,1:mesh%nt), &
+            wei, &
+            mesh%nv, &
+            mesh%xyz(1:3,1:mesh%nv), &
+            hve, &
+            frac_conf_ramp, &
+            hminsqr, &
+            ener, &
+            grad, &
+            hess )
+
+       etot = sum(ener(1:mesh%nt))
+       if ( ipass == 1 ) etot0 = etot
+       etot = etot/etot0
+       PRINT *,'E/E0 =',real(etot)
+       
+       ! compute vertex displacements
+       maxdxyz = 0._fp
+       maxdxyz_rc = 0._fp
+       duv(1:2,1:mesh%nv) = 0._fp
+       compute_duv : do ivert = 1,mesh%nv
+          if ( mesh%typ(ivert) /= 2 ) cycle
+          do ivar = 1,2 ! <-------------------------------+
+             call evald1( &                               !
+                  tng(:,ivar), &                          !
+                  brep%faces(mesh%ids(ivert))%surface, &  !
+                  mesh%uv(:,1,ivert), &                   !
+                  ivar )                                  !
+          end do ! <--------------------------------------+
+          call solve_NxN( &
+               duv(1:2,ivert), &
+               matmul(matmul(transpose(tng), hess(1:3,1:3,ivert)), tng), &
+               -matmul(transpose(tng), grad(1:3,ivert)), &
+               singular )
+          dxyz = matmul(tng, duv(1:2,ivert))
+          maxdxyz = max(maxdxyz, sum(dxyz**2))
+          maxdxyz_rc = max(maxdxyz_rc, sum(dxyz**2)/rc(ivert))
+       end do compute_duv
+       PRINT *,'MAX(DXYZ) =',SQRT(MAXDXYZ)
+       PRINT *,'MAX(DXYZ/RC) =',SQRT(MAXDXYZ_RC)
+
+       ! update vertices coordinates
+       mesh%uv(1:2,1,1:mesh%nv) = mesh%uv(1:2,1,1:mesh%nv) + duv(1:2,1:mesh%nv)
+       update_uvxyz : do ivert = 1,mesh%nv
+          if ( mesh%typ(ivert) /= 2 ) cycle
+          iface = mesh%ids(ivert)
+          call eval( &
+               mesh%xyz(:,ivert), &
+               brep%faces(iface)%surface, &
+               mesh%uv(:,1,ivert) )
+       end do update_uvxyz
+
+       if ( maxdxyz/hminsqr < EPSdxyzsqr ) then
+          PRINT *,'MAX(DXYZ) << MIN(H)'
+          exit
+       end if
+
+       if ( ipass > 1 ) then
+          detot = etotprev - etot
+          if ( ipass > 2 ) then
+             if ( detot0 < 0._fp ) detot0 = detot
+             PRINT *,'DETOT/DETOT0 =',real(detot/detot0)
+             if ( detot < 0.01_fp * detot0 ) then ! .or. abs(detot) < 0.005 ) then
+                IF ( DETOT < 0._FP ) THEN
+                   PRINT *,'NON DECROISSANT'
+                ELSE
+                   PRINT *,'STATIONNAIRE'
+                END IF
+                exit
+             end if
+          else
+             detot0 = detot
+             PRINT *,'DETOT0 =',real(detot0)
+          end if
+       end if
+       etotprev = etot
+       
+    end do
+    
+  end subroutine optim_jiao_uv
+
+
   
   
 end module mod_optimmesh

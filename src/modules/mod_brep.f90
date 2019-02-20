@@ -325,7 +325,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .true.
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata
@@ -347,9 +347,13 @@ contains
     INTEGER :: FID, IARC, INOD
     CHARACTER(3) :: STRNUM
 
+    IF ( DEBUG ) PRINT *,'>>>> make_brep_from_intersection_data'
+    
     do isurf = 1,nsurf
-       !PRINT *,''
-       !PRINT *,'ISURF =',ISURF
+       IF ( DEBUG ) THEN
+          PRINT *,''
+          PRINT *,'ISURF =',ISURF
+       END IF
        ! build an embedded graph of intersection curves & points
        call build_intersections_graph( &
             surf(isurf), &
@@ -486,6 +490,12 @@ contains
        END IF
 
        !! Insert faces in BREP
+       IF ( DEBUG ) THEN
+          PRINT *,'   NWIRES =',NWIRES
+          PRINT *,'   NINNER =',NINNER
+          PRINT *,'   NFACES =',NFACES
+       END IF
+
        do jface = 1,nfaces ! <-------------------------------+
           ! + 1 BREPface                                     !
           iface = brep%nf + 1                                !
@@ -561,6 +571,8 @@ contains
           brep%verts(ivert)%halfedge = [iedge, ihedg]               !   !
        end do ! <---------------------------------------------------+   !
     end do ! <----------------------------------------------------------+
+
+    IF ( DEBUG ) PRINT *,'make_brep_from_intersection_data >>>>'
     
   end subroutine make_brep_from_intersection_data
   
@@ -977,7 +989,7 @@ contains
        ivert, &
        faces, &
        nfaces )
-    ! returns all faces incident to a vertex, traversed CW
+    ! returns all faces incident to a vertex, traversed CCW
     use mod_util
     implicit none
     type(type_BREP),      intent(in)    :: brep
@@ -997,7 +1009,7 @@ contains
             iface, &
             nfaces )
 
-       ! traverse halfedges clock-wise
+       ! traverse halfedges counter-clockwise
        ihedg = get_prev(brep, ihedg) ! previous halfedge
        ihedg = get_twin(ihedg) ! twin halfedge
        iface = get_face(brep, ihedg)
