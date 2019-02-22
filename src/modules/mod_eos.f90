@@ -144,7 +144,8 @@ contains
     real(kind=fp), allocatable, intent(inout) :: uvxyz(:,:)
     integer,                    intent(out)   :: np
     real(kind=fp)                             :: uvends(2,2)
-
+    real(kind=fp)                             :: h_endpoints(2)
+    
     select case (iborder)
     case (1)
        uvends(1,1:2) = [-1._fp, 1._fp]
@@ -160,7 +161,6 @@ contains
        uvends(2,1:2) = [1._fp, -1._fp]
     end select
 
-    np = 0
     
     
   end subroutine trace_border_polyline_adaptive
