@@ -558,7 +558,8 @@ contains
        c, &
        degr, &
        cond, &
-       errL2 )
+       errL2, &
+       errLinf )
     use mod_linalg
     implicit none
     integer,       intent(in)  :: m, n
@@ -567,7 +568,8 @@ contains
     real(kind=fp), intent(in)  :: y(m,n)
     real(kind=fp), intent(out) :: c(degr+1,n)
     real(kind=fp), intent(out) :: cond
-    real(kind=fp), intent(out) :: errL2
+    real(kind=fp), intent(out), optional :: errL2
+    real(kind=fp), intent(out), optional :: errLinf
     real(kind=fp)              :: T(m,degr+1)
     real(kind=fp)              :: A(degr+1,degr+1), b(degr+1,n)
     integer                    :: rank
@@ -601,7 +603,8 @@ contains
          degr, &
          n )
     
-    errL2 = sqrt(sum((z - y)**2) / real(n, kind=fp))
+    if ( present(errL2) ) errL2 = sqrt(sum((z - y)**2) / real(n, kind=fp))
+    if ( present(errLinf) ) errLinf = sqrt(maxval(sum((z - y)**2,2)))
     
   end subroutine chebfit1
 

@@ -1,5 +1,10 @@
 clc; clear; close all
 
+addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
+addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
+addpath('/stck8/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
+
+
 c = readCoeffs1('chebfit1_c.cheb');
 y = importdata('chebfit1_y.cheb');
 

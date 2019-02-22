@@ -14,8 +14,20 @@ contains
     a = atan2( v1(2)*v2(1) - v1(1)*v2(2), v1(1)*v2(1) + v1(2)*v2(2) )
 
   end function angle_between_vectors_2d
-  ! ---------------------------------------------------------*
+  ! ---------------------------------------------------------
 
+
+  ! ---------------------------------------------------------
+  function angle_between_vectors_3d( v1, v2 ) result( a )
+    ! Angle orienté (radians) entre deux vecteurs du plan
+    implicit none
+    real(kind=fp), dimension(3), intent(in) :: v1, v2
+    real(kind=fp)                           :: a
+
+    a = atan2(norm2(cross(v1,v2)), dot_product(v1,v2))
+
+  end function angle_between_vectors_3d
+  ! ---------------------------------------------------------
 
 
   ! ---------------------------------------------------------

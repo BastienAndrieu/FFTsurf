@@ -1,4 +1,4 @@
-clc; clear; close all
+clc; clear; %close all
 
 verts = importdata('verts.dat');
 nv = size(verts,1);
@@ -35,6 +35,18 @@ for ic = 1:ne
     end
 end
 fclose( fid );
+
+%%
+fid = fopen('edges_xyz.dat','r');
+ne = str2num(fgetl(fid));
+for ie = 1:ne
+    np = str2num(fgetl(fid));
+    edgexyz(ie).xyz = zeros(np,3);
+    for ip = 1:np
+        edgexyz(ie).xyz(ip,:) = str2num(fgetl(fid));
+    end
+end
+fclose(fid);
 
 %%
 fid = fopen('faces.dat');
@@ -75,10 +87,15 @@ for iface = 1:nf
 end
 
 for iedge = 1:ne
-    xyz = curves(iedge).xyz;
+    %     xyz = curves(iedge).xyz;
+    xyz = edgexyz(iedge).xyz;
     plot3(xyz(:,1), xyz(:,2), xyz(:,3), 'k-');
     i = round(0.5*size(xyz,1));
-%     text(xyz(i,1), xyz(i,2), xyz(i,3), num2str(iedge));
+    a = xyz(i,:);
+    v = xyz(i+1,:) - a;
+    v = 0.1*v/norm(v);
+    quiver3(a(1), a(2), a(3), v(1), v(2), v(3), 0, 'k', 'maxheadsize', 10);
+    text(a(1), a(2), a(3), num2str(iedge));
 end
 
 for ivert = 1:nv
