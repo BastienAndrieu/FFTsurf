@@ -38,13 +38,13 @@ program demo_EoS_brep
 
   real(kind=fp)                           :: xyzverif(3,2)
 
-  type(type_surface), allocatable, target :: surf_eos(:), edge_eos(:)
+  type(type_surface), allocatable, target :: surf_eos(:), edge_eos(:), vert_eos(:)
   integer                                 :: m, n, i, head, tail, sens, np
   real(kind=fp), allocatable              :: xyz(:,:,:), speed(:,:), s2e(:,:,:)
   type(ptr_surface)                       :: enve_rl(2)
 
-  real(kind=fp), allocatable              :: xyzll(:,:), uvll(:,:)
-  integer                                 :: stat
+  real(kind=fp), allocatable              :: xyzll(:,:), uvll(:,:), tmp(:,:), toto(:,:)
+  integer                                 :: stat, nptot, nconvex, iborder
   type(type_surface)                      :: surfll
   real(kind=fp)                           :: longlat_range(2), solidangle
   !-------------------------------------------------
@@ -55,7 +55,7 @@ program demo_EoS_brep
 
 
   ! >>>>>-----------------
-  IF ( .TRUE. )  THEN
+  IF ( .false. )  THEN
      open(unit=fid, file='demo_EoS_brep/debug/longlatpatch_xyz.dat', action='read')
      read (fid,*) n
      allocate(xyzll(3,n), uvll(2,n))
@@ -414,6 +414,9 @@ program demo_EoS_brep
      call economize2( &
           edge_eos(iedge)%x, &
           EPSmath )
+     call compute_deriv1(edge_eos(ivert))
+     call compute_deriv2(edge_eos(ivert))
+     
      call write_polynomial( &
           edge_eos(iedge)%x, &
           'demo_EoS_brep/debug/eos_edge_c_'//strnum3//'.cheb' )
@@ -427,12 +430,45 @@ program demo_EoS_brep
   
 
   ! >>> ---------- EoS from convex vertices
+  allocate(vert_eos(brep%nv))
+  np = 30
+  allocate(xyzll(3,np))
   do ivert = 1,brep%nv
      PRINT *,'VERTEX #',ivert
      ihedg = brep%verts(ivert)%halfedge
      iface = get_face(brep, ihedg)
+     nconvex = 0
+     nptot = 0
      do
-        PRINT *,'   ->',get_dest(brep, ihedg), ' :', edgetype(ihedg(1))
+        !PRINT *,'   ->',get_dest(brep, ihedg), ' :', edgetype(ihedg(1))
+        if ( edgetype(ihedg(1)) == 2 ) then
+           nconvex = nconvex + 1
+           if ( ihedg(2) == 1 ) then
+              iborder = 4
+           else
+              iborder = 2
+           end if
+
+           if ( .not.allocated(xyzll) ) allocate(xyzll(3,nptot+np))
+           if ( size(xyzll,2) < nptot+np ) then
+              call move_alloc(from=xyzll, to=tmp)
+              allocate(xyzll(3,nptot+np))
+              xyzll(1:3,1:nptot) = tmp(1:3,1:nptot)
+              deallocate(tmp)
+           end if
+
+           allocate(tmp(5,np))
+           call trace_border_polyline( &
+                edge_eos(ihedg(1)), &
+                iborder, &
+                np, &
+                tmp(1:2,1:np), &
+                tmp(3:5,1:np) )
+           xyzll(1:3,nptot+1:nptot+np) = tmp(3:5,1:np)
+           nptot = nptot + np
+           deallocate(tmp)
+        end if
+        
         ! traverse halfedges counter-clockwise
         ihedg = get_prev(brep, ihedg) ! previous halfedge
         ihedg = get_twin(ihedg) ! twin halfedge
@@ -440,8 +476,46 @@ program demo_EoS_brep
 
         if ( jface == iface ) exit
      end do
-     PRINT *,''
+
+     if ( nconvex > 2 ) then
+        write (strnum3,'(i3.3)') ivert
+        allocate(uvll(2,nptot))
+        ALLOCATE(TOTO(3,NPTOT))
+        TOTO(1:3,1:NPTOT) = XYZLL(1:3,1:NPTOT)
+        call long_lat_patch_from_points( &
+             brep%verts(ivert)%point%xyz, &
+             xyzll(1:3,1:nptot), &
+             nptot, &
+             16, &
+             stat, &
+             vert_eos(ivert), &
+             uvll, &
+             longlat_range, &
+             solidangle )
+        call economize2( &
+             vert_eos(ivert)%x, &
+             EPSmath )
+        call compute_deriv1(vert_eos(ivert))
+        call compute_deriv2(vert_eos(ivert))
+        call write_polynomial( &
+             vert_eos(ivert)%x, &
+             'demo_EoS_brep/debug/eos_vert_c_'//strnum3//'.cheb' )
+
+        ALLOCATE(TMP(3,NPTOT))
+        DO I = 1,NPTOT
+           CALL EVAL( &
+                TMP(1:3,I), &
+                VERT_EOS(IVERT), &
+                UVLL(1:2,I) )
+        end do
+        PRINT *,SQRT(MAXVAL(SUM((TMP(1:3,1:NP) - TOTO(1:3,1:NP))**2,1)))
+        DEALLOCATE(TMP, TOTO)
+     end if
+
+     if ( allocated(uvll) ) deallocate(uvll)
+
   end do
+  if ( allocated(xyzll) ) deallocate(xyzll)
   ! ----------<<<
   
 

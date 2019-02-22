@@ -123,6 +123,49 @@ contains
     
   end subroutine trace_border_polyline
   !-------------------------------------------------------------
+
+
+  !-------------------------------------------------------------
+  subroutine trace_border_polyline_adaptive( &
+       surf, &
+       iborder, &
+       tolchord, &
+       hmin, &
+       hmax, &
+       stat, &
+       uvxyz, &
+       np )
+    implicit none
+    type(type_surface),         intent(in)    :: surf
+    integer,                    intent(in)    :: iborder
+    real(kind=fp),              intent(in)    :: tolchord
+    real(kind=fp),              intent(in)    :: hmin, hmax
+    integer,                    intent(out)   :: stat
+    real(kind=fp), allocatable, intent(inout) :: uvxyz(:,:)
+    integer,                    intent(out)   :: np
+    real(kind=fp)                             :: uvends(2,2)
+
+    select case (iborder)
+    case (1)
+       uvends(1,1:2) = [-1._fp, 1._fp]
+       uvends(2,1:2) = -1._fp
+    case (2)
+       uvends(1,1:2) = 1._fp  
+       uvends(2,1:2) = [-1._fp, 1._fp]
+    case (3)
+       uvends(1,1:2) = [1._fp, -1._fp]
+       uvends(2,1:2) = 1._fp
+    case (4)
+       uvends(1,1:2) = -1._fp  
+       uvends(2,1:2) = [1._fp, -1._fp]
+    end select
+
+    np = 0
+    
+    
+  end subroutine trace_border_polyline_adaptive
+  !-------------------------------------------------------------
+
   
   
   !-------------------------------------------------------------
