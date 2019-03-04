@@ -49,6 +49,7 @@ subroutine add_intersection_point( &
            end if ! <-----------------------------------------------------+  !  !  !
         end do ! <-----------------------------------------------------------+  !  !
         nullify(pos)                                                            !  !
+        !PRINT *,'POINT #',ID,' -> +1 INTERSECTION POS, NPOS =',interdata%points(id)%npos
         return                                                                  !  !
         !                                                                       !  !
      end if ! <-----------------------------------------------------------------+  !
@@ -86,6 +87,8 @@ subroutine add_intersection_point( &
      pos => pos%next                                                   !
   end do ! <-----------------------------------------------------------+
 
+  !PRINT *,'+1 INTERSECTION POINT, NP =',INTERDATA%NP
+  
   nullify(pos)
 
 end subroutine add_intersection_point

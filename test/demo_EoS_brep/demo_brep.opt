@@ -26,10 +26,10 @@ mode
 2
 # chordal error
 chord
-1.000000e-04
+1.000000e-03
 # hmin
 hmin
-1.000000e-04
+4.000000e-03
 # hmax
 hmax
 1.000000e-02

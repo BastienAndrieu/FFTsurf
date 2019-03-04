@@ -51,5 +51,5 @@ subroutine add_intersection_curve( &
   interdata%curves(ic)%isplit(1,1:2) = iendpoints
   interdata%curves(ic)%isplit(2,1:2) = -1 ! do not forget to fill in when tracing the polyline!
   IF ( DEBUG ) PRINT *,'ALL IS OK, NC =',interdata%nc
-
+  
 end subroutine add_intersection_curve

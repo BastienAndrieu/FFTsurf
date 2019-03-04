@@ -74,10 +74,6 @@ contains
     end do
     ! - - - - - - - - - - - - - - - - - - - - - - - -
 
-
-    
-    
-    
   end subroutine make_all_eos
   !-------------------------------------------------------------
 
@@ -135,6 +131,7 @@ contains
        stat, &
        uvxyz, &
        np )
+    use mod_diffgeom
     implicit none
     type(type_surface),         intent(in)    :: surf
     integer,                    intent(in)    :: iborder
@@ -161,7 +158,7 @@ contains
        uvends(2,1:2) = [1._fp, -1._fp]
     end select
 
-    
+    !(...)
     
   end subroutine trace_border_polyline_adaptive
   !-------------------------------------------------------------
@@ -232,6 +229,52 @@ contains
 
 
 
+  subroutine eos_from_polyline2( &
+       g, &
+       dg, &
+       er, &
+       el, &
+       m, &
+       v, &
+       n, &
+       e )
+    use mod_geometry
+    implicit none
+    integer,                       intent(in)  :: m
+    real(kind=fp), dimension(3,m), intent(in)  :: g, dg, er, el
+    integer,                       intent(in)  :: n
+    real(kind=fp),                 intent(in)  :: v(n)
+    real(kind=fp),                 intent(out) :: e(m,n,3)
+    !real(kind=fp), dimension(m)                :: lamb, rw
+    real(kind=fp), dimension(3,m)              :: w, ewr, ewl
+    real(kind=fp)                              :: ei(3,n)
+    integer                                    :: i, j
+
+    !lamb = 0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1)
+    !w = g + spread(lamb,dim=1,ncopies=3)*dg
+    w = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
+
+    ewr = er - w
+    ewl = el - w
+
+    !rw = 0.5_fp*(sqrt(sum(ewr**2,1)) + sqrt(sum(ewl**2,1)))
+
+    do i = 1,m      
+       call slerp( &
+            ewr(1:3,i), &
+            ewl(1:3,i), &
+            v, &
+            n, &
+            ei )
+
+       do j = 1,n
+          e(i,j,1:3) = w(1:3,i) + ei(1:3,j)
+       end do
+    end do
+    
+  end subroutine eos_from_polyline2
+  
+  
 
   
   !-------------------------------------------------------------
@@ -263,6 +306,7 @@ contains
        wr = dot_product(ewr, bw)
        wl = dot_product(ewl, bw)
        w = 0.5_fp * (wr + wl)
+       !PRINT *,' W(R,L) =', WR, WL, 2._FP*ABS(WR-WL)/ABS(WR+WL)
 
        ewr = ewr + wr*bw
        ewl = ewl + wl*bw
@@ -271,6 +315,7 @@ contains
 
        rwr = norm2(ewr)
        rwl = norm2(ewl)
+       !PRINT *,'RW(R,L) =', RWR, RWL, 2._FP*ABS(RWR-RWL)/ABS(RWR+RWL)
 
        uw = ewr/rwr
        vw = ewl - dot_product(ewl,uw)*uw
@@ -285,6 +330,7 @@ contains
           gw = g(1:3,i) + w*bw
           e(i,j,1:3) = gw + rw*(uw*cos(aj) + vw*sin(aj))
        end do
+       PRINT *, NORM2(E(I,N,:) - ER(:,I)), NORM2(E(I,1,:) - EL(:,I))
     end do
 
   end subroutine eos_from_polyline
@@ -296,6 +342,7 @@ contains
        head, &
        tail, &
        enve_rl, &
+       x, &
        xyzc, &
        m, &
        n )
@@ -309,13 +356,14 @@ contains
     integer,                          intent(in)    :: head
     integer,                          intent(in)    :: tail
     type(ptr_surface),                intent(in)    :: enve_rl(2)
+    real(kind=fp),                    intent(out)   :: x(polyline%np)
     real(kind=fp), allocatable,       intent(inout) :: xyzc(:,:,:)
     integer,                          intent(out)   :: m, n
     integer                                         :: step, np, degr
-    real(kind=fp), allocatable                      :: x(:)
-    real(kind=fp), allocatable                      :: y(:,:)
+    real(kind=fp)                                   :: y(polyline%np,7)
     real(kind=fp), allocatable                      :: c(:,:), d(:,:)
     real(kind=fp)                                   :: cond, errL2, errLinf
+    real(kind=fp), allocatable                      :: u(:)
     real(kind=fp), allocatable                      :: g(:,:), dg(:,:)
     real(kind=fp), allocatable                      :: uv(:,:), erl(:,:,:)
     integer                                         :: irl, ipt
@@ -327,7 +375,6 @@ contains
     m = degr+1
     allocate(c(m,7))
 
-    allocate(x(np))
     x(1) = 0._fp
     x(2:np) = sqrt(sum((&
          polyline%xyz(1:3,head+step:tail:step) - &
@@ -337,7 +384,6 @@ contains
     end do
     x = 2._fp*x/x(np) - 1._fp
 
-    allocate(y(np,7))
     y(1:np,1:2) = transpose(polyline%uv(1:2,1,head:tail:step))
     y(1:np,3:4) = transpose(polyline%uv(1:2,2,head:tail:step))
     y(1:np,5:7) = transpose(polyline%xyz(1:3,head:tail:step))
@@ -353,7 +399,6 @@ contains
          errLinf )
 
     PRINT *,'COND =', COND, 'ERR_(L2,LINF) =', ERRL2, ERRLINF
-    deallocate(x,y)
 
     !! compute the polynomial's derivative
     allocate(d(degr,3))
@@ -395,20 +440,20 @@ contains
 
     !! contruct portion of canal surfaces between right/left boundary curves
     n = m
-    allocate(x(n), xyzc(m,n,3))
+    allocate(u(n), xyzc(m,n,3))
     call cgl_nodes( &
-         x, &
+         u, &
          degr, &
          1._fp, &
-         -1._fp )
+         0._fp) !-1._fp )
 
-    call eos_from_polyline( &
+    call eos_from_polyline2( &
          transpose(g), &
          transpose(dg), &
          transpose(erl(1:m,1:3,1)), &
          transpose(erl(1:m,1:3,2)), &
          m, &
-         x, &
+         u, &
          n, &
          xyzc )
 
@@ -579,7 +624,11 @@ contains
          m, &
          3, &
          EPSmath )
-    
+
+    do i = 1,n
+       xyz(1:3,i) = center(1:3) + ravg*xyz(1:3,i)
+    end do
+        
   end subroutine long_lat_patch_from_points
   !-------------------------------------------------------------
   

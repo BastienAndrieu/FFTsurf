@@ -11,9 +11,9 @@ class trimming_wire:
         self.nod = nod
         self.arc = arc
 #############################################################
-def solve_2x2(a11, a12, a21, a22, b):
+def solve_2x2(a11, a12, a21, a22, b, eps=1.e-10):
     det = a11*a22 - a12*a21
-    if abs(det) < 1.e-10:
+    if abs(det) < eps:
         return 0, False
     else:
         return np.array( (b[0]*a22 - a12*b[1], a11*b[1] - b[0]*a21) ) / det, True
@@ -61,6 +61,8 @@ f.close()
 ####################################################
 # PLOT RAW GRAPH AND WIRES
 ####################################################
+xymax = 1.5
+xymin = -xymax
 
 t = np.linspace(0,1,20)
 b = np.stack( [np.power(1.0-t,2) , 2.0*(1.0-t)*t , np.power(t,2)] )
@@ -72,14 +74,15 @@ for iarc in range(narc):
     for iend in range(2):
         t[0,iend] = np.cos(arc_ang[iarc,iend])
         t[1,iend] = np.sin(arc_ang[iarc,iend])
-        dx = xy[arc_end[iarc,1]] - xy[arc_end[iarc,0]]
-        s, nonsingular = solve_2x2(t[0,0], t[0,1], t[1,0], t[1,1], dx)
-        cp[iarc,0] = xy[arc_end[iarc,0]]
-        if nonsingular:
-            cp[iarc,1] = xy[arc_end[iarc,0]] + s[0]*t[:,0]
-        else:
-            cp[iarc,1] = 0.5*(xy[arc_end[iarc,0]] + xy[arc_end[iarc,1]])
-        cp[iarc,2] = xy[arc_end[iarc,1]]
+    dx = xy[arc_end[iarc,1]] - xy[arc_end[iarc,0]]
+    s, nonsingular = solve_2x2(t[0,0], t[0,1], t[1,0], t[1,1], dx, 1.e-5)
+    cp[iarc,0] = xy[arc_end[iarc,0]]
+    if nonsingular:
+        cp[iarc,1] = xy[arc_end[iarc,0]] + s[0]*t[:,0]
+        cp[iarc,1] = np.minimum(xymax, np.maximum(xymin, cp[iarc,1]))
+    else:
+        cp[iarc,1] = 0.5*(xy[arc_end[iarc,0]] + xy[arc_end[iarc,1]])
+    cp[iarc,2] = xy[arc_end[iarc,1]]
 
 # xy bounding box
 mn = np.zeros(2)

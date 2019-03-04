@@ -657,7 +657,7 @@ contains
     integer                   :: i = 0
 
     linspace = a + (b-a) * &
-         [( real(i-1, kind=fp) / real(n-1, kind=fp), i=0,n-1 )]
+         [( real(i, kind=fp) / real(n-1, kind=fp), i=0,n-1 )]
     
   end function linspace
 

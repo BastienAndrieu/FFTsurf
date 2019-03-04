@@ -170,7 +170,7 @@ contains
              uvend(2,1+mod(jcurv,2)) = real((-1)**jcurv, kind=fp)
              call add_intersection_point( &
                   uvend, &
-                  curve%polyline%xyz(:,ipoint), &
+                  curve%polyline%xyz(:,ipoint), & ! WRONG!
                   surfpair, &
                   2, &
                   interdata_new, &

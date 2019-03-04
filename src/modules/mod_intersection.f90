@@ -4082,9 +4082,9 @@ subroutine intersect_all_surfaces( &
                 ) cycle inner ! we skip this pair of surfaces
         end do
 
-        IF ( isurf == 3 .or. jsurf == 3 ) then
-           PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
-        end IF
+        !IF ( isurf == 3 .or. jsurf == 3 ) then
+        PRINT *,''; PRINT *,'PAIR :',ISURF,JSURF
+        !end IF
         ! initialize pointers to surfaces and region trees
         region(1)%ptr   => root(isurf)
         region(2)%ptr   => root(jsurf)
@@ -4185,7 +4185,19 @@ subroutine intersect_all_surfaces( &
         interdata_global%curves(ic)%polyline%s(i) = interdata_global%curves(ic)%polyline%s(i-1) + &
              norm2(interdata_global%curves(ic)%polyline%xyz(:,i) - interdata_global%curves(ic)%polyline%xyz(:,i-1))
      end do
+
+     ! prepare for brep construction
+     if ( allocated(interdata_global%curves(ic)%iedge) .and. &
+          size(interdata_global%curves(ic)%iedge) < interdata_global%curves(ic)%nsplit-1 ) then
+        deallocate(interdata_global%curves(ic)%iedge)
+     end if
+     if ( .not.allocated(interdata_global%curves(ic)%iedge) ) then
+        allocate(interdata_global%curves(ic)%iedge(interdata_global%curves(ic)%nsplit-1))
+     end if
+     interdata_global%curves(ic)%iedge(:) = 0
   end do
+
+  
 
 end subroutine intersect_all_surfaces
 
@@ -5346,7 +5358,7 @@ subroutine add_intersection_curve( &
   interdata%curves(ic)%isplit(1,1:2) = iendpoints
   interdata%curves(ic)%isplit(2,1:2) = -1 ! do not forget to fill in when tracing the polyline!
   IF ( DEBUG ) PRINT *,'ALL IS OK, NC =',interdata%nc
-
+  
 end subroutine add_intersection_curve
 
 
@@ -5456,6 +5468,7 @@ subroutine add_intersection_point( &
            end if ! <-----------------------------------------------------+  !  !  !
         end do ! <-----------------------------------------------------------+  !  !
         nullify(pos)                                                            !  !
+        !PRINT *,'POINT #',ID,' -> +1 INTERSECTION POS, NPOS =',interdata%points(id)%npos
         return                                                                  !  !
         !                                                                       !  !
      end if ! <-----------------------------------------------------------------+  !
@@ -5493,6 +5506,8 @@ subroutine add_intersection_point( &
      pos => pos%next                                                   !
   end do ! <-----------------------------------------------------------+
 
+  !PRINT *,'+1 INTERSECTION POINT, NP =',INTERDATA%NP
+  
   nullify(pos)
 
 end subroutine add_intersection_point

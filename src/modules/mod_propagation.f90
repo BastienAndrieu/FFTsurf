@@ -273,10 +273,12 @@ contains
     logical                         :: singular
     integer                         :: i, j, k
 
-    call reset_polynomial(px, 2, 1, [m,n]-1, 3)
+    call reset_polynomial(px, 2, 1, [m-1,n-1], 3)
     call fcht2(xyz, px%coef, m, n, 3, EPSmath)
     call diff2(px, pxu, pxv)
+    PRINT *,'XU'
     call ifcht2(pxu%coef, xu, m, n, 3)
+    PRINT *,'XV'
     call ifcht2(pxv%coef, xv, m, n, 3)
 
     do i = 1,3
@@ -286,9 +288,13 @@ contains
     end do
     nor = nor / spread(sqrt(sum(nor**2,3)), dim=3, ncopies=3)
 
-    call reset_polynomial(ps, 2, 1, [m,n]-1, 1)
+    call reset_polynomial(ps, 2, 1, [m-1,n-1], 1)
+    PRINT *,'RESET...', ALLOCATED(PS%COEF), SIZE(PS%COEF,1), SIZE(PS%COEF,2), SIZE(PS%COEF,3)
     call fcht2(speed, ps%coef, m, n, 1, EPSmath)
+    call diff2(ps, psu, psv)
+    PRINT *,'SU'
     call ifcht2(psu%coef, su, m, n, 1)
+    PRINT *,'SV'
     call ifcht2(psv%coef, sv, m, n, 1)
 
     dtsqr = timestep**2
@@ -314,11 +320,86 @@ contains
        end do
     end do
 
+    PRINT *,wsqr
+    PAUSE
     w = timestep * w + &                                    ! tangential component
          nor * real(sens_normal, kind=fp) * &               ! normal...
          spread(sqrt(1._fp - dtsqr*wsqr), dim=3, ncopies=3) ! ...component
 
+    !PRINT *,W
+
   end subroutine eos_surface
 
+
+
+
+
+  subroutine eos_surface2( &
+       xyz, &
+       speed, &
+       m, &
+       n, &
+       timestep, &
+       sens_normal, &
+       w )
+    use mod_math
+    use mod_polynomial
+    use mod_chebyshev
+    implicit none
+    integer,       intent(in)       :: m, n
+    real(kind=fp), intent(in)       :: xyz(m,n,3)
+    real(kind=fp), intent(in)       :: speed(m,n)
+    real(kind=fp), intent(in)       :: timestep
+    real(kind=fp), intent(out)      :: w(m,n,3) ! unit pointwise direction to envelope of sphere
+    integer,       intent(in)       :: sens_normal ! +-1
+    type(type_polynomial)           :: px, pxu, pxv, ps, psu, psv
+    real(kind=fp), dimension(m,n,3) :: xu, xv, nor
+    real(kind=fp), dimension(m,n)   :: su, sv
+    real(kind=fp), dimension(m,n)   :: E, F, G, invdetEFG
+    real(kind=fp), dimension(m,n)   :: wsqr
+    real(kind=fp)                   :: dtsqr
+    integer                         :: i, j, k
+
+    call reset_polynomial(px, 2, 1, [m-1,n-1], 3)
+    call fcht2(xyz, px%coef, m, n, 3, EPSmath)
+    call diff2(px, pxu, pxv)
+    call ifcht2(pxu%coef, xu, m, n, 3)
+    call ifcht2(pxv%coef, xv, m, n, 3)
+
+    E = sum(xu**2,3)
+    F = sum(xu*xv,3)
+    G = sum(xv**2,3)
+
+    invdetEFG = 1._fp/(E*G - F**2)
+
+    do i = 1,3
+       j = 1 + mod(i,3)
+       k = 1 + mod(j,3)
+       nor(1:m,1:n,i) = xu(1:m,1:n,j)*xv(1:m,1:n,k) - xu(1:m,1:n,k)*xv(1:m,1:n,j)
+    end do
+    nor = nor*spread(sqrt(invdetEFG), dim=3, ncopies=3)
+    
+    call reset_polynomial(ps, 2, 1, [m-1,n-1], 1)
+    call fcht2(speed, ps%coef, m, n, 1, EPSmath)
+    call diff2(ps, psu, psv)
+    call ifcht2(psu%coef, su, m, n, 1)
+    call ifcht2(psv%coef, sv, m, n, 1)
+
+    dtsqr = timestep**2
+    do i = 1,3
+       w(1:m,1:n,i) = (sv*F - su*G)*xu(1:m,1:n,i) + (su*F - sv*E)*xv(1:m,1:n,i)
+       w(1:m,1:n,i) = w(1:m,1:n,i)*invdetEFG
+    end do
+
+    wsqr = sum(w**2,3)
+    if ( dtsqr*maxval(wsqr) > 1._fp ) then
+       STOP 'envelope_of_spheres : dt * |w| > 1  ==> no real solution.'
+    end if
+    
+    w = timestep * w + &                                    ! tangential component
+         nor * real(sens_normal, kind=fp) * &               ! normal...
+         spread(sqrt(1._fp - dtsqr*wsqr), dim=3, ncopies=3) ! ...component
+    
+  end subroutine eos_surface2
 
 end module mod_propagation

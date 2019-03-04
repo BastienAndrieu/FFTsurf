@@ -76,13 +76,27 @@ contains
     implicit none
     type(type_BREP), intent(in) :: brep
     character(*),    intent(in) :: fileve, filehe, filefa
-    integer                     :: fid, ive, ied, ihe, ifa, iin
+    integer                     :: fid, ive, ied, ihe, ifa, iin, jfa, ihedg(2)
 
     call get_free_unit(fid)
 
     open(unit=fid, file=fileve, action='write')
     do ive = 1,brep%nv
-       write (fid,*) brep%verts(ive)%point%xyz, brep%verts(ive)%halfedge
+       !write (fid,*) brep%verts(ive)%point%xyz, brep%verts(ive)%halfedge
+       ihedg = brep%verts(ive)%halfedge
+       write (fid,'(e22.15,1x,e22.15,1x,e22.15,1x,i0,1x,i0,1x)',advance='no') &
+            brep%verts(ive)%point%xyz, ihedg
+       ifa = get_face(brep, ihedg)
+       jfa = ifa
+       do
+          write (fid,'(i0,1x)',advance='no') jfa
+          ! traverse halfedges counter-clockwise
+          ihedg = get_prev(brep, ihedg) ! previous halfedge
+          ihedg = get_twin(ihedg) ! twin halfedge
+          jfa = get_face(brep, ihedg)
+          if ( jfa == ifa ) exit
+       end do
+       write (fid,*) ''
     end do
     close(fid)
 
@@ -325,7 +339,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .false.
+    LOGICAL, PARAMETER :: DEBUG = .true.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata
@@ -492,7 +506,7 @@ contains
        !! Insert faces in BREP
        IF ( DEBUG ) THEN
           PRINT *,'   NWIRES =',NWIRES
-          PRINT *,'   NINNER =',NINNER
+          PRINT *,'   NINNER =',NINNER(1:NFACES)
           PRINT *,'   NFACES =',NFACES
        END IF
 
