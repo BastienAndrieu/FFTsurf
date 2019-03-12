@@ -21,7 +21,8 @@ contains
     !normal_speed(1:m,1:n) = 0.15d0
     !normal_speed = 0.15d0*(1.d0+ 0.3d0*(x+1.d0) - 0.08d0*(y+1.d0) + 0.12d0*(z+1.d0))
     !normal_speed = 0.15d0*(1.d0 + 0.3d0*cos(6.d0*(x+y+z)))
-    normal_speed = 0.15d0*(1.d0 + 0.15d0*cos(5.d0*(x+y+z)))
+    !normal_speed = 0.15d0*(1.d0 + 0.15d0*cos(5.d0*(x+y+z)))
+    normal_speed = 0.15d0*(1.d0 + 0.05d0*cos(5.d0*(x+y+z)))
 
   end function normal_speed
   !-------------------------------------------------------------
@@ -227,55 +228,6 @@ contains
   !-------------------------------------------------------------
   
 
-
-
-  subroutine eos_from_polyline2( &
-       g, &
-       dg, &
-       er, &
-       el, &
-       m, &
-       v, &
-       n, &
-       e )
-    use mod_geometry
-    implicit none
-    integer,                       intent(in)  :: m
-    real(kind=fp), dimension(3,m), intent(in)  :: g, dg, er, el
-    integer,                       intent(in)  :: n
-    real(kind=fp),                 intent(in)  :: v(n)
-    real(kind=fp),                 intent(out) :: e(m,n,3)
-    !real(kind=fp), dimension(m)                :: lamb, rw
-    real(kind=fp), dimension(3,m)              :: w, ewr, ewl
-    real(kind=fp)                              :: ei(3,n)
-    integer                                    :: i, j
-
-    !lamb = 0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1)
-    !w = g + spread(lamb,dim=1,ncopies=3)*dg
-    w = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
-
-    ewr = er - w
-    ewl = el - w
-
-    !rw = 0.5_fp*(sqrt(sum(ewr**2,1)) + sqrt(sum(ewl**2,1)))
-
-    do i = 1,m      
-       call slerp( &
-            ewr(1:3,i), &
-            ewl(1:3,i), &
-            v, &
-            n, &
-            ei )
-
-       do j = 1,n
-          e(i,j,1:3) = w(1:3,i) + ei(1:3,j)
-       end do
-    end do
-    
-  end subroutine eos_from_polyline2
-  
-  
-
   
   !-------------------------------------------------------------
   subroutine eos_from_polyline( &
@@ -294,47 +246,34 @@ contains
     integer,                       intent(in)  :: n
     real(kind=fp),                 intent(in)  :: v(n)
     real(kind=fp),                 intent(out) :: e(m,n,3)
-    real(kind=fp), dimension(3)                :: bw, ewr, ewl, uw, vw, gw
-    real(kind=fp)                              :: wr, wl, w, a, rwr, rwl, rw, aj, tj
+    real(kind=fp), dimension(3,m)              :: o, eor, eol
+    real(kind=fp)                              :: ei(3,n)
     integer                                    :: i, j
 
-    do i = 1,m
-       ewr = er(1:3,i) - g(1:3,i)
-       ewl = el(1:3,i) - g(1:3,i)
+    o = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
 
-       bw = dg(1:3,i)/norm2(dg(1:3,i))
-       wr = dot_product(ewr, bw)
-       wl = dot_product(ewl, bw)
-       w = 0.5_fp * (wr + wl)
-       !PRINT *,' W(R,L) =', WR, WL, 2._FP*ABS(WR-WL)/ABS(WR+WL)
+    eor = er - o
+    eol = el - o
 
-       ewr = ewr + wr*bw
-       ewl = ewl + wl*bw
+    do i = 1,m      
+       call slerp( &
+            eor(1:3,i), &
+            eol(1:3,i), &
+            v, &
+            n, &
+            ei )
 
-       a = angle_between_vectors_3d(ewr, ewl)
-
-       rwr = norm2(ewr)
-       rwl = norm2(ewl)
-       !PRINT *,'RW(R,L) =', RWR, RWL, 2._FP*ABS(RWR-RWL)/ABS(RWR+RWL)
-
-       uw = ewr/rwr
-       vw = ewl - dot_product(ewl,uw)*uw
-       vw = vw/norm2(vw)
-
-       gw = g(1:3,i) + w*bw
        do j = 1,n
-          tj = 0.5_fp*(v(j) + 1._fp)
-          aj = tj*a
-          rw = (1._fp - tj)*rwr + tj*rwl
-          w = (1._fp - tj)*wr + tj*wl
-          gw = g(1:3,i) + w*bw
-          e(i,j,1:3) = gw + rw*(uw*cos(aj) + vw*sin(aj))
+          e(i,j,1:3) = o(1:3,i) + ei(1:3,j)
        end do
-       PRINT *, NORM2(E(I,N,:) - ER(:,I)), NORM2(E(I,1,:) - EL(:,I))
     end do
 
   end subroutine eos_from_polyline
   !-------------------------------------------------------------
+
+
+  
+  
 
   !-------------------------------------------------------------
   subroutine eos_from_curve( &
@@ -447,7 +386,7 @@ contains
          1._fp, &
          0._fp) !-1._fp )
 
-    call eos_from_polyline2( &
+    call eos_from_polyline( &
          transpose(g), &
          transpose(dg), &
          transpose(erl(1:m,1:3,1)), &
@@ -631,5 +570,108 @@ contains
         
   end subroutine long_lat_patch_from_points
   !-------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+   !-------------------------------------------------------------
+  subroutine eos_from_polyline2( &
+       g, &
+       dg, &
+       er, &
+       el, &
+       m, &
+       v, &
+       n, &
+       e )
+    use mod_geometry
+    USE MOD_UTIL
+    implicit none
+    integer,                       intent(in)  :: m
+    real(kind=fp), dimension(3,m), intent(in)  :: g, dg, er, el
+    integer,                       intent(in)  :: n
+    real(kind=fp),                 intent(in)  :: v(n)
+    real(kind=fp),                 intent(out) :: e(m,n,3)
+    real(kind=fp), dimension(m)                :: r, ru
+    !real(kind=fp), dimension(3,m)              :: o, psi1, psi2
+    !real(kind=fp)                              :: ei(3,n)
+    real(kind=fp)                              :: err(2,m,n)
+    integer                                    :: i, j
+
+    r = 0.5_fp*(sqrt(sum((er - g)**2,1)) + sqrt(sum((el - g)**2,1)))
+    ru = -0.5_fp*sum((er + el - 2._fp*g)*dg,1) / r
+    !o = g + dg*spread(-r*ru/sum(dg**2,1), dim=1, ncopies=3)
+
+    !o = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
+    !eor = er - o
+    !eol = el - o
+    !psi1 = er - o
+    !psi2 = el - o
+
+    !do i = 1,m
+    !   cosa = max(-1._fp, min(1._fp, &
+    !        dot_product(psi1(1:3,i), psi2(1:3,i)) / &
+    !        ( norm2(psi1(1:3,i))*norm2(psi2(1:3,i)) ) &
+    !        ))
+    !   sina = sqrt(1._fp - cosa**2)
+       
+       !call slerp( &
+       !     eor(1:3,i), &
+       !     eol(1:3,i), &
+       !     v, &
+       !     n, &
+       !     ei )
+       !do j = 1,n
+       !   e(i,j,1:3) = o(1:3,i) + ei(1:3,j)
+       !end do
+    !end do
+
+
+    !ERR(1:2,1:M,1:N) = 0._FP
+    !DO J = 1,N
+    !   DO I = 1,M
+    !      ERR(1,I,J) = ABS( NORM2(E(I,J,1:3) - G(1:3,I)) - R(I) )
+    !      ERR(2,I,J) = ABS( DOT_PRODUCT(E(I,J,1:3) - G(1:3,I), DG(1:3,I)) + RU(I)*R(I) )
+    !   END DO
+    !END DO
+
+    !CALL WRITE_MATRIX(ERR(1,1:M,1:N), M, N, 'demo_EoS_brep/debug/err_1_rad.dat')
+    !CALL WRITE_MATRIX(ERR(2,1:M,1:N), M, N, 'demo_EoS_brep/debug/err_1_dot.dat')
+
+    CALL eos_from_polyline( &
+         g, &
+         dg, &
+         er, &
+         el, &
+         m, &
+         v, &
+         n, &
+         e )
+
+    ERR(1:2,1:M,1:N) = 0._FP
+    DO J = 1,N
+       DO I = 1,M
+          ERR(1,I,J) = ABS( NORM2(E(I,J,1:3) - G(1:3,I)) - R(I) )
+          ERR(2,I,J) = ABS( DOT_PRODUCT(E(I,J,1:3) - G(1:3,I), DG(1:3,I)) + RU(I)*R(I) )
+       END DO
+    END DO
+
+    CALL WRITE_MATRIX(E(1:M,1:N,1), M, N, 'demo_EoS_brep/debug/eos_from_polyline_x.dat')
+    CALL WRITE_MATRIX(E(1:M,1:N,2), M, N, 'demo_EoS_brep/debug/eos_from_polyline_y.dat')
+    CALL WRITE_MATRIX(E(1:M,1:N,3), M, N, 'demo_EoS_brep/debug/eos_from_polyline_z.dat')
+    CALL WRITE_MATRIX(ERR(1,1:M,1:N), M, N, 'demo_EoS_brep/debug/eos_from_polyline_err_rad.dat')
+    CALL WRITE_MATRIX(ERR(2,1:M,1:N), M, N, 'demo_EoS_brep/debug/eos_from_polyline_err_dot.dat')
+
+    PAUSE
+
+  end subroutine eos_from_polyline2
+  !-------------------------------------------------------------
+
   
 end module mod_eos

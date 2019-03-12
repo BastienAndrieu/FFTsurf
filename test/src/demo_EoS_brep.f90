@@ -19,12 +19,14 @@ program demo_EoS_brep
 
   !-------------------------------------------------
   implicit none
+  LOGICAL, PARAMETER :: MAKE_EOS = .false.
+  
   type(type_options)                      :: options
   type(type_surface), allocatable, target :: surf(:)
   integer                                 :: nsurf, isurf, jsurf
   type(type_intersection_data), target    :: interdata
   integer                                 :: icurv
-  integer, allocatable                    :: curvetype(:), edgetype(:)
+  integer, allocatable                    :: curvetype(:), edgetype(:), curvetypetmp(:)
   type(type_brep)                         :: brep
   integer                                 :: iface, jface, ivert, iedge
   type(type_hypergraph)                   :: hypergraph
@@ -36,7 +38,7 @@ program demo_EoS_brep
   type(type_intersection_data), target    :: interdata_new
   type(type_brep)                         :: brep_new
 
-  integer                                 :: fid
+  integer                                 :: fid, fid2
   character(3)                            :: strnum3
 
   integer                                 :: ihedg(2)
@@ -128,18 +130,17 @@ program demo_EoS_brep
           'demo_EoS_brep/init/coef/c_' // strnum3 // '.cheb', &
           nvar=2, &
           base=1 )
-     !call economize2( &
-     !     surf(isurf)%x, &
-     !     EPSmath )
-
+     call economize2( &
+          surf(isurf)%x, &
+          EPSmath )
+     
      call compute_deriv1(surf(isurf))
      call compute_deriv2(surf(isurf))
      call compute_pseudonormal(surf(isurf))
-     !call economize2( &
-     !     surf(isurf)%pn, &
-     !     EPSmath )
+     call economize2( &
+          surf(isurf)%pn, &
+          EPSmath )
   end do
-
 
   !! read intersection data
   call read_intersection_curves_new( &
@@ -152,6 +153,22 @@ program demo_EoS_brep
      allocate(interdata%curves(icurv)%iedge(interdata%curves(icurv)%nsplit-1))
      interdata%curves(icurv)%iedge(:) = 0
   end do
+
+  call intersect_all_surfaces( &
+          surf(1:nsurf), &
+          nsurf, &
+          interdata, &
+          [((i == 2 .or. i == 8 .or. i == 9), i=1,nsurf)], &
+          options%chord_err, &
+          options%hmin, &
+          options%hmax )
+
+  call move_alloc(from=curvetype, to=curvetypetmp)
+  allocate(curvetype(interdata%nc))
+  curvetype(1:size(curvetypetmp)) = curvetypetmp(1:size(curvetypetmp))
+  curvetype(size(curvetypetmp)+1:interdata%nc) = 1 ! concave intersection
+  deallocate(curvetypetmp)
+  PRINT *,'OK'
 
   ! --->>> DEBUG 
   call write_intersection_data( &
@@ -178,7 +195,10 @@ program demo_EoS_brep
        'demo_EoS_brep/debug/edges.dat', &
        'demo_EoS_brep/debug/faces.dat' )
   open(unit=fid, file='demo_EoS_brep/debug/edges_xyz.dat', action='write')
+  call get_free_unit(fid2)
+  open(unit=fid2, file='demo_EoS_brep/debug/edges_uv.dat', action='write')
   write (fid,*) brep%ne
+  write (fid2,*) brep%ne
   do iedge = 1,brep%ne
      call get_polyline_endpoints( &
           brep, &
@@ -188,11 +208,14 @@ program demo_EoS_brep
           sens, &
           np )
      write (fid,*) np
+     write (fid2,*) np
      do ivert = head,tail,(-1)**sens
         write (fid,*) brep%edges(iedge)%curve%polyline%xyz(1:3,ivert)
+        write (fid2,*) brep%edges(iedge)%curve%polyline%uv(1:2,1:2,ivert)
      end do
   end do
   close(fid)
+  close(fid2)
   ! <<<---
 
 
@@ -210,10 +233,9 @@ program demo_EoS_brep
   
 
 
+IF ( .NOT.MAKE_EOS ) THEN
 
-
-
-  IF ( .false. ) THEN
+  IF ( .true. ) THEN
      do iface = 1,brep%nf
         PRINT *,'brepmesh face #',iface
         write (strnum3,'(i3.3)') iface
@@ -231,7 +253,7 @@ program demo_EoS_brep
   END IF
 
 
-  IF ( .false. ) THEN
+  IF ( .true. ) THEN
      !! make hypergraph
      call make_hypergraph( &
           brep, &
@@ -307,7 +329,7 @@ program demo_EoS_brep
              0.7_fp, &!PARAM_frac_conf2, &
              0, &!PARAM_ipass1, &
              0, &!PARAM_ipass2, &
-             1, &!20, &
+             20, &
              options%hmin, &
              options%hmax )
      else
@@ -381,6 +403,8 @@ program demo_EoS_brep
      STOP
   END IF
 
+END IF
+
 
 
   !call check_intersection_points( &
@@ -388,6 +412,13 @@ program demo_EoS_brep
   !call check_intersection_polylines( &
   !     interdata )
   !PAUSE
+  do isurf = 1,nsurf
+     surf(isurf)%x%degr(1) = size(surf(isurf)%x%coef,1) - 1
+     surf(isurf)%x%degr(2) = size(surf(isurf)%x%coef,2) - 1 
+     call compute_deriv1(surf(isurf))
+     call compute_deriv2(surf(isurf))
+     call compute_pseudonormal(surf(isurf))
+  end do
   
 
   allocate(surf_new(nsurf+brep%ne+brep%nv))

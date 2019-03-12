@@ -767,7 +767,7 @@ contains
 
     tolsqr = tol**2
 
-    m = poly%degr(1)+1
+    m = size(poly%coef,1)!poly%degr(1)+1
     do i = m,1,-1
        if ( sum( poly%coef(i:m,1:poly%dim,1)**2 ) > tolsqr ) exit
     end do
@@ -793,15 +793,16 @@ contains
 
     tolsqr = tol**2
 
-    s = sum( abs( poly%coef(1:poly%degr(1)+1,1:poly%degr(2)+1,1:poly%dim) ) )
+    !s = sum( abs( poly%coef(1:poly%degr(1)+1,1:poly%degr(2)+1,1:poly%dim) ) )
+    s = sum( abs( poly%coef(:,:,1:poly%dim) ) )
 
-    do i = poly%degr(1)+1,1,-1
+    do i = size(poly%coef,1),1,-1!poly%degr(1)+1,1,-1
        r = sum( abs( poly%coef(1:i-1,1:poly%degr(2)+1,1:poly%dim) ) )
        if ( sum( (s - r)**2 ) > tolsqr ) exit
     end do
     poly%degr(1) = i-1
 
-    do j = poly%degr(2)+1,1,-1
+    do j = size(poly%coef,2),1,-1!poly%degr(2)+1,1,-1
        r = sum( abs( poly%coef(1:i,1:j-1,1:poly%dim) ) )
        if ( sum( (s - r)**2 ) > tolsqr ) exit
     end do

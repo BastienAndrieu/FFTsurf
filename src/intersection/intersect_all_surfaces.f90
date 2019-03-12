@@ -109,7 +109,7 @@ subroutine intersect_all_surfaces( &
              uvxyz, &
              nuvxyz, &
              stat_degeneracy ) 
-        IF ( isurf == 3 .or. jsurf == 3 ) then!.true. ) THEN
+        IF ( isurf == 3 .or. jsurf == 3 ) then!.true. ) THEN!
            PRINT *,'STAT_DEGENERACY =',stat_degeneracy
            !IF ( NUVXYZ > 0 ) THEN
            !   CALL WRITE_MATRIX( TRANSPOSE(UVXYZ(1:7,1:NUVXYZ)), NUVXYZ, 7, &
