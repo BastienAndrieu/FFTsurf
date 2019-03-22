@@ -19,7 +19,9 @@ program demo_EoS_brep
 
   !-------------------------------------------------
   implicit none
-  LOGICAL, PARAMETER :: MAKE_EOS = .false.
+  character(10)                           :: argstr
+  integer                                 :: argnum
+  logical                                 :: MAKE_EOS
   
   type(type_options)                      :: options
   type(type_surface), allocatable, target :: surf(:)
@@ -45,7 +47,6 @@ program demo_EoS_brep
 
   real(kind=fp)                           :: xyzverif(3,2)
 
-  !type(type_surface), allocatable, target :: surf_eos(:), edge_eos(:), vert_eos(:)
   type(ptr_surface), allocatable          :: surf_eos(:), edge_eos(:), vert_eos(:)
   integer                                 :: m, n, i, j, head, tail, sens, np
   real(kind=fp), allocatable              :: xyz(:,:,:), speed(:,:), s2e(:,:,:), tp(:)
@@ -62,7 +63,23 @@ program demo_EoS_brep
   type(type_intersection_curve), pointer  :: curve => null(), curve_new => null()
 
   real(kind=fp), allocatable              :: spheres(:,:)
+
+  integer                                 :: convexity
   !-------------------------------------------------
+
+
+  !! Read argument
+  if ( command_argument_count() < 1 ) then
+     MAKE_EOS = .false.
+  else
+     call get_command_argument(1, argstr)
+     read (argstr,*) argnum
+     MAKE_EOS = (argnum > 0)
+  end if
+
+
+
+  
 
   call get_free_unit(fid)
 
@@ -226,9 +243,17 @@ program demo_EoS_brep
      do icurv = 1,interdata%nc
         if ( associated(brep%edges(iedge)%curve, interdata%curves(icurv)) ) then
            edgetype(iedge) = curvetype(icurv)
+           exit
         end if
      end do
+
+     !call edge_convexity( &
+     !     brep, &
+     !     iedge, &
+     !     convexity )
+     !PRINT *, IEDGE, convexity, edgetype(iedge)
   end do
+  !stop
   ! ----------<<<
   
 
@@ -260,6 +285,27 @@ IF ( .NOT.MAKE_EOS ) THEN
           hypergraph, &
           feat_edge, &
           feat_vert )
+
+     call get_free_unit( fid )
+       open(unit=fid, file='demo_EoS_brep/debug/hyperfaces.dat', action='write')
+       write (fid,*) hypergraph%nhf
+       do i = 1,hypergraph%nhf
+          write (fid,*) hypergraph%hyperfaces(i)%nf
+          write (fid,*) hypergraph%hyperfaces(i)%faces(1:hypergraph%hyperfaces(i)%nf)
+       end do
+       close(fid)
+
+       open(unit=fid, file='demo_EoS_brep/debug/hyperedges.dat', action='write')
+       write (fid,*) hypergraph%nhe
+       do i = 1,hypergraph%nhe
+          write (fid,*) hypergraph%hyperedges(i)%ne
+          write (fid,*) hypergraph%hyperedges(i)%verts
+          write (fid,*) hypergraph%hyperedges(i)%hyperfaces
+          do j = 1,hypergraph%hyperedges(i)%ne
+             write (fid,*) hypergraph%hyperedges(i)%halfedges(1:2,j)
+          end do
+       end do
+       close(fid)
 
      call generate_brep_conforming_mesh( &
           brep, &
@@ -320,6 +366,17 @@ IF ( .NOT.MAKE_EOS ) THEN
      call write_vtk_mesh( &
        mesh, &
        'demo_EoS_brep/mesh/mesh.vtk' )
+
+
+     do iface = 1,mesh%nt
+        mesh%ihf(iface) = brep%faces(mesh%ihf(iface))%hyperface
+     end do
+     call write_obj_mesh( &
+          mesh, &
+          'demo_EoS_brep/mesh/mesh_hyp.obj' )
+     call write_vtk_mesh( &
+       mesh, &
+       'demo_EoS_brep/mesh/mesh_hyp.vtk' )
 
      if ( .true. ) then
         call optim_jiao_uv( &
@@ -999,6 +1056,17 @@ END IF
           mesh, &
           0 )
 
+     do iface = 1,mesh%nt
+        mesh%ihf(iface) = brep_new%faces(mesh%ihf(iface))%hyperface
+     end do
+     
+     call write_obj_mesh( &
+          mesh, &
+          'demo_EoS_brep/mesh_eos/mesh_eos_hyp.obj' )
+     call write_vtk_mesh( &
+       mesh, &
+       'demo_EoS_brep/mesh_eos/mesh_eos_hyp.vtk' )
+
      if ( .true. ) then
         call optim_jiao_uv( &
              brep_new, &
@@ -1498,6 +1566,73 @@ contains
     end do
     
   end subroutine sample_spheres_brute_force
+
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine edge_convexity( &
+       brep, &
+       iedge, &
+       convexity )
+    use mod_tolerances
+    implicit none
+    type(type_brep), intent(in)            :: brep
+    integer,         intent(in)            :: iedge
+    integer,         intent(out)           :: convexity
+    type(type_intersection_curve), pointer :: curve => null()
+    real(kind=fp)                          :: uv(2)
+    real(kind=fp)                          :: normals(3,2), jacobian(3,2)
+    real(kind=fp)                          :: ndotn, tangent(3), angle
+    integer                                :: isurf, ivar, ipoint
+
+    curve => brep%edges(iedge)%curve
+    ipoint = curve%polyline%np/2
+    !print *,'   IPOINT =',ipoint
+
+    do isurf = 1,2
+       uv = curve%polyline%uv(1:2,isurf,ipoint)
+       do ivar = 1,2
+          call evald1( &
+               jacobian(1:3,ivar), &
+               curve%surf(isurf)%ptr, &
+               uv, &
+               ivar )
+       end do
+       normals(1:3,isurf) = cross(jacobian(1:3,1), jacobian(1:3,2))
+       normals(1:3,isurf) = normals(1:3,isurf)/norm2(normals(1:3,isurf))
+    end do
+
+    ndotn = dot_product(normals(1:3,1),normals(1:3,2))
+    !print *,'   NDOTN =',ndotn
+    
+    if ( abs(ndotn) > 1._fp - 1.d-9 ) then
+       convexity = 0 ! smooth
+       return
+    end if
+
+    tangent = cross(normals(1:3,1),normals(1:3,2))
+    tangent = tangent/norm2(tangent)
+
+    angle = atan2(dot_product(normals(1:3,2), cross(normals(1:3,1),tangent)), ndotn)
+    PRINT *,'   ANGLE =',angle
+
+    if ( angle < 0._fp ) then
+       convexity = 2 ! convex
+    else
+       convexity = 1 ! concave
+    end if
+    
+  end subroutine edge_convexity
+
 
   
 end program demo_EoS_brep

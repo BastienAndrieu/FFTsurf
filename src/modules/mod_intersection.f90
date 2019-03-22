@@ -4861,7 +4861,7 @@ subroutine diffgeom_intersection( &
   dotn = dot_product(n(:,1), n(:,2))
   !PRINT *,'DOTN =',DOTN
 
-  if ( abs(dotn) > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <---------------------+
+  if ( dotn > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <--------------------------+
      !! tangential intersection                                                       !
      sgndotn = sign(1._fp, dotn)                                                      !
      ! Second Fundamental Form coefficients                                           !
