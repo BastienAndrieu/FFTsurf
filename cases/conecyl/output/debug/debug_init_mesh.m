@@ -1,6 +1,6 @@
 clc; clear; close all
 
-tri = importdata('../connect.dat');
+tri = importdata('../connect_01.dat');
 xyz = importdata('../pos_000.dat');
 
 fprintf('%d verts, %d triangles\n',size(xyz,1), size(tri,1));

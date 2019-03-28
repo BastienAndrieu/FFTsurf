@@ -779,10 +779,10 @@ contains
     use mod_diffgeom
     use mod_tolerances
     implicit none
-    type(type_brep),         intent(in) :: brep
-    type(type_surface_mesh), intent(in) :: mesh
-    real(kind=fp)                       :: xyzverif(3,2)
-    integer                             :: i, j, iface
+    type(type_brep),         intent(in)    :: brep
+    type(type_surface_mesh), intent(inout) :: mesh
+    real(kind=fp)                          :: xyzverif(3,2)
+    integer                                :: i, j, iface
 
     PRINT *,'CHECK UVs'
     do i = 1,mesh%nv
@@ -806,6 +806,10 @@ contains
                      mesh%uv(:,j,i) )
              end do
              PRINT *,'    I =', I,', ERR =', norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))
+             ! >>> ----- A DEBUGGER -----
+             IF ( MAX(norm2(mesh%xyz(:,i) - xyzverif(:,1)), norm2(mesh%xyz(:,i) - xyzverif(:,2))) < EPSxyz ) THEN
+                mesh%uv(1:2,1:2,i) = mesh%uv(1:2,[2,1],i)
+             END IF
           END IF
        case (2)
           call eval( &

@@ -192,7 +192,7 @@ contains
 
     real(kind=fp), dimension(:,:), intent(inout) :: A
     logical, intent(out), optional :: singular
-
+    real(kind=fp) :: invAkk
     integer :: m, n, i, k, i_max
 
     m = size(A,1) ; n = size(A,2)
@@ -207,11 +207,11 @@ contains
        end if
 
        call swap_rows(A,i_max,k)
-
+       invAkk = 1._fp/A(k,k)
        do i = k+1,m
-          A(i,k+1:) = A(i,k+1:) - A(k,k+1:)*A(i,k)/A(k,k)
+          A(i,k+1:) = A(i,k+1:) - A(k,k+1:)*A(i,k)*invAkk
 
-          A(i,k) = 0.0d0
+          A(i,k) = 0._fp
        end do
     end do
 

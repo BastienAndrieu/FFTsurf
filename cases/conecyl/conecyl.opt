@@ -1,6 +1,6 @@
 # pas de temps
 timestep
-1.000000e-02
+1.000000e-03
 
 # duree totale
 timespan
@@ -29,7 +29,7 @@ chord
 5.000000e-03
 # hmin
 hmin
-1.000000e-03
+5.000000e-03
 # hmax
 hmax
-1.000000e-02
+5.000000e-03

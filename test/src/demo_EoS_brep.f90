@@ -40,7 +40,7 @@ program demo_EoS_brep
   type(type_intersection_data), target    :: interdata_new
   type(type_brep)                         :: brep_new
 
-  integer                                 :: fid, fid2
+  integer                                 :: fid
   character(3)                            :: strnum3
 
   integer                                 :: ihedg(2)
@@ -211,28 +211,10 @@ program demo_EoS_brep
        'demo_EoS_brep/debug/verts.dat', &
        'demo_EoS_brep/debug/edges.dat', &
        'demo_EoS_brep/debug/faces.dat' )
-  open(unit=fid, file='demo_EoS_brep/debug/edges_xyz.dat', action='write')
-  call get_free_unit(fid2)
-  open(unit=fid2, file='demo_EoS_brep/debug/edges_uv.dat', action='write')
-  write (fid,*) brep%ne
-  write (fid2,*) brep%ne
-  do iedge = 1,brep%ne
-     call get_polyline_endpoints( &
-          brep, &
-          [iedge,1], &
-          head, &
-          tail, &
-          sens, &
-          np )
-     write (fid,*) np
-     write (fid2,*) np
-     do ivert = head,tail,(-1)**sens
-        write (fid,*) brep%edges(iedge)%curve%polyline%xyz(1:3,ivert)
-        write (fid2,*) brep%edges(iedge)%curve%polyline%uv(1:2,1:2,ivert)
-     end do
-  end do
-  close(fid)
-  close(fid2)
+  call write_brep_edges_geometry( &
+       brep, &
+       'demo_EoS_brep/debug/edges_xyz.dat', &
+       'demo_EoS_brep/debug/edges_uv.dat' )
   ! <<<---
 
 
@@ -286,26 +268,10 @@ IF ( .NOT.MAKE_EOS ) THEN
           feat_edge, &
           feat_vert )
 
-     call get_free_unit( fid )
-       open(unit=fid, file='demo_EoS_brep/debug/hyperfaces.dat', action='write')
-       write (fid,*) hypergraph%nhf
-       do i = 1,hypergraph%nhf
-          write (fid,*) hypergraph%hyperfaces(i)%nf
-          write (fid,*) hypergraph%hyperfaces(i)%faces(1:hypergraph%hyperfaces(i)%nf)
-       end do
-       close(fid)
-
-       open(unit=fid, file='demo_EoS_brep/debug/hyperedges.dat', action='write')
-       write (fid,*) hypergraph%nhe
-       do i = 1,hypergraph%nhe
-          write (fid,*) hypergraph%hyperedges(i)%ne
-          write (fid,*) hypergraph%hyperedges(i)%verts
-          write (fid,*) hypergraph%hyperedges(i)%hyperfaces
-          do j = 1,hypergraph%hyperedges(i)%ne
-             write (fid,*) hypergraph%hyperedges(i)%halfedges(1:2,j)
-          end do
-       end do
-       close(fid)
+     call write_hypergraph( &
+          hypergraph, &
+          'demo_EoS_brep/debug/hyperfaces.dat', &
+          'demo_EoS_brep/debug/hyperedges.dat' )
 
      call generate_brep_conforming_mesh( &
           brep, &

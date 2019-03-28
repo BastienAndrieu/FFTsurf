@@ -133,7 +133,41 @@ contains
 
 
 
+  subroutine write_brep_edges_geometry( &
+       brep, &
+       filexyz, &
+       fileuv )
+    use mod_util
+    implicit none
+    type(type_BREP), intent(in) :: brep
+    character(*),    intent(in) :: filexyz, fileuv
+    integer                     :: iedge, ivert, head, tail, sens, np, fid, fid2
+    
+    call get_free_unit(fid)
+    open(unit=fid, file=filexyz, action='write')
+    call get_free_unit(fid2)
+    open(unit=fid2, file=fileuv, action='write')
+    write (fid,*) brep%ne
+    write (fid2,*) brep%ne
+    do iedge = 1,brep%ne
+       call get_polyline_endpoints( &
+            brep, &
+            [iedge,1], &
+            head, &
+            tail, &
+            sens, &
+            np )
+       write (fid,*) np
+       write (fid2,*) np
+       do ivert = head,tail,(-1)**sens
+          write (fid,*) brep%edges(iedge)%curve%polyline%xyz(1:3,ivert)
+          write (fid2,*) brep%edges(iedge)%curve%polyline%uv(1:2,1:2,ivert)
+       end do
+    end do
+    close(fid)
+    close(fid2)
 
+  end subroutine write_brep_edges_geometry
 
 
 

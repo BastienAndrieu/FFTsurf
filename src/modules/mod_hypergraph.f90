@@ -995,5 +995,55 @@ contains
 
 
 
+
+
+
+
+  
+  subroutine write_hypergraph( &
+       hypergraph, &
+       filehf, &
+       filehe )
+    use mod_util
+    implicit none
+    type(type_hypergraph), intent(in) :: hypergraph
+    character(*),          intent(in) :: filehf, filehe
+    integer                           :: i, j, fid
+
+    call get_free_unit( fid )
+    open(unit=fid, file=filehf, action='write')
+    write (fid,*) hypergraph%nhf
+    do i = 1,hypergraph%nhf
+       write (fid,*) hypergraph%hyperfaces(i)%nf
+       write (fid,*) hypergraph%hyperfaces(i)%faces(1:hypergraph%hyperfaces(i)%nf)
+    end do
+    close(fid)
+
+    open(unit=fid, file=filehe, action='write')
+    write (fid,*) hypergraph%nhe
+    do i = 1,hypergraph%nhe
+       write (fid,*) hypergraph%hyperedges(i)%ne
+       write (fid,*) hypergraph%hyperedges(i)%verts
+       write (fid,*) hypergraph%hyperedges(i)%hyperfaces
+       do j = 1,hypergraph%hyperedges(i)%ne
+          write (fid,*) hypergraph%hyperedges(i)%halfedges(1:2,j)
+       end do
+    end do
+    close(fid)
+  end subroutine write_hypergraph
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
   
 end module mod_hypergraph
