@@ -135,3 +135,9 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_EoS_MAT.out te
 echo "...demo_intersection.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_intersection.f90 -o test/obj/demo_intersection.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_intersection.out test/obj/demo_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
+
+
+
+echo "...geodesic.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/geodesic.f90 -o test/obj/geodesic.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/geodesic.out test/obj/geodesic.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o -Lsrc/dfftpack -ldfftpack
