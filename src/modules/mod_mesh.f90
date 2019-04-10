@@ -31,6 +31,23 @@ module mod_mesh
 
 
 contains
+
+  function is_boundary_halfedge(mesh, ihedg)
+    type(type_surface_mesh), intent(in) :: mesh
+    integer,                 intent(in) :: ihedg(2)
+    logical                             :: is_boundary_halfedge
+
+    is_boundary_halfedge = ( mesh%twin(2,ihedg(1),ihedg(2)) < 1 )
+  end function is_boundary_halfedge
+
+
+  function is_boundary_vertex(mesh, ivert)
+    type(type_surface_mesh), intent(in) :: mesh
+    integer,                 intent(in) :: ivert
+    logical                             :: is_boundary_vertex
+
+    is_boundary_vertex = is_boundary_halfedge(mesh, mesh%v2h(1:2,ivert))
+  end function is_boundary_vertex
   
 
   subroutine make_halfedges( &
@@ -311,7 +328,7 @@ contains
     !   write (fid,'(A1,1x,I0,1x,I0,1x,I0)') 'f', mesh%tri(1:3,j)
     !end do
 
-    do i = 1,maxval(mesh%ihf(1:mesh%nt))
+    do i = minval(mesh%ihf(1:mesh%nt)),maxval(mesh%ihf(1:mesh%nt))
        nf = count(mesh%ihf(1:mesh%nt) == i)
        if ( nf > 0 ) then
           write (fid,'(A10,I0)') 'usemtl mat', i
@@ -430,35 +447,45 @@ contains
     use mod_util
     implicit none
     type(type_surface_mesh), intent(in) :: mesh
-    character(*),            intent(in) :: filetri, filexyz, fileuv, fileidstyp, filepaths
+    !character(*),            intent(in) :: filetri, filexyz, fileuv, fileidstyp, filepaths
+    character(*), optional,  intent(in) :: filetri, filexyz, fileuv, fileidstyp, filepaths
     integer                             :: fid, i, j
 
     call get_free_unit(fid)
 
-    open(unit=fid, file=filetri, action='write')
-    do i = 1,mesh%nt
-       write (fid,*) mesh%tri(1:3,i)
-    end do
-    close(fid)
+    if ( present(filetri) ) then
+       open(unit=fid, file=filetri, action='write')
+       do i = 1,mesh%nt
+          write (fid,*) mesh%tri(1:3,i)
+       end do
+       close(fid)
+    end if
 
+    if ( present(filexyz) ) then
     open(unit=fid, file=filexyz, action='write')
     do i = 1,mesh%nv
        write (fid,*) mesh%xyz(1:3,i)
     end do
     close(fid)
+ end if
 
+ if ( present(fileuv) ) then
     open(unit=fid, file=fileuv, action='write')
     do i = 1,mesh%nv
        write (fid,*) mesh%uv(1:2,1:2,i)
     end do
     close(fid)
+ end if
 
+    if ( present(fileidstyp) ) then
     open(unit=fid, file=fileidstyp, action='write')
     do i = 1,mesh%nv
        write (fid,*) mesh%ids(i), mesh%typ(i)
     end do
     close(fid)
-
+ end if
+ 
+if ( present(filepaths) ) then
     open(unit=fid, file=filepaths, action='write')
     write (fid,*) mesh%npaths
     do i = 1,mesh%npaths
@@ -469,6 +496,7 @@ contains
        end do
     end do
     close(fid)
+ end if
     
   end subroutine write_mesh_files
 
@@ -741,7 +769,31 @@ contains
 
 
 
+  subroutine write_halfedges( &
+       mesh, &
+       filev2h, &
+       filetwin )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in) :: mesh
+    character(*),            intent(in) :: filev2h, filetwin
+    integer                             :: fid, i
 
+    call get_free_unit(fid)
+    open(unit=fid, file=filev2h, action='write')
+    do i = 1,mesh%nv
+       write (fid,*) mesh%v2h(:,i)
+    end do
+    close(fid)
+    open(unit=fid, file=filetwin, action='write')
+    do i = 1,mesh%nt
+       write (fid,*) mesh%twin(:,:,i)
+    end do
+    close(fid)
+    
+  end subroutine write_halfedges
+
+  
 
    subroutine write_connectivity( &
        dir, &

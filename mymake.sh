@@ -138,6 +138,17 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_intersection.o
 
 
 
-echo "...geodesic.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/geodesic.f90 -o test/obj/geodesic.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/geodesic.out test/obj/geodesic.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o -Lsrc/dfftpack -ldfftpack
+#echo "...geodesic.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/geodesic.f90 -o test/obj/geodesic.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/geodesic.out test/obj/geodesic.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...optimmesh_topochange.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/optimmesh_topochange.f90 -o test/obj/optimmesh_topochange.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/optimmesh_topochange.out test/obj/optimmesh_topochange.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_mesh_optimization.o -Lsrc/dfftpack -ldfftpack
+
+
+
+echo "...optim_unit_mesh.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/optim_unit_mesh.f90 -o test/obj/optim_unit_mesh.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/optim_unit_mesh.out test/obj/optim_unit_mesh.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_mesh_optimization.o -Lsrc/dfftpack -ldfftpack

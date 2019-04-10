@@ -1675,6 +1675,70 @@ subroutine write_tecplot_mesh_displacement2( &
   end subroutine optim_jiao_uv
 
 
-  
+
+
+
+
+
+
+
+  subroutine swap_edge( &
+       mesh, &
+       ihedg )
+    use mod_mesh
+    use mod_halfedge
+    implicit none
+    type(type_surface_mesh), intent(inout) :: mesh
+    integer,                 intent(in)    :: ihedg(2)
+    integer                                :: hedgpair(2,2)
+    integer, dimension(3,2)                :: ijk, tri
+    integer                                :: twinj(2,2)
+    integer                                :: ih, jh, iface, jface, ivert
+
+    hedgpair(1:2,1) = ihedg
+    hedgpair(1:2,2) = get_twin(mesh, ihedg)
+
+    do ih = 1,2
+       iface = hedgpair(2,ih)
+       ivert = hedgpair(1,ih)
+       ! local vertex index in face
+       ijk(1,ih) = ivert
+       ijk(2,ih) = 1 + mod(ivert,3)
+       ijk(3,ih) = 1 + mod(ivert+1,3)
+       do ivert = 1,3
+          tri(ivert,ih) = mesh%tri(ijk(ivert,ih),iface)
+       end do
+
+       twinj(1:2,ih) = mesh%twin(1:2,ijk(2,ih),iface)
+    end do
+
+    do ih = 1,2
+       jh = 1 + mod(ih,2)
+       iface = hedgpair(2,ih)
+       jface = hedgpair(2,jh)
+       
+       ! change v2h
+       ivert = tri(1,ih)
+       if ( mesh%v2h(1,ivert) == hedgpair(1,ih) .and. &
+            mesh%v2h(2,ivert) == hedgpair(2,ih) ) then
+          mesh%v2h(1,ivert) = ijk(2,jh)
+          mesh%v2h(2,ivert) = jface
+       end if
+
+       ! change tri (f2v)
+       mesh%tri(ijk(2,ih),iface) = tri(3,jh)
+
+       ! change twins
+       mesh%twin(1,ijk(2,ih),iface) = ijk(2,jh)
+       mesh%twin(2,ijk(2,ih),iface) = jface
+
+       mesh%twin(1:2,ijk(1,ih),iface) = twinj(1:2,jh)
+       if ( all(twinj(1:2,jh) > 0) ) then
+          mesh%twin(1,twinj(1,jh),twinj(2,jh)) = ijk(1,ih)
+          mesh%twin(2,twinj(1,jh),twinj(2,jh)) = iface
+       end if
+    end do
+    
+  end subroutine swap_edge
   
 end module mod_optimmesh

@@ -962,7 +962,6 @@ contains
     logical                     :: is_smooth
 
     is_smooth = brep%edges(iedge)%curve%smooth
-
   end function is_smooth
   
   function is_boundary_edge( &
@@ -974,9 +973,8 @@ contains
     logical                     :: is_boundary_edge
 
     is_boundary_edge = &
-         ( brep%edges(iedge)%halfedges(1)%face == 0 ) .or. &
-         ( brep%edges(iedge)%halfedges(2)%face == 0 )
-    
+         ( brep%edges(iedge)%halfedges(1)%face < 1 ) .or. &
+         ( brep%edges(iedge)%halfedges(2)%face < 1 )
   end function is_boundary_edge
 
 
