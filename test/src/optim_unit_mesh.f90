@@ -96,7 +96,7 @@ program optim_unit_mesh
 
 
   !*****
-  scale = 0.5_fp
+  scale = 0.3_fp
   scale = scale**2
   min_edgelen = 0.5_fp*scale
   max_edgelen = 2._fp*scale

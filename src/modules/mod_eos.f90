@@ -235,7 +235,8 @@ contains
 
   !-------------------------------------------------------------
   subroutine eos_from_curve( &
-       polyline, &
+       mode, &
+       curve, &
        head, &
        tail, &
        enve_rl, &
@@ -247,24 +248,26 @@ contains
     use mod_diffgeom
     use mod_types_intersection
     implicit none
-    !real(kind=fp), parameter                        :: FITTOL_uv = 1.d-7
-    !real(kind=fp), parameter                        :: FITTOL_xyz = 1.d-7
-    type(type_intersection_polyline), intent(in)    :: polyline
-    integer,                          intent(in)    :: head
-    integer,                          intent(in)    :: tail
-    type(ptr_surface),                intent(in)    :: enve_rl(2)
-    real(kind=fp),                    intent(out)   :: x(polyline%np)
-    real(kind=fp), allocatable,       intent(inout) :: xyzc(:,:,:)
-    integer,                          intent(out)   :: m, n
-    integer                                         :: step, np, degr
-    real(kind=fp)                                   :: y(polyline%np,7)
-    real(kind=fp), allocatable                      :: c(:,:), d(:,:)
-    real(kind=fp)                                   :: cond, errL2, errLinf
-    real(kind=fp), allocatable                      :: u(:)
-    real(kind=fp), allocatable                      :: g(:,:), dg(:,:)
-    real(kind=fp), allocatable                      :: uv(:,:), erl(:,:,:)
-    integer                                         :: irl, ipt
+    integer,                               intent(in)    :: mode
+    type(type_intersection_curve), target, intent(in)    :: curve
+    integer,                               intent(in)    :: head
+    integer,                               intent(in)    :: tail
+    type(ptr_surface),                     intent(in)    :: enve_rl(2)
+    real(kind=fp), allocatable,            intent(inout) :: x(:)
+    real(kind=fp), allocatable,            intent(inout) :: xyzc(:,:,:)
+    integer,                               intent(out)   :: m, n
+    type(type_intersection_polyline), pointer            :: polyline => null()
+    integer                                              :: step, np, degr
+    real(kind=fp), allocatable                           :: y(:,:)
+    real(kind=fp), allocatable                           :: c(:,:), d(:,:)
+    real(kind=fp)                                        :: cond, errL2, errLinf
+    real(kind=fp), allocatable                           :: u(:)
+    real(kind=fp), allocatable                           :: g(:,:), dg(:,:)
+    real(kind=fp), allocatable                           :: uv(:,:), erl(:,:,:)
+    integer                                              :: irl, ipt
 
+    polyline => curve%polyline
+    
     !! fit Chebyshev polynomial to intersection curve
     step = sign(1,tail-head)
     np = 1 + (tail-head)/step
@@ -272,15 +275,23 @@ contains
     m = degr+1
     allocate(c(m,7))
 
-    x(1) = 0._fp
-    x(2:np) = sqrt(sum((&
-         polyline%xyz(1:3,head+step:tail:step) - &
-         polyline%xyz(1:3,head:tail-step:step))**2, 1))
-    do ipt = 2,np
-       x(ipt) = x(ipt-1) + x(ipt)
-    end do
-    x = 2._fp*x/x(np) - 1._fp
+    ! curve parameter = chordal arclength approximation (normalized to [-1,1])
+    !x(1) = 0._fp
+    !x(2:np) = sqrt(sum((&
+    !     polyline%xyz(1:3,head+step:tail:step) - &
+    !     polyline%xyz(1:3,head:tail-step:step))**2, 1))
+    !do ipt = 2,np
+    !   x(ipt) = x(ipt-1) + x(ipt)
+    !end do
+    !x = 2._fp*x/x(np) - 1._fp
+    call intersection_segment_parameter( &
+         curve, &
+         head, &
+         tail, &
+         mode, &
+         x )
 
+    allocate(y(np,7))
     y(1:np,1:2) = transpose(polyline%uv(1:2,1,head:tail:step))
     y(1:np,3:4) = transpose(polyline%uv(1:2,2,head:tail:step))
     y(1:np,5:7) = transpose(polyline%xyz(1:3,head:tail:step))
@@ -294,7 +305,7 @@ contains
          cond, &
          errL2, &
          errLinf )
-
+    deallocate(y)
     PRINT *,'COND =', COND, 'ERR_(L2,LINF) =', ERRL2, ERRLINF
 
     !! compute the polynomial's derivative
@@ -378,7 +389,7 @@ contains
     use mod_polynomial
     USE MOD_UTIL
     implicit none
-    LOGICAL :: DEBUG = .FALSE.
+    LOGICAL :: DEBUG = .false.
     real(kind=fp), parameter          :: mrg = 0.1_fp
     real(kind=fp),      intent(in)    :: center(3)
     integer,            intent(in)    :: n
@@ -642,6 +653,7 @@ contains
 
   !-------------------------------------------------------------
   subroutine make_partial_eos( &
+       parameterization_mode, &
        surf, &
        nsurf, &
        interdata, &
@@ -661,6 +673,7 @@ contains
     use mod_intersection
     use mod_util
     implicit none
+    integer,                                 intent(in)    :: parameterization_mode
     integer,                                 intent(in)    :: nsurf
     type(type_surface), target,              intent(in)    :: surf(nsurf)
     type(type_intersection_data), target,    intent(in)    :: interdata
@@ -839,9 +852,10 @@ contains
                sens, &
                np )
 
-          allocate(abscissa(np))
+          !allocate(abscissa(np))
           call eos_from_curve( &
-               curve%polyline, &
+               parameterization_mode, &
+               curve, &
                head, &
                tail, &
                enve_rl, &
@@ -942,8 +956,8 @@ contains
        !       - xyz polyline vertex coordinates
        !       - uv polyline vertex coordinates in incident eos_surf
        do
-          PRINT *,ihedg, BREP%EDGES(IHEDG(1))%HYPEREDGE
-          if ( edgetype(ihedg(1)) == 2 ) then
+          PRINT *,ihedg(1), edgetype(ihedg(1)), BREP%EDGES(IHEDG(1))%HYPEREDGE
+          if ( edgetype(ihedg(1)) == 2 ) then ! current incident edge is convex
              if ( ihedg(2) == 1 ) then
                 iborder = 4
              else
@@ -1001,7 +1015,6 @@ contains
              do iedge = 1,2
                 surfpair(iedge)%ptr => edge_eos(iconvex(1,1+mod(iedge,2)))%ptr
              end do
-
              ! for now we assume np is equal for both incident curves' polylines
              ! (=> in particular ntot = 2*np)
              head = iconvex(3,1)
@@ -1009,7 +1022,7 @@ contains
              np = tail - head + 1
              do jpoint = 1,2
                 ipoint = 1 + (jpoint-1)*(np-1)
-                uvendpoint(1:2,1) = uveosedg(1:2,2*np-1+ipoint)
+                uvendpoint(1:2,1) = uveosedg(1:2,2*np+1-ipoint)
                 uvendpoint(1:2,2) = uveosedg(1:2,ipoint)
                 call add_intersection_point( &
                      uvendpoint, &
@@ -1114,5 +1127,81 @@ contains
   end subroutine make_partial_eos
   !-------------------------------------------------------------
 
+
+
+  !-------------------------------------------------------------
+  subroutine intersection_segment_parameter( &
+       curve, &
+       head, &
+       tail, &
+       mode, &
+       w )
+    use mod_types_intersection
+    implicit none
+    type(type_intersection_curve), intent(in), target :: curve
+    integer,                       intent(in)         :: head
+    integer,                       intent(in)         :: tail
+    integer,                       intent(in)         :: mode
+    real(kind=fp), allocatable,    intent(inout)      :: w(:)
+    type(type_intersection_polyline), pointer         :: polyline => null()
+    real(kind=fp)                                     :: dp(3), dpsqr, invdpsqr
+    integer                                           :: step, np, i, j
+
+    if ( .not.associated(curve%polyline) ) STOP 'intersection_segment_parameter: polyline not associated'
+
+    polyline => curve%polyline
+    if ( .not.allocated(polyline%xyz) ) STOP 'intersection_segment_parameter: xyz not allocated'
+    step = sign(1,tail-head)
+    np = 1 + (tail-head)/step
+
+    if ( np < 1 ) STOP 'intersection_segment_parameter: np < 1'
+    allocate(w(np))
+
+    if ( mode > 2 ) then
+       dp = polyline%xyz(1:3,tail) - polyline%xyz(1:3,head)
+       dpsqr = sum(dp**2)
+       if ( abs(dpsqr) < EPSmath**2 ) STOP 'intersection_segment_parameter: |dp| << 1'
+       invdpsqr = 1._fp / dpsqr
+    end if
+
+    select case (mode)
+    case (1) ! Hohmeyer's parameter (injectivity guaranteed)
+       do i = 1,np
+          j = head + (i-1)*step
+          w(i) = dot_product(polyline%xyz(1:3,j), curve%param_vector)
+       end do
+
+    case (2) ! chordal approximation of arclength (injectivity guaranteed)
+       w(1) = 0._fp
+       w(2:np) = sqrt(sum((&
+            polyline%xyz(1:3,head+step:tail:step) - &
+            polyline%xyz(1:3,head:tail-step:step))**2, 1))
+       do i = 2,np
+          w(i) = w(i-1) + w(i)
+       end do
+
+    case (3) ! chord fraction (injectivity NOT guaranteed)
+       w(1) = 0._fp
+       do i = 2,np-1
+          j = head + (i-1)*step
+          w(i) = sqrt(invdpsqr*sum((polyline%xyz(1:3,j) - polyline%xyz(1:3,head))**2))
+       end do
+       w(np) = 1._fp
+
+    case (4) ! ratio of distances from endpoints (injectivity NOT guaranteed)
+       w(1) = 0._fp
+       do i = 2,np-1
+          j = head + (i-1)*step
+          w(i) = invdpsqr * dot_product(polyline%xyz(1:3,j) - polyline%xyz(1:3,head), dp)
+       end do
+       w(np) = 1._fp
+
+    end select
+
+    ! normalize to [-1,1]
+    w(1:np) = -1._fp + 2._fp*(w(1:np) - w(1))/(w(np) - w(1))
+
+  end subroutine intersection_segment_parameter
+  !-------------------------------------------------------------
 
 end module mod_eos

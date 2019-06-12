@@ -22,6 +22,8 @@ program demo_EoS_MAT
   character(10)                           :: argstr
   real(kind=fp)                           :: timestep
 
+  integer                                 :: parameterization_mode = 2
+
   type(type_surface), target              :: surf(2)
   integer                                 :: npb
   type(type_intersection_data), target    :: interdata
@@ -189,6 +191,7 @@ program demo_EoS_MAT
 
   !!...
   call make_partial_eos( &
+       parameterization_mode, &
        surf, &
        2, &
        interdata, &

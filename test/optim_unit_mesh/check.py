@@ -32,9 +32,9 @@ for iax, pref in enumerate(prefs):
    
     lhe.plot_mesh(mesh, ax[iax],
                   faces=False,
-                  halfedges=True,
+                  halfedges=False,
                   vertices=False,
-                  v2h=True,
+                  v2h=False,
                   v2f=False)
     ax[iax].set_aspect('equal')
     ax[iax].set_title(pref)
