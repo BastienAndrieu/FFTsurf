@@ -28,7 +28,9 @@ nv = numel(files_v);
 % cl = colorcet( 'I2', 'N', ns+ne+nv );
 % cl = CC( cl, 0.0, 0.8, 1.5 );
 % cl = cl(randperm(size(cl,1)),:);
-cl = importdata('/d/bandrieu/GitHub/These/memoire/figures/code/demo_EoS_brep_palette.dat');
+%cl = importdata('/d/bandrieu/GitHub/These/memoire/figures/code/demo_EoS_brep_palette.dat');
+cl = importdata('/d/bandrieu/GitHub/These/memoire/figures/data/BRep/face_color.dat');
+
 cl = repmat(cl,2,1);
 cl = ones(ns+ne+nv,3);
 

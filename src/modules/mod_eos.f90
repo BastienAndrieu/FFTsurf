@@ -187,7 +187,9 @@ contains
        n, &
        e )
     use mod_geometry
+    USE MOD_UTIL
     implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,                       intent(in)  :: m
     real(kind=fp), dimension(3,m), intent(in)  :: g, dg, er, el
     integer,                       intent(in)  :: n
@@ -197,11 +199,24 @@ contains
     !real(kind=fp)                              :: ei(3,n)
     integer                                    :: i, j
     real(kind=fp)                              :: angle, aj, eor90d(3)
-
+    INTEGER :: FID, K
+    
     o = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
-
+    
+    IF ( DEBUG ) CALL WRITE_MATRIX( &
+         TRANSPOSE(O(1:3,1:M)), &
+         M, 3, &
+         '../debug/eos_from_polyline_center.dat' )
+    
     eor = er - o
     eol = el - o
+
+    IF ( DEBUG ) THEN
+       CALL GET_FREE_UNIT(FID)
+       OPEN(UNIT=FID, &
+            FILE='../debug/eos_from_polyline_localframe.dat', &
+            ACTION='WRITE')
+    END IF
 
     do i = 1,m      
        !call slerp( &
@@ -215,8 +230,11 @@ contains
             (norm2(eor(1:3,i))*norm2(dg(1:3,i)))
        angle = atan2(dot_product(eor90d, eol(1:3,i)),&
             dot_product(eor(1:3,i), eol(1:3,i)))
-
        if ( angle > 0._fp ) angle = angle - 2._fp*CSTpi
+
+       IF ( DEBUG ) THEN
+          WRITE (FID,*) EOR(1:3,I), EOR90D, ANGLE
+       END IF
 
        do j = 1,n
           !e(i,j,1:3) = o(1:3,i) + ei(1:3,j)
@@ -225,6 +243,24 @@ contains
                cos(aj)*eor(1:3,i) + sin(aj)*eor90d
        end do
     end do
+
+    IF ( DEBUG ) CLOSE(FID)
+
+    IF ( DEBUG ) THEN
+       CALL GET_FREE_UNIT(FID)
+       OPEN(UNIT=FID, &
+            FILE='../debug/eos_from_polyline_cgl_tpgrid.dat', &
+            ACTION='WRITE')
+       WRITE (FID, *), M, N, 3
+       DO K = 1,3
+          DO J = 1,N
+             DO I = 1,M
+                WRITE (FID,*) E(I,J,K)
+             END DO
+          END DO
+       END DO
+       CLOSE(FID)
+    END IF
 
   end subroutine eos_from_polyline
   !-------------------------------------------------------------
@@ -853,16 +889,29 @@ contains
                np )
 
           !allocate(abscissa(np))
-          call eos_from_curve( &
-               parameterization_mode, &
-               curve, &
-               head, &
-               tail, &
-               enve_rl, &
-               abscissa, &
-               xyz, &
-               m, &
-               n )
+          if ( .FALSE. ) then
+             call eos_from_curve( &
+                  parameterization_mode, &
+                  curve, &
+                  head, &
+                  tail, &
+                  enve_rl, &
+                  abscissa, &
+                  xyz, &
+                  m, &
+                  n )
+          else
+             call eos_from_curve2( &
+                  32, &
+                  curve, &
+                  head, &
+                  tail, &
+                  enve_rl, &
+                  abscissa, &
+                  xyz, &
+                  m, &
+                  n )
+          end if
 
           call reset_polynomial(surf_new(nsurf_new)%x, 2, 1, [m-1,n-1], 3)
           call fcht2( &
@@ -1203,5 +1252,327 @@ contains
 
   end subroutine intersection_segment_parameter
   !-------------------------------------------------------------
+
+
+
+
+
+
+
+  subroutine eos_from_curve2( &
+       degr, &
+       curve, &
+       head, &
+       tail, &
+       enve_rl, &
+       w, &
+       xyzc, &
+       m, &
+       n )
+    use mod_chebyshev
+    use mod_diffgeom
+    use mod_types_intersection
+    use mod_intersection
+    use mod_tolerances
+    USE MOD_UTIL
+    implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
+    integer,                               intent(in)    :: degr
+    type(type_intersection_curve), target, intent(in)    :: curve
+    integer,                               intent(in)    :: head
+    integer,                               intent(in)    :: tail
+    type(ptr_surface),                     intent(in)    :: enve_rl(2)
+    real(kind=fp), allocatable,            intent(inout) :: w(:)
+    real(kind=fp), allocatable,            intent(inout) :: xyzc(:,:,:)
+    integer,                               intent(out)   :: m, n
+    type(type_intersection_polyline), pointer            :: polyline => null()
+    real(kind=fp)                                        :: whead, wtail, sign_dw, wj
+    real(kind=fp), allocatable                           :: wcgl(:)
+    integer                                              :: step, np
+    real(kind=fp), allocatable                           :: uv(:,:,:)
+    real(kind=fp), allocatable                           :: xyz(:,:)
+    real(kind=fp), dimension(4)                          :: lowerb, upperb
+    real(kind=fp), allocatable                           :: dxyz_dw(:,:)
+    real(kind=fp)                                        :: duv_ds(2,2,2), dxyz_ds(3,2)
+    integer                                              :: stat
+    real(kind=fp)                                        :: dw_ds, invdw_ds
+    real(kind=fp), allocatable                           :: erl(:,:,:)
+    real(kind=fp)                                        :: v(degr+1)
+    integer                                              :: ipt, jpt, irl
+
+    IF ( DEBUG) PRINT *,'HEAD, TAIL =', HEAD, TAIL
+    
+    m = degr + 1
+    
+    ! Choose polynomial degree for new surface
+    polyline => curve%polyline
+    whead = dot_product(curve%param_vector, polyline%xyz(1:3,head))
+    wtail = dot_product(curve%param_vector, polyline%xyz(1:3,tail))
+    if ( allocated(w) ) deallocate(w)
+    allocate(wcgl(m))
+    call cgl_nodes( &
+         wcgl, &
+         degr, &
+         whead, &
+         wtail )
+    IF ( DEBUG) PRINT *,'WHEAD, WTAIL =', WHEAD, WTAIL
+    sign_dw = sign(1._fp, wtail - whead)
+    
+    ! sample intersection curve at CGL nodes
+    ! (w is chosen to be Hohmeyer's parameter)
+    allocate(xyz(3,m), uv(2,2,m))
+    ! endpoints
+    uv(1:2,1:2,1) = polyline%uv(1:2,1:2,head)
+    xyz(1:3,1) = polyline%xyz(1:3,head)
+    
+    uv(1:2,1:2,m) = polyline%uv(1:2,1:2,tail)
+    xyz(1:3,m) = polyline%xyz(1:3,tail)
+
+    ! interior points
+    step = sign(1, tail - head)
+    jpt = head
+    do ipt = 2,degr
+       IF ( DEBUG) PRINT *,'IPT =', IPT
+       do 
+          wj = dot_product(curve%param_vector, polyline%xyz(1:3,jpt+step))
+          IF ( DEBUG) PRINT *,'  JPT =', JPT
+          IF ( DEBUG) PRINT *,'  WJ - W(IPT) =', wj - wcgl(ipt)
+          if ((wj - wcgl(ipt))*sign_dw > 0._fp) then
+             exit
+          else
+             jpt = jpt + step
+             cycle
+          end if
+       end do
+       ! first iterate
+       uv(1:2,1:2,ipt) = polyline%uv(1:2,1:2,jpt)
+       xyz(1:3,ipt) = polyline%xyz(1:3,jpt)
+
+       ! refine
+       lowerb = reshape(curve%uvbox(1,1:2,1:2), [4]) - EPSuv
+       upperb = reshape(curve%uvbox(2,1:2,1:2), [4]) + EPSuv
+       call newton_intersection_polyline2( &
+            curve%surf, &
+            curve%param_vector, &
+            lowerb, &
+            upperb, &
+            wcgl(ipt), &
+            EPSuv*abs(wtail - whead), &
+            stat, &
+            uv(1:2,1:2,ipt), &
+            xyz(1:3,ipt) )
+       
+    end do
+
+    !! compute tangents
+    allocate(dxyz_dw(3,m))
+    do ipt = 1,m
+       call diffgeom_intersection( &
+            curve%surf, &
+            uv(1:2,1:2,ipt), &
+            duv_ds, &
+            dxyz_ds, &
+            stat )
+       !dw_ds = dot_product(curve%param_vector, dxyz_ds(1:3,1))
+       !invdw_ds = 1._fp/dw_ds
+       dxyz_dw(1:3,ipt) = -dxyz_ds(1:3,1)*sign_dw!*invdw_ds * (2._fp/(wtail - whead))
+    end do
+
+    !! evaluate right and left boundary curves
+    allocate(erl(3,m,2))
+    do irl = 1,2
+       do ipt = 1,m
+          call eval( &
+               erl(1:3,ipt,irl), &
+               enve_rl(irl)%ptr, &
+               uv(1:2,irl,ipt) )
+       end do
+    end do
+
+    !! contruct portion of canal surfaces between right/left boundary curves
+    np = 1 + (tail - head)/step
+    allocate(w(np))
+    do ipt = head,tail,step
+       w(ipt) = dot_product(curve%param_vector, polyline%xyz(1:3,ipt))
+    end do
+    !! map w to [-1,1]
+    !w = -1._fp + 2._fp*(w - whead)/(wtail - whead)
+    n = m
+    allocate(xyzc(m,n,3))
+
+    call cgl_nodes( &
+         v, &
+         degr, &
+         1._fp, &
+         0._fp)
+    call eos_from_polyline( &
+         xyz, &
+         dxyz_dw, &
+         erl(1:3,1:m,1), &
+         erl(1:3,1:m,2), &
+         m, &
+         v, &!(w - whead)/(wtail - whead), &
+         n, &
+         xyzc )
+
+    xyzc(1:m,1:n,1:3) = xyzc(m:1:-1,1:n,1:3)
+
+    IF ( DEBUG ) THEN
+       CALL WRITE_MATRIX( &
+            TRANSPOSE(ERL(1:3,1:M,1)), &
+            M, 3, &
+            '../debug/eos_from_curve2_erl_1.dat' )
+       CALL WRITE_MATRIX( &
+            TRANSPOSE(ERL(1:3,1:M,2)), &
+            M, 3, &
+            '../debug/eos_from_curve2_erl_2.dat' )
+       CALL WRITE_MATRIX( &
+            TRANSPOSE(XYZ(1:3,1:M)), &
+            M, 3, &
+            '../debug/eos_from_curve2_xyz.dat' )
+       CALL WRITE_MATRIX( &
+            TRANSPOSE(DXYZ_DW(1:3,1:M)), &
+            M, 3, &
+            '../debug/eos_from_curve2_dxyz_dw.dat' )
+       CALL WRITE_MATRIX( &
+            [W], &
+            M, 1, &
+            '../debug/eos_from_curve2_w.dat' )
+       PAUSE
+    END IF
+
+    ! map w to [-1,1]
+    w = -1._fp + 2._fp*(w - whead)/(wtail - whead)
+
+    deallocate(wcgl, uv, xyz, dxyz_dw)
+    
+  end subroutine eos_from_curve2
+
+
+
+
+  subroutine newton_intersection_polyline2( &
+       surf, &
+       param_vector, &
+       lowerb, &
+       upperb, &
+       wtarget, &
+       tolw, &
+       stat, &
+       uv, &
+       xyz )
+    use mod_math
+    use mod_linalg
+    use mod_diffgeom
+    use mod_tolerances
+    implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
+    integer,           parameter     :: itmax = 2 + ceiling(-log10(EPSuv))
+    type(ptr_surface), intent(in)    :: surf(2)
+    real(kind=fp),     intent(in)    :: param_vector(3)
+    real(kind=fp),     intent(in)    :: lowerb(4)
+    real(kind=fp),     intent(in)    :: upperb(4)
+    real(kind=fp),     intent(in)    :: wtarget
+    real(kind=fp),     intent(in)    :: tolw
+    integer,           intent(out)   :: stat
+    real(kind=fp),     intent(inout) :: uv(2,2)
+    real(kind=fp),     intent(out)   :: xyz(3)
+    real(kind=fp)                    :: xyz_tmp(3,2)
+    real(kind=fp)                    :: resw, resxyz(3)
+    real(kind=fp)                    :: jac(4,4), duv(4)
+    real(kind=fp)                    :: cond, erruv
+    integer                          :: it, isurf, ivar
+    integer                          :: stat_refl
+
+    IF ( DEBUG ) THEN
+       PRINT *,''; PRINT *,'';
+       PRINT *,'NEWTON_INTERSECTION_POLYLINE2'
+       PRINT *,'WTARGET =',wtarget
+       PRINT *,'LOWERB =',LOWERB
+       PRINT *,'UPPERB =',UPPERB
+    END IF
+    
+    stat = 1
+    erruv = 0._fp
+    cond = 1._fp
+
+    do it = 1,itmax
+       !! compute residual
+       do isurf = 1,2
+          call eval( &
+               xyz_tmp(:,isurf), &
+               surf(isurf)%ptr, &
+               uv(:,isurf) )
+       end do
+
+       resxyz = xyz_tmp(1:3,2) - xyz_tmp(1:3,1)
+       resw = wtarget - dot_product(param_vector, xyz_tmp(1:3,1))
+
+       IF ( DEBUG ) THEN
+          PRINT *,'RESXYZ =',NORM2(RESXYZ), ', RESW =',ABS(RESW)
+       END IF
+
+       !! compute Jacobian matrix
+       do isurf = 1,2
+        do ivar = 1,2
+           call evald1( &
+                jac(1:3,2*(isurf-1)+ivar), &
+                surf(isurf)%ptr, &
+                uv(:,isurf), &
+                ivar)
+        end do
+     end do
+     jac(1:3,3:4) = -jac(1:3,3:4)
+     do ivar = 1,2
+        jac(4,ivar) = dot_product(param_vector, jac(1:3,ivar))
+     end do
+     jac(4,3:4) = 0._fp
+
+     !! solve for Newton step
+     call linsolve_svd( &
+          duv, &
+          jac, &
+          [resxyz, resw], &
+          4, &
+          4, &
+          1, &
+          cond )
+     erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
+
+     !! correct Newton step to keep the iterate inside feasible region
+     call nd_box_reflexions( &
+          reshape(uv, [4]), &
+          lowerb, &
+          upperb, &
+          duv, &
+          4, &
+          stat_refl )
+     if ( stat_refl > 0 ) return
+
+     !! update solution
+     uv(:,1) = uv(:,1) + duv(1:2)
+     uv(:,2) = uv(:,2) + duv(3:4)
+
+     !! termination criteria
+     if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <--------+
+        if ( sum(resxyz**2) < EPSxyzsqr .and. &                     !
+             abs(resw) < tolw ) then ! <-------------------------+  !
+           stat = 0                                              !  !
+           do isurf = 1,2 ! <------------+                       !  !
+              call eval( &               !                       !  !
+                   xyz_tmp(:,isurf), &   !                       !  !
+                   surf(isurf)%ptr, &    !                       !  !
+                   uv(:,isurf) )         !                       !  !
+           end do ! <--------------------+                       !  !
+           xyz = 0.5_fp * sum(xyz_tmp, 2)                        !  !
+        else ! --------------------------------------------------+  !
+        end if ! ------------------------------------------------+  !
+        return                                                      !
+     end if ! <-----------------------------------------------------+
+
+  end do
+  
+  end subroutine newton_intersection_polyline2
+
 
 end module mod_eos

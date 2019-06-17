@@ -56,7 +56,7 @@ texchecker.image = imgchecker
 clf = numpy.loadtxt(pthout + 'face_color.dat')
 clf = lco.cc_hsv(clf, fs=1.2, fv=1.0)
 
-nf = 31
+nf = 33#31
 for iface in range(nf):
     strf = format(iface+1,'03')
     print('\nface #',iface+1)
@@ -101,7 +101,7 @@ for iface in range(nf):
 
     # material
     mat = bpy.data.materials.new('mat_face_'+strf)
-    mat.diffuse_color = clf[iface]
+    mat.diffuse_color = clf[iface%len(clf)]
     mat.diffuse_intensity = 1
     mat.specular_intensity = 0
     mat.specular_hardness = 30

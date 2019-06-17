@@ -9,6 +9,8 @@
 
 **/tecplot/*.dat
 
+test/Jouke/graph/*.dat
+
 **/output/connect*
 **/output/pos*
 **/output/reprises.dat

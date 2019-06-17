@@ -564,6 +564,12 @@ contains
        interdata%curves(interdata%nc)%surf(2)%ptr => surf(pair(2))
        interdata%curves(interdata%nc)%isplit(2,1:2) = [1,np]
 
+       ! ***********
+       interdata%curves(interdata%nc)%param_vector = xyz(1:3,np) - xyz(1:3,1)
+       interdata%curves(interdata%nc)%param_vector = interdata%curves(interdata%nc)%param_vector/&
+            norm2(interdata%curves(interdata%nc)%param_vector)
+       ! ***********
+
        allocate(interdata%curves(interdata%nc)%polyline)
        interdata%curves(interdata%nc)%polyline%np = np
        call move_alloc(from=xyz, to=interdata%curves(interdata%nc)%polyline%xyz)
