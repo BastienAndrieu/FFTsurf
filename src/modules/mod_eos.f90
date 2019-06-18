@@ -154,7 +154,7 @@ end subroutine trace_border_polyline
     call compute_deriv2(curv)
 
     ! endpoints
-    do ipt = 2,1,-1
+    do ipt = 1,2
        call eval_curvature_curve( &
             curv, &
             w_ends(ipt), &
@@ -1241,6 +1241,9 @@ end subroutine trace_border_polyline
           !PRINT *, IVERT, brep%edges(iconvex(1,1))%hyperedge, brep%edges(iconvex(2,1))%hyperedge
           if ( nconvex == 2 .and. &
                brep%edges(iconvex(1,1))%hyperedge == brep%edges(iconvex(1,2))%hyperedge ) then
+             ! both incident convex edges are on the same hyperedge,
+             ! we just add a tangential instersection curve between
+             ! the new surfaces associated to those edges
              do iedge = 1,2
                 surfpair(iedge)%ptr => edge_eos(iconvex(1,1+mod(iedge,2)))%ptr
              end do

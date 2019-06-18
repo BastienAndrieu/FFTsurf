@@ -1,5 +1,8 @@
 module mod_init
 
+
+  
+
 contains
 
 
@@ -1510,6 +1513,122 @@ contains
     
   end subroutine extract_intersection_polyline_vertices
 
+
+
+
+
+
+
+
+
+
+  subroutine make_all_meshgen_edges( &
+       brep, &
+       options, &
+       mgedges )
+    use mod_options
+    use mod_types_intersection
+    use mod_types_brep
+    use mod_brep
+    implicit none
+    type(type_brep),                  intent(in)    :: brep
+    type(type_options),               intent(in)    :: options
+    type(type_intersection_polyline), intent(inout) :: mgedges(brep%ne)
+    integer                                         :: iedge
+    integer                                         :: head, tail, sens, np
+    integer                                         :: stat
+    
+    do iedge = 1,brep%ne
+       PRINT *,''; PRINT *,''; 
+       PRINT *,'IEDGE =', IEDGE
+       call get_polyline_endpoints( &
+            brep, &
+            [iedge, 1], &
+            head, &
+            tail, &
+            sens, &
+            np )
+
+       call make_meshgen_edge( &
+            brep%edges(iedge)%curve, &
+            head, &
+            tail, &
+            options%chord_err, &
+            options%hmin, &
+            options%hmax, &
+            stat, &
+            mgedges(iedge) )
+    end do
+    
+  end subroutine make_all_meshgen_edges
+
+
+  
+  subroutine make_meshgen_edge( &
+       curve, &
+       head, &
+       tail, &
+       tolchord, &
+       hmin, &
+       hmax, &
+       stat, &
+       mgedge )
+    use mod_types_intersection
+    use mod_types_brep
+    use mod_intersection
+    use mod_tolerances
+    implicit none
+    type(type_intersection_curve), target, intent(in)    :: curve
+    integer,                               intent(in)    :: head
+    integer,                               intent(in)    :: tail
+    real(kind=fp),                         intent(in)    :: tolchord
+    real(kind=fp),                         intent(in)    :: hmin
+    real(kind=fp),                         intent(in)    :: hmax
+    integer,                               intent(out)   :: stat
+    type(type_intersection_polyline),      intent(inout) :: mgedge
+    type(type_intersection_polyline), pointer            :: polyline => null()
+    integer                                              :: head_tmp, tail_tmp
+    integer                                              :: ipt, step
+    integer                                              :: stat_insert
+
+    polyline => curve%polyline
+    step = sign(1, tail - head)
+    
+    do ipt = head,tail,step
+       call insert_polyline_point( &
+            polyline%uv(1:2,1:2,ipt), &
+            polyline%xyz(1:3,ipt), &
+            stat_insert, &
+            mgedge )
+
+       if ( stat_insert > 0 ) then
+          PRINT *,'!!! make_meshgen_edge: FAILED TO INSERT POLYLINE POINT'
+          stat = stat_insert
+          return
+       end if
+    end do
+
+    IF ( .true. ) THEN
+       head_tmp = 1
+       tail_tmp = mgedge%np
+       call remesh_intersection_polyline( &
+            curve%surf, &
+            reshape(curve%uvbox(1,1:2,1:2) - EPSuv, [4]), &
+            reshape(curve%uvbox(2,1:2,1:2) + EPSuv, [4]), &
+            mgedge, &
+            head_tmp, &
+            tail_tmp, &
+            tolchord, &
+            hmin, &
+            hmax, &
+            stat )
+       if ( stat > 0 ) then
+          PRINT *,'!!! make_meshgen_edge: stat =',STAT
+          RETURN
+       end if
+    END IF
+       
+  end subroutine make_meshgen_edge
 
   
 end module mod_init
