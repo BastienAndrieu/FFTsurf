@@ -364,4 +364,51 @@ contains
   end subroutine eval_curvature_surface
 
 
+
+  subroutine eval_curvature_curve( &
+       curv, &
+       w, &
+       k, &
+       d1opt, &
+       d2opt )
+    implicit none
+    type(type_curve),        intent(in)  :: curv
+    real(kind=fp),           intent(in)  :: w
+    real(kind=fp),           intent(out) :: k
+    real(kind=fp), optional, intent(in)  :: d1opt(curv%x%dim)
+    real(kind=fp), optional, intent(in)  :: d2opt(curv%x%dim)
+    real(kind=fp), dimension(curv%x%dim) :: d1, d2
+    real(kind=fp)                        :: d1sqr
+
+    if ( present(d1opt) ) then
+       d1 = d1opt
+    else
+       call evald1( &
+            d1, &
+            curv, &
+            w )
+    end if
+
+    if ( present(d2opt) ) then
+       d2 = d2opt
+    else
+       call evald2( &
+            d2, &
+            curv, &
+            w )
+    end if
+
+    d1sqr = sum(d1**2)
+
+    select case (size(d1))
+    case (2)
+       k = (d1(1)*d2(2) - d1(2)*d2(1))/(d1sqr*sqrt(d1sqr))
+    case (3)
+       k = norm2(cross(d1, d2))/(d1sqr*sqrt(d1sqr))
+    case default
+       STOP 'eval_curvature_curve: curv%x%dim must equal 2 or 3'
+    end select
+
+  end subroutine eval_curvature_curve
+
 end module mod_diffgeom

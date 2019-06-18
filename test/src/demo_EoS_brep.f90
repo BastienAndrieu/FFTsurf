@@ -45,7 +45,7 @@ program demo_EoS_brep
   type(type_intersection_data), target    :: interdata_new
   type(type_brep)                         :: brep_new
 
-  integer                                 :: parameterization_mode = 2
+  integer                                 :: parameterization_mode = -1
 
 
   real(kind=fp)                           :: xyzverif(3,2)

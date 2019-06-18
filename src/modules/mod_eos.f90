@@ -67,48 +67,226 @@ contains
             uv(1:2,ip) )
     end do
 
-  end subroutine trace_border_polyline
+end subroutine trace_border_polyline
   !-------------------------------------------------------------
 
 
   !-------------------------------------------------------------
-  !subroutine trace_border_polyline_adaptive( &
-  !     surf, &
-  !     iborder, &
-  !     tolchord, &
-  !     hmin, &
-  !     hmax, &
-  !     stat, &
-  !     uvxyz, &
-  !     np )
-  !  use mod_diffgeom
-  !  implicit none
-  !  type(type_surface),         intent(in)    :: surf
-  !  integer,                    intent(in)    :: iborder
-  !  real(kind=fp),              intent(in)    :: tolchord
-  !  real(kind=fp),              intent(in)    :: hmin, hmax
-  !  integer,                    intent(out)   :: stat
-  !  real(kind=fp), allocatable, intent(inout) :: uvxyz(:,:)
-  !  integer,                    intent(out)   :: np
-  !  real(kind=fp)                             :: uvends(2,2)
-  !  real(kind=fp)                             :: h_endpoints(2)
-  !  
-  !  select case (iborder)
-  !  case (1)
-  !     uvends(1,1:2) = [-1._fp, 1._fp]
-  !     uvends(2,1:2) = -1._fp
-  !  case (2)
-  !     uvends(1,1:2) = 1._fp  
-  !     uvends(2,1:2) = [-1._fp, 1._fp]
-  !  case (3)
-  !     uvends(1,1:2) = [1._fp, -1._fp]
-  !     uvends(2,1:2) = 1._fp
-  !  case (4)
-  !     uvends(1,1:2) = -1._fp  
-  !     uvends(2,1:2) = [1._fp, -1._fp]
-  !  end select
-  !(...)
-  !end subroutine trace_border_polyline_adaptive
+  subroutine trace_border_polyline_adaptive( &
+       surf, &
+       iborder, &
+       tolchord, &
+       hmin, &
+       hmax, &
+       stat, &
+       uv, &
+       xyz, &
+       np )
+    use mod_util
+    use mod_polynomial
+    use mod_diffgeom
+    use mod_tolerances
+    implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
+    real(kind=fp), parameter                  :: FRACbacktrack = 0.5_fp
+    type(type_surface),         intent(in)    :: surf
+    integer,                    intent(in)    :: iborder
+    real(kind=fp),              intent(in)    :: tolchord
+    real(kind=fp),              intent(in)    :: hmin, hmax
+    integer,                    intent(out)   :: stat
+    real(kind=fp), allocatable, intent(inout) :: uv(:,:)
+    real(kind=fp), allocatable, intent(inout) :: xyz(:,:)
+    integer,                    intent(out)   :: np
+    real(kind=fp)                             :: FRACcurvature_radius 
+    integer                                   :: ivar, ival, jvar
+    real(kind=fp)                             :: w_ends(2), sign_dw
+    type(type_curve)                          :: curv
+    real(kind=fp)                             :: curvature
+    real(kind=fp)                             :: h_ends(2), xyz_ends(3,2)
+    real(kind=fp)                             :: w, h
+    real(kind=fp)                             :: dist_from_end
+    real(kind=fp)                             :: dxyz_dw(3)
+    real(kind=fp)                             :: norm_dxyz_dw
+    real(kind=fp)                             :: w_next, xyz_next(3), uv_next(2), h_next
+    integer                                   :: ipt, ntmp
+
+    IF ( DEBUG ) THEN
+       PRINT *,'-->> TRACE_BORDER_POLYLINE_ADAPTIVE'
+       PRINT *,'IBORDER =',IBORDER
+       PRINT *,'TOLCHORD =',TOLCHORD
+       PRINT *,'HMIN =',HMIN
+       PRINT *,'HMAX =',HMAX
+    END IF
+
+    stat = 0
+    FRACcurvature_radius = 2._fp*sqrt(tolchord*(2._fp - tolchord))
+    
+    select case (iborder)
+    case (1)
+       ivar = 2
+       ival = 1
+       w_ends(1:2) = [-1._fp, 1._fp]
+    case (2)
+       ivar = 1
+       ival = 2
+       w_ends(1:2) = [-1._fp, 1._fp]
+    case (3)
+       ivar = 2
+       ival = 2
+       w_ends(1:2) = [1._fp, -1._fp]
+    case (4)
+       ivar = 1
+       ival = 1
+       w_ends(1:2) = [1._fp, -1._fp]
+    end select
+    ! uv(ivar) = (-1)**ival
+    ! uv(jvar) = w
+    jvar = 1 + mod(ivar,2) ! free parameter
+
+    sign_dw = sign(1._fp, w_ends(2) - w_ends(1))
+
+    call bivar2univar( &
+         surf%x, &
+         curv%x, &
+         ivar, &
+         ival )
+    call compute_deriv1(curv)
+    call compute_deriv2(curv)
+
+    ! endpoints
+    do ipt = 2,1,-1
+       call eval_curvature_curve( &
+            curv, &
+            w_ends(ipt), &
+            curvature )
+       IF ( DEBUG ) PRINT *,'  ENDPOINT #',IPT,', CURVATURE =', CURVATURE
+       h_ends(ipt) = FRACcurvature_radius/max(EPSfp, curvature)
+       
+       call eval( &
+            xyz_ends(1:3,ipt), &
+            curv, &
+            w_ends(ipt) )
+    end do
+    h_ends = max(h_ends, hmin)
+    h_ends = min(h_ends, hmax)
+    IF ( DEBUG ) PRINT *,'H_ENDS =',H_ENDS
+
+    ! first point
+    np = 0
+    call append_vec( &
+         xyz_ends(1:3,1), &
+         3, &
+         xyz, &
+         np )
+    uv_next(ivar) = real((-1)**ival, kind=fp)
+    uv_next(jvar) = w_ends(1)
+    ntmp = np - 1
+    call append_vec( &
+         uv_next, &
+         2, &
+         uv, &
+         ntmp )
+    
+    w = w_ends(1)
+    h = h_ends(1)
+
+    outer : do
+       ! check if the current is close enough to the end of the polyline
+       dist_from_end = sum((xyz(1:3,np) - xyz_ends(1:3,2))**2)
+       !IF ( DEBUG ) PRINT *,' DIST_FROM_END =',SQRT(DIST_FROM_END)
+
+       if ( dist_from_end < h**2 ) then ! <--------------------------------------+
+          if ( dist_from_end < h_ends(2)**2 ) then ! <------------------------+  !
+             ! current point too close from endpoint, simply remove it        !  !
+             if ( dist_from_end < (TOLh * min(h, h_ends(2)))**2 ) np = np - 1 !  !
+             !IF ( DEBUG ) PRINT *,'TOO CLOSE'
+             exit outer                                                       !  !
+          else ! -------------------------------------------------------------+  !
+             h = sqrt(dist_from_end)                                          !  !
+          end if ! <----------------------------------------------------------+  !
+       end if ! <----------------------------------------------------------------+
+
+       ! compute next point
+       call evald1( &
+            dxyz_dw, &
+            curv, &
+            w )
+       norm_dxyz_dw = norm2(dxyz_dw)
+
+       backtracking : do
+          w_next = w + sign_dw*h/norm_dxyz_dw
+          w_next = min(1._fp + EPSuv, max(-(1._fp + EPSuv), w_next))
+
+          call eval( &
+               xyz_next, &
+               curv, &
+               w_next )
+
+          if ( sum((xyz_next - xyz(1:3,np))**2) > (h*(1.0 + TOLh))**2 ) then
+             h = FRACbacktrack*h
+             if ( h < 0.001*hmin ) then
+                stat = 1
+                return
+             end if
+             cycle
+          end if
+
+          call eval_curvature_curve( &
+            curv, &
+            w_next, &
+            curvature )
+          h_next = FRACcurvature_radius/max(EPSfp, curvature)
+          h_next = min(hmax, max(hmin, h_next))
+
+          if ( h_next < h ) then
+             h = h_next
+          else      
+             exit backtracking
+          end if
+       end do backtracking
+
+       ! add point
+       IF ( DEBUG ) PRINT *,' + 1 POINT'
+       call append_vec( &
+         xyz_next, &
+         3, &
+         xyz, &
+         np )
+       ntmp = np - 1
+       uv_next(ivar) = uv(ivar,1)
+       uv_next(jvar) = w_next
+       call append_vec( &
+         uv_next, &
+         2, &
+         uv, &
+         ntmp )
+       w = w_next
+       h = h_next
+            
+    end do outer
+
+    ! last point
+    call append_vec( &
+         xyz_ends(1:3,2), &
+         3, &
+         xyz, &
+         np )
+    ntmp = np - 1
+    uv_next(ivar) = uv(ivar,1)
+    uv_next(jvar) = w_ends(2)
+    call append_vec( &
+         uv_next, &
+         2, &
+         uv, &
+         ntmp )
+
+    !! get uv coordinates
+    !if ( allocated(uv) ) then
+    !   if ( size(uv,1) < 2 .or. size(uv,2) < np ) deallocate(uv)
+    !end if
+    !if ( .not.allocated(uv) ) allocate(uv(2,np))  
+    
+  end subroutine trace_border_polyline_adaptive
   !-------------------------------------------------------------
 
 
@@ -889,18 +1067,7 @@ contains
                np )
 
           !allocate(abscissa(np))
-          if ( .FALSE. ) then
-             call eos_from_curve( &
-                  parameterization_mode, &
-                  curve, &
-                  head, &
-                  tail, &
-                  enve_rl, &
-                  abscissa, &
-                  xyz, &
-                  m, &
-                  n )
-          else
+          if ( parameterization_mode < 0 ) then
              call eos_from_curve2( &
                   32, &
                   curve, &
@@ -911,8 +1078,21 @@ contains
                   xyz, &
                   m, &
                   n )
+          else
+             call eos_from_curve( &
+                  parameterization_mode, &
+                  curve, &
+                  head, &
+                  tail, &
+                  enve_rl, &
+                  abscissa, &
+                  xyz, &
+                  m, &
+                  n )
           end if
 
+          !PRINT *,'EOS_FROM_CURVE OK'
+          
           call reset_polynomial(surf_new(nsurf_new)%x, 2, 1, [m-1,n-1], 3)
           call fcht2( &
                xyz, &
@@ -1295,7 +1475,6 @@ contains
     real(kind=fp), allocatable                           :: dxyz_dw(:,:)
     real(kind=fp)                                        :: duv_ds(2,2,2), dxyz_ds(3,2)
     integer                                              :: stat
-    real(kind=fp)                                        :: dw_ds, invdw_ds
     real(kind=fp), allocatable                           :: erl(:,:,:)
     real(kind=fp)                                        :: v(degr+1)
     integer                                              :: ipt, jpt, irl
@@ -1373,9 +1552,8 @@ contains
             duv_ds, &
             dxyz_ds, &
             stat )
-       !dw_ds = dot_product(curve%param_vector, dxyz_ds(1:3,1))
-       !invdw_ds = 1._fp/dw_ds
-       dxyz_dw(1:3,ipt) = -dxyz_ds(1:3,1)*sign_dw!*invdw_ds * (2._fp/(wtail - whead))
+       IF ( STAT /= 0 ) PRINT *,'eos_from_curve2: diffgeom_intersection: STAT =',STAT
+       dxyz_dw(1:3,ipt) = -dxyz_ds(1:3,1)*sign_dw
     end do
 
     !! evaluate right and left boundary curves
@@ -1395,8 +1573,6 @@ contains
     do ipt = head,tail,step
        w(ipt) = dot_product(curve%param_vector, polyline%xyz(1:3,ipt))
     end do
-    !! map w to [-1,1]
-    !w = -1._fp + 2._fp*(w - whead)/(wtail - whead)
     n = m
     allocate(xyzc(m,n,3))
 
@@ -1411,7 +1587,7 @@ contains
          erl(1:3,1:m,1), &
          erl(1:3,1:m,2), &
          m, &
-         v, &!(w - whead)/(wtail - whead), &
+         v, &
          n, &
          xyzc )
 
