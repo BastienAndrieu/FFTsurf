@@ -406,13 +406,13 @@ end subroutine trace_border_polyline
 
        eor90d = norm2(eol(1:3,i))*cross(dg(1:3,i), eor(1:3,i)) / &
             (norm2(eor(1:3,i))*norm2(dg(1:3,i)))
-       angle = atan2(dot_product(eor90d, eol(1:3,i)),&
-            dot_product(eor(1:3,i), eol(1:3,i)))
+       angle = atan2( &
+            dot_product(eor90d, eol(1:3,i)),&
+            dot_product(eor(1:3,i), eol(1:3,i)) &
+            )
        if ( angle > 0._fp ) angle = angle - 2._fp*CSTpi
 
-       IF ( DEBUG ) THEN
-          WRITE (FID,*) EOR(1:3,I), EOR90D, ANGLE
-       END IF
+       IF ( DEBUG ) WRITE (FID,*) EOR(1:3,I), EOR90D, ANGLE
 
        do j = 1,n
           !e(i,j,1:3) = o(1:3,i) + ei(1:3,j)
@@ -614,7 +614,7 @@ end subroutine trace_border_polyline
     real(kind=fp),      intent(out)   :: uv(2,n)
     real(kind=fp),      intent(out)   :: longlat_range(2)
     real(kind=fp),      intent(out)   :: solidangle
-    real(kind=fp)                     :: xyzavg(3), ravg, r
+    real(kind=fp)                     :: xyzavg(3), xyzavg_sqr, ravg, r
     real(kind=fp)                     :: axes(3,3)
     real(kind=fp)                     :: xyzproj(3,n), dot
     real(kind=fp)                     :: boxcenter(2), boxranges(2), boxaxes(3,3)
@@ -639,7 +639,13 @@ end subroutine trace_border_polyline
        xyzavg(1:3) = xyzavg(1:3) + xyz(1:3,i)
        ravg = ravg + r
     end do
-    xyzavg = xyzavg/norm2(xyzavg)!real(n, kind=fp)
+    xyzavg_sqr = sum(xyzavg**2)
+    if ( xyzavg_sqr < EPSmath**2 ) then
+       stat = 2
+       return
+    end if
+    
+    xyzavg = xyzavg/sqrt(xyzavg_sqr)
     ravg = ravg/real(n, kind=fp)
 
     IF ( DEBUG ) CALL WRITE_MATRIX(TRANSPOSE(XYZ), N, 3, &

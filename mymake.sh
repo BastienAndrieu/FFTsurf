@@ -93,31 +93,31 @@ gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ src/fftsurf.f90 -o obj/fftsur
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o bin/fftsurf.out obj/fftsurf.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
 
 
-echo "...import_geometry.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/import_geometry.f90 -o test/obj/import_geometry.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/import_geometry.out test/obj/import_geometry.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
+#echo "...import_geometry.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/import_geometry.f90 -o test/obj/import_geometry.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/import_geometry.out test/obj/import_geometry.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
 
-echo "...util.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/util.f90 -o test/obj/util.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/util.out test/obj/util.o obj/mod_util.o
+#echo "...util.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/util.f90 -o test/obj/util.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/util.out test/obj/util.o obj/mod_util.o
 
-echo "...demo_vortex.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_vortex.f90 -o test/obj/demo_vortex.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_vortex.out test/obj/demo_vortex.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
-
-
-echo "...demo_enright.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_enright.f90 -o test/obj/demo_enright.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_enright.out test/obj/demo_enright.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
-
-echo "...chebyshev.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/chebyshev.f90 -o test/obj/chebyshev.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/chebyshev.out test/obj/chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
+#echo "...demo_vortex.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_vortex.f90 -o test/obj/demo_vortex.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_vortex.out test/obj/demo_vortex.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
 
 
-echo "...complexite_chebyshev.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/complexite_chebyshev.f90 -o test/obj/complexite_chebyshev.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/complexite_chebyshev.out test/obj/complexite_chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
+#echo "...demo_enright.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_enright.f90 -o test/obj/demo_enright.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_enright.out test/obj/demo_enright.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o -Lsrc/dfftpack -ldfftpack
+
+#echo "...chebyshev.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/chebyshev.f90 -o test/obj/chebyshev.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/chebyshev.out test/obj/chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
+
+
+#echo "...complexite_chebyshev.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/complexite_chebyshev.f90 -o test/obj/complexite_chebyshev.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/complexite_chebyshev.out test/obj/complexite_chebyshev.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o -Lsrc/dfftpack -ldfftpack
 
 
 echo "...demo_EoS_brep.out"
@@ -161,12 +161,18 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_intersection.o
 
 
 
-echo "...trace_border_adaptive.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/trace_border_adaptive.f90 -o test/obj/trace_border_adaptive.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/trace_border_adaptive.out test/obj/trace_border_adaptive.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
+#echo "...trace_border_adaptive.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/trace_border_adaptive.f90 -o test/obj/trace_border_adaptive.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/trace_border_adaptive.out test/obj/trace_border_adaptive.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
 
 
 
-echo "...meshgen_edges.out"
-gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/meshgen_edges.f90 -o test/obj/meshgen_edges.o
-gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/meshgen_edges.out test/obj/meshgen_edges.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
+#echo "...meshgen_edges.out"
+#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/meshgen_edges.f90 -o test/obj/meshgen_edges.o
+#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/meshgen_edges.out test/obj/meshgen_edges.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
+
+
+
+echo "...demo_EoS_propagation.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_EoS_propagation.f90 -o test/obj/demo_EoS_propagation.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_EoS_propagation.out test/obj/demo_EoS_propagation.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
