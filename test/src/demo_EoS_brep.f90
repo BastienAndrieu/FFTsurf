@@ -52,13 +52,20 @@ program demo_EoS_brep
   integer                                 :: i
   !-------------------------------------------------
 
-  !! Read argument
+  !! Read arguments
   if ( command_argument_count() < 1 ) then
      MAKE_EOS = .false.
   else
      call get_command_argument(1, argstr)
      read (argstr,*) argnum
      MAKE_EOS = (argnum > 0)
+
+     if ( command_argument_count() < 2 ) then
+          timestep = 1._fp
+     else
+          call get_command_argument(2, argstr)
+          read (argstr,*) timestep
+     end if
   end if
 
   !! read options file
@@ -311,7 +318,7 @@ program demo_EoS_brep
 
   ! ************ MAKE EoB ************
 
-  timestep = 1._fp
+  !timestep = 1._fp
   ! de-economize
   do isurf = 1,nsurf
      surf(isurf)%x%degr(1) = size(surf(isurf)%x%coef,1) - 1

@@ -2,45 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import cos, sin, atan2, pi
 import sys
+sys.path.append('/d/GitHub/FFTsurf/test/graph/')
+from lib_curved_graph import *
 
-#############################################################
-#############################################################
-class GraphNode:
-    def __init__(self, co=(0,0), ingoing=None, outgoing=None):
-        self.co = co
-        if ingoing is None:
-            self.ingoing = []
-        else:
-            self.ingoing = ingoing
-        if outgoing is None:
-            self.outgoing = []
-        else:
-            self.outgoing = outgoing
-        return
-#############################################################
-class GraphArc:
-    def __init__(self, orig=None, dest=None, angles=None):
-        if orig is None:
-            self.orig = []
-        else:
-            self.orig = orig
-        if dest is None:
-            self.dest = []
-        else:
-            self.dest = dest
-        if angles is None:
-            self.angles = []
-        else:
-            self.angles = angles
-        return
-    
-    def curve(self, n=100, tension=1):
-        return curved_arc([self.orig.co, self.dest.co], self.angles, n, tension)
-    
-    def plot(self, ax, n=100, tension=1, color='k', arrow_length=0):
-        aabb = plot_curved_arc(ax, [self.orig.co, self.dest.co], self.angles, n, tension, color, arrow_length)
-        return aabb
-#############################################################
+
 """
 class GraphCycle:
     def __init__(self, nodes=None, arcs=None):
@@ -54,17 +19,6 @@ class GraphCycle:
             self.arcs = arcs
         return
 """
-class GraphCycle:
-    def __init__(self, points=None, angles=None):
-        if points is None:
-            self.points = []
-        else:
-            self.points = points
-        if angles is None:
-            self.angles = []
-        else:
-            self.angles = angles
-        return
 #############################################################
 def remove_dangling_branches(nodes, arcs):
     while True:
@@ -86,71 +40,12 @@ def remove_dangling_branches(nodes, arcs):
                 nodes.remove(node)
         if not changes: return nodes, arcs
 #############################################################
-def plot_graph(ax, nodes, arcs, node_color='k', arc_color='k'):
-    huge = 1e6
-    aabb = [huge, -huge, huge, -huge]
-    for arc in arcs:
-        aabb_arc = arc.plot(ax, color=arc_color, arrow_length=0.033)
-        for i in range(2):
-            aabb[2*i] = min(aabb[2*i], aabb_arc[2*i])
-            aabb[2*i+1] = max(aabb[2*i+1], aabb_arc[2*i+1])
-    for node in nodes:
-        ax.plot(node.co[0], node.co[1], 'o', c=node_color, mew=0)
-    return aabb
-#############################################################
-def plot_curved_arc(ax, points, angles, n=100, tension=1, color='k', arrow_length=0):
-    p = curved_arc(points, angles, n, tension)
-    ax.plot(p[:,0], p[:,1], color=color, lw=1)
-    if arrow_length > 0:
-        #m = int(n/2)
-        m = curve_midpoint_index(p)
-        pm = p[m]
-        dpm = p[m+1] - pm
-        dpm = arrow_length*dpm/np.hypot(dpm[0], dpm[1])
-        ax.arrow(
-            x=pm[0], y=pm[1],
-            dx=dpm[0], dy=dpm[1],
-            color=color,
-            head_length=arrow_length, 
-            head_width=arrow_length, 
-            length_includes_head=True
-        )
-    xymin = np.amin(p, axis=0)
-    xymax = np.amax(p, axis=0)
-    return (xymin[0], xymax[0], xymin[1], xymax[1])
-#############################################################
 def diff_angle(a1, a2):
     c1 = cos(a1)
     s1 = sin(a1)
     c2 = cos(a2)
     s2 = sin(a2)
     return atan2(s1*c2 - c1*s2, c1*c2 + s1*s2)
-#############################################################
-def curved_arc(points, angles, n=100, tension=1):
-    l = np.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1])
-    p0 = np.array([points[0][0], points[0][1]])
-    p1 = np.array([points[1][0], points[1][1]])
-    m0 = tension*l*np.array([cos(angles[0]), sin(angles[0])])
-    m1 = tension*l*np.array([cos(angles[1]), sin(angles[1])])
-    t = np.linspace(0,1,n)
-    h00 = 2*t**3 - 3*t**2 + 1
-    h10 = t**3 - 2*t**2 + t
-    h01 = -2*t**3 + 3*t**2
-    h11 = t**3 - t**2
-    c = np.zeros((n,2))
-    for i in range(n):
-        c[i] = h00[i]*p0 + h01[i]*p1 + h10[i]*m0 + h11[i]*m1
-    return c
-#############################################################
-def curve_midpoint_index(points):
-    n = len(points)
-    s = np.zeros(n)
-    for i in range(1,n):
-        s[i] = s[i-1] + np.sqrt(np.sum((points[i] - points[i-1])**2))
-    smid = 0.5*s[-1]
-    for i in range(n-1):
-        if s[i] <= smid and s[i+1] >= smid:
-            return i
 #############################################################
 def extended_axlim((xmin, xmax), (ymin, ymax), mrg=0.05):
     xrng = xmax - xmin
@@ -165,13 +60,23 @@ def extended_axlim((xmin, xmax), (ymin, ymax), mrg=0.05):
 
 ####################################################
 # READ EMBEDDED GRAPH
-####################################################
 args = sys.argv
 if len(args) < 2:
-    fname = '/stck/bandrieu/Bureau/FFTsurf2/test/graph/data_test_loop.dat'
+    #fname = '/stck/bandrieu/Bureau/FFTsurf2/test/graph/data_test_loop.dat'
+    fname = 'test_demo.dat'
 else:
     num = int(args[1])
-    fname = 'test'+format(num,'02')+'.dat'
+    if num < 0:
+        #fname = '/stck/bandrieu/Bureau/FFTsurf2/test/graph/data_test_loop.dat'
+        fname = 'test_demo.dat'
+    else:
+        fname = 'test'+format(num,'02')+'.dat'
+
+if len(args) < 3:
+    show_steps = False
+else:
+    show_steps = (int(args[2]) != 0)
+print 'SHOW STEPS?', show_steps
     
 f = open(fname, 'r')
 
@@ -196,7 +101,9 @@ for inod in range(nnod):
 f.close()
 
 arcs = []
-for iarc in range(narc):
+perm = np.random.permutation(narc)
+for jarc in range(narc):
+    iarc = perm[jarc]
     arcs.append(
         GraphArc(
             orig=nodes[arc_end[iarc][0]],
@@ -204,36 +111,56 @@ for iarc in range(narc):
             angles=arc_ang[iarc]
         )
     )
+####################################################
+
 
 ####################################################
 # COMPUTE INITIAL NODE -> ARC INCIDENCE
 # (distinguish outgoing/ingoing arcs)
-####################################################
 for arc in arcs:
     arc.orig.outgoing.append(arc)
     arc.dest.ingoing.append(arc)
+####################################################
+
 
 ####################################################
 # PLOT INITIAL GRAPH
-####################################################
 mrg = 5e-2
 
 fig, axes = plt.subplots(1,2)
 aabb = plot_graph(axes[0], nodes, arcs)
 xmin, xmax, ymin, ymax = extended_axlim(aabb[0:2], aabb[2:4], mrg)
+if show_steps:
+    plt.close()
+####################################################
 
     
 ####################################################
 # MAKE WIRES(CYCLES)
-####################################################
 cycles = []
 
+last_arcs = []
+
+        
 while len(arcs) > 0:
+    if show_steps:
+        figsteps, axessteps = plt.subplots(1, 3, figsize=(14.4, 4.8))
+        plot_graph(axessteps[0], nodes, arcs)
+        axessteps[0].set_title('graph')
+        
     nodes, arcs = remove_dangling_branches(nodes, arcs)
+    
+    if show_steps:
+        plot_graph(axessteps[1], nodes, arcs)
+        axessteps[1].set_title('rm dangling branches')
+        
     print('%d cycle(s), %d arc(s) left' % (len(cycles), len(arcs)))
 
     # choose an arbitrary arc from the graph
-    arc = arcs[0]
+    for arc in arcs:
+        if arc not in last_arcs: break
+    #arc = arcs[0]
+    print 'START FROM ARC #', arcs.index(arc)
 
     # initiate a new (temp) cycle starting from that arc
     cycle_arcs = [arc]
@@ -259,7 +186,38 @@ while len(arcs) > 0:
                 maxangle_out = max(maxangle_out, delta_angle)
         if leftmost_arc is None:
             exit('leftmost_arc is None')
-        if maxangle_out < maxangle_in : break # this is an invalid cycle
+        if maxangle_out < maxangle_in :
+            last_arcs.append(cycle_arcs[0])
+            #if show_steps: plt.close()
+            if show_steps:
+                plot_graph(axessteps[2], nodes, arcs)
+                axessteps[2].set_title('wrong cycle')
+                points=[n.co for n in cycle_nodes]
+                angles=[a.angles for a in cycle_arcs]
+                x = [p[0] for p in points]
+                y = [p[1] for p in points]
+                m = len(points)
+                for i in range(m-1):
+                    axessteps[2].plot(x, y, 'o', c='r', mew=0)
+                    plot_curved_arc(
+                        axessteps[2], 
+                        points=[
+                            [x[i], y[i]],
+                            [x[i+1], y[i+1]]
+                        ],
+                        angles=angles[i], 
+                        color='r',
+                        arrow_length=0.033
+                    )
+                for ax in axessteps:
+                    ax.set_xlim(xmin, xmax)
+                    ax.set_ylim(ymin, ymax)
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                    ax.set_aspect('equal')
+                plt.show()
+                plt.close()
+            break # this is an invalid cycle
         
         arc = leftmost_arc
         cycle_arcs.append(arc)
@@ -267,6 +225,7 @@ while len(arcs) > 0:
         node = arc.dest
         if node == cycle_nodes[0]:
             print('+1 cycle (used %d arcs)' % len(cycle_arcs))
+            last_arcs = []
             cycles.append(
                 GraphCycle(
                     points=[n.co for n in cycle_nodes],
@@ -277,39 +236,207 @@ while len(arcs) > 0:
                 arc.orig.outgoing.remove(arc)
                 arc.dest.ingoing.remove(arc)
                 arcs.remove(arc)
+            if show_steps:
+                plot_graph(axessteps[2], nodes, arcs)
+                axessteps[2].set_title('extracted cycle')
+                cycle = cycles[-1]
+                x = [p[0] for p in cycle.points]
+                y = [p[1] for p in cycle.points]
+                m = len(cycle.points)
+                for i in range(m):
+                    j = (i+1)%m
+                    axessteps[2].plot(x, y, 'o', c='g', mew=0)
+                    plot_curved_arc(
+                        axessteps[2], 
+                        points=[
+                            [x[i], y[i]],
+                            [x[j], y[j]]
+                        ],
+                        angles=cycle.angles[i], 
+                        color='g',
+                        arrow_length=0.033
+                    )
+                for ax in axessteps:
+                    ax.set_xlim(xmin, xmax)
+                    ax.set_ylim(ymin, ymax)
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                    ax.set_aspect('equal')
+                plt.show()
+                plt.close()
             break
         else:
             cycle_nodes.append(node)
+####################################################
+
 
 ####################################################
 # PLOT CYCLES
-####################################################
-cmap = plt.get_cmap('Set2')#'rainbow')
-cycle_color = [cmap(1.*i/len(cycles)) for i in range(len(cycles))]
+if not show_steps:
+    cmap = plt.get_cmap('Set2')#'rainbow')
+    cycle_color = [cmap(1.*i/len(cycles)) for i in range(len(cycles))]
 
-for ic, cycle in enumerate(cycles):
+    for ic, cycle in enumerate(cycles):
+        x = [p[0] for p in cycle.points]
+        y = [p[1] for p in cycle.points]
+        m = len(cycle.points)
+        for i in range(m):
+            """xmin = min(xmin, x[i])
+            xmax = max(xmax, x[i])
+            ymin = min(ymin, y[i])
+            ymax = max(ymax, y[i])"""
+            j = (i+1)%m
+            axes[1].plot(x, y, 'o', c=cycle_color[ic], mew=0)
+            aabb_arc = plot_curved_arc(
+                axes[1], 
+                points=[
+                    [x[i], y[i]],
+                    [x[j], y[j]]
+                ],
+                angles=cycle.angles[i], 
+                color=cycle_color[ic],
+                arrow_length=0.033
+            )
+    for ax in axes:
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal')
+    plt.show()
+####################################################
+
+####################################################
+# MAKE FACES
+faces = make_faces(cycles, n=100, tension=1)
+face_color = [cmap(1.*i/len(faces)) for i in range(len(faces))]
+
+fig, ax = plt.subplots()
+
+for iface, face in enumerate(faces):
+    for cycle in [face.outer] + face.inner:
+        x = [p[0] for p in cycle.points]
+        y = [p[1] for p in cycle.points]
+        m = len(cycle.points)
+        for i in range(m):
+            j = (i+1)%m
+            ax.plot(x, y, 'o', c=cycle_color[iface], mew=0)
+            plot_curved_arc(
+                ax, 
+                points=[
+                    [x[i], y[i]],
+                    [x[j], y[j]]
+                ],
+                angles=cycle.angles[i], 
+                color=cycle_color[iface],
+                arrow_length=0.033
+            )
+
+ax.set_xlim(xmin, xmax)
+ax.set_ylim(ymin, ymax)
+ax.set_aspect('equal')
+plt.show()
+####################################################
+
+
+####################################################
+# EXPORT FACES (for TikZ)
+f = open('graph_faces_nwires.dat', 'w')
+for face in faces:
+    f.write('%d\n' % len(face.inner))
+f.close()
+
+
+for iface, face in enumerate(faces):
+    f = open('graph_face_%d_outer.dat' % (iface+1), 'w')
+    cycle = face.outer
     x = [p[0] for p in cycle.points]
     y = [p[1] for p in cycle.points]
     m = len(cycle.points)
     for i in range(m):
-        xmin = min(xmin, x[i])
-        xmax = max(xmax, x[i])
-        ymin = min(ymin, y[i])
-        ymax = max(ymax, y[i])
         j = (i+1)%m
-        axes[1].plot(x, y, 'o', c=cycle_color[ic], mew=0)
-        aabb_arc = plot_curved_arc(
-            axes[1], 
-            points=[
-                [x[i], y[i]],
-                [x[j], y[j]]
-            ],
-            angles=cycle.angles[i], 
-            color=cycle_color[ic],
-            arrow_length=0.033
+        b = curved_arc_bezier_control_points(
+            [(x[i], y[i]), (x[j], y[j])],
+            cycle.angles[i],
+            tension=1
         )
-for ax in axes:
-    ax.set_xlim(xmin, xmax)
-    ax.set_ylim(ymin, ymax)
-    ax.set_aspect('equal')
-plt.show()
+        for bx, by in b:
+            f.write('%s, %s, ' % (bx, by))
+        f.write('\n')
+    f.close()
+
+    for k, cycle in enumerate(face.inner):
+        f = open('graph_face_%d_inner_%d.dat' % ((iface+1), (k+1)), 'w')
+        x = [p[0] for p in cycle.points]
+        y = [p[1] for p in cycle.points]
+        m = len(cycle.points)
+        for i in range(m):
+            j = (i+1)%m
+            b = curved_arc_bezier_control_points(
+                [(x[i], y[i]), (x[j], y[j])],
+                cycle.angles[i],
+                tension=1
+            )
+            for bx, by in b:
+                f.write('%s, %s, ' % (bx, by))
+            f.write('\n')
+        f.close()
+####################################################
+
+
+
+####################################################
+# EXPORT FACES (full TikZ code)
+f = open('graph_faces_tikzcode.tex', 'w')
+# filled faces
+for iface, face in enumerate(faces):
+    f.write('\\path[fill=facecolor%d!30!white]\n' % (iface+1))
+    for cycle in [face.outer] + face.inner:
+        x = [p[0] for p in cycle.points]
+        y = [p[1] for p in cycle.points]
+        m = len(cycle.points)
+        for i in range(m):
+            j = (i+1)%m
+            b = curved_arc_bezier_control_points(
+                [(x[i], y[i]), (x[j], y[j])],
+                cycle.angles[i],
+                tension=1
+            )
+            if i == 0:
+                f.write('(%s, %s) ' % (b[0][0], b[0][1]))
+            f.write(
+                '.. controls (%s, %s) and (%s, %s) .. (%s, %s)\n' %
+                (b[1][0], b[1][1],
+                 b[2][0], b[2][1],
+                 b[3][0], b[3][1])
+            )
+            if i == m-1:
+                f.write('-- cycle\n')
+    f.write(';\n')
+f.write('\n\n')
+
+# halfedges
+for iface, face in enumerate(faces):
+    for icycle, cycle in enumerate([face.outer] + face.inner):
+        if icycle == 0: # outer wire
+            shade = 60
+        else:           # inner wire
+            shade = 80
+        x = [p[0] for p in cycle.points]
+        y = [p[1] for p in cycle.points]
+        m = len(cycle.points)
+        for i in range(m):
+            j = (i+1)%m
+            b = curved_arc_bezier_control_points(
+                [(x[i], y[i]), (x[j], y[j])],
+                cycle.angles[i],
+                tension=1
+            )
+            f.write('\\draw[halfedge, facecolor%d!%d!black] ' % ((iface+1), shade))
+            f.write(
+                '(%s, %s) .. controls (%s, %s) and (%s, %s) .. (%s, %s);\n' %
+                (b[0][0], b[0][1],
+                 b[1][0], b[1][1],
+                 b[2][0], b[2][1],
+                 b[3][0], b[3][1])
+            )
+f.close()
+####################################################

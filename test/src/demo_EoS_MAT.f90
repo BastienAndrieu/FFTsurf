@@ -48,6 +48,7 @@ program demo_EoS_MAT
   type(type_surface_mesh)                 :: mesh
 
   integer                                 :: isurf, iface, j
+  character(2)                            :: strnum
 
   options%chord_err = 5.d-4
   options%hmin      = 1.d-3
@@ -70,7 +71,7 @@ program demo_EoS_MAT
           nvar=2, &
           base=1 )
 
-     if ( isurf == 2 ) then
+     if ( isurf == 1 ) then
         do j = 1,size(surf(isurf)%x%coef,2)
            if ( mod(j,2) == 0 ) then
               surf(isurf)%x%coef(:,j,1:3) = -surf(isurf)%x%coef(:,j,1:3)
@@ -202,9 +203,12 @@ program demo_EoS_MAT
        nsurf_new, &
        interdata_new )
 
-
   !! ...
   do isurf = 1,nsurf_new
+     write (strnum, '(I2.2)') isurf
+     call write_polynomial( &
+          surf_new(isurf)%x, &
+          'demo_EoS_MAT/surfnew_c_'//strnum//'.cheb' )
      call compute_pseudonormal(surf_new(isurf))
      call economize2( &
           surf_new(isurf)%pn, &

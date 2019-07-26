@@ -4,11 +4,11 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
 
-eos_from_faces = 0;
+eos_from_faces = 1;
 eos_from_edges = 1;
-eos_from_verts = 0;
+eos_from_verts = 1;
 
-lbshow = 1;
+lbshow = 0;
 lbscale = 5e-2;
 lboffset = 1e-4;
 lbuv = -0.9*[1,1];
@@ -44,7 +44,7 @@ n = 100;
 niso = 0;%[9,2];
 
 %%
-if 0
+if 1
     figure;
     hold on
     
@@ -99,17 +99,18 @@ if 0
 end
 
 %%
-c = readCoeffs2('eos_edge_c_018.cheb');
-seuil = round(log10(eps('double')));
-c = max(seuil,log10(abs(c)));
-cm = parula(17);
-
-figure;
-for i = 1:3
-    subplot(1,3,i);
-    contourf(c(:,:,i));
-    axis equal
-    colormap(cm);
-    caxis([-16,0]);
+if 0
+    c = readCoeffs2('eos_edge_c_018.cheb');
+    seuil = round(log10(eps('double')));
+    c = max(seuil,log10(abs(c)));
+    cm = parula(17);
+    
+    figure;
+    for i = 1:3
+        subplot(1,3,i);
+        contourf(c(:,:,i));
+        axis equal
+        colormap(cm);
+        caxis([-16,0]);
+    end
 end
-
