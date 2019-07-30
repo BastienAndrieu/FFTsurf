@@ -240,6 +240,24 @@ program demo_EoS_MAT
   if ( allocated(feat_edge) ) deallocate(feat_edge)
   if ( allocated(feat_vert) ) deallocate(feat_vert)
 
+
+  IF ( .true. ) THEN
+     do iface = 1,brep_new%nf
+        PRINT *,'brepmesh face #',iface
+        write (strnum,'(i2.2)') iface
+        call generate_face_mesh( &       
+             brep_new, &
+             iface, &
+             'demo_EoS_MAT/brepmesh_eos/c_'//strnum//'.cheb', &
+             'demo_EoS_MAT/brepmesh_eos/bpts_'//strnum//'.dat', &
+             'demo_EoS_MAT/brepmesh_eos/bedg_'//strnum//'.dat', &
+             'demo_EoS_MAT/brepmesh_eos/info.dat', &
+             'demo_EoS_MAT/brepmesh_eos/tri_'//strnum//'.dat', &
+             'demo_EoS_MAT/brepmesh_eos/uv_'//strnum//'.dat', &
+             'demo_EoS_MAT/brepmesh_eos/xyz_'//strnum//'.dat' )
+     end do
+  END IF
+
   !! make hypergraph
   call make_hypergraph( &
        brep_new, &
