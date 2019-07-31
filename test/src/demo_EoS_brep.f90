@@ -34,7 +34,7 @@ program demo_EoS_brep
   integer, allocatable                    :: curvetype(:), curvetypetmp(:)
 
   type(type_brep)                         :: brep
-  integer                                 :: iface, jface, ivert
+  integer                                 :: iface, jface, ivert, iedge
   type(type_hypergraph)                   :: hypergraph
   logical, allocatable                    :: feat_edge(:), feat_vert(:)
   type(type_surface_mesh)                 :: mesh
@@ -340,6 +340,21 @@ program demo_EoS_brep
        surf_new, &
        nsurf_new, &
        interdata_new )
+  do iedge = 1,brep%ne
+     !do icurv = 1,interdata%nc
+     !     if ( associated(brep%edges(iedge)%curve, &
+     !     interdata%curves(icurv)) ) exit
+     !end do
+     !if ( curvetype(icurv) == 2 ) then
+     WRITE (STRNUM3, '(I3.3)') IEDGE
+     CALL SYSTEM('cp ../debug/eos_edge_c_'//strnum3//'.cheb demo_EoS_brep/debug/')
+     !end if
+  end do
+
+  do ivert = 1,brep%nv
+     WRITE (STRNUM3, '(I3.3)') IVERT
+     CALL SYSTEM('cp ../debug/eos_vert_c_'//strnum3//'.cheb demo_EoS_brep/debug/')
+  end do
   
   call check_intersection_points( &
        interdata_new )

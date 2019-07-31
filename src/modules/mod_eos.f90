@@ -22,8 +22,8 @@ contains
     !normal_speed = 0.15d0*(1.d0+ 0.3d0*(x+1.d0) - 0.08d0*(y+1.d0) + 0.12d0*(z+1.d0))
     !normal_speed = 0.15d0*(1.d0 + 0.3d0*cos(6.d0*(x+y+z)))
     !normal_speed = 0.15d0*(1.d0 + 0.15d0*cos(5.d0*(x+y+z)))
-    normal_speed = 0.15d0*(1.d0 + 0.05d0*cos(5.d0*(x+y+z)))
-
+    !normal_speed = 0.15d0*(1.d0 + 0.05d0*cos(5.d0*(x+y+z)))
+    normal_speed = 0.15d0*(1.d0 + 0.1d0*sin(6.d0*(x - 0.4d0 + y - 0.4d0 + z - 0.4d0)))
   end function normal_speed
   !-------------------------------------------------------------
 
@@ -604,7 +604,7 @@ end subroutine trace_border_polyline
     USE MOD_UTIL
     implicit none
     LOGICAL :: DEBUG = .false.
-    real(kind=fp), parameter          :: mrg = 0.1_fp
+    real(kind=fp), parameter          :: mrg = 0.05_fp
     real(kind=fp),      intent(in)    :: center(3)
     integer,            intent(in)    :: n
     real(kind=fp),      intent(inout) :: xyz(3,n)
@@ -622,6 +622,7 @@ end subroutine trace_border_polyline
     real(kind=fp), dimension(degr+1)  :: tcgl, cosucgl, sinucgl, cosvcgl, sinvcgl
     real(kind=fp)                     :: xyzcgl(3,(degr+1)**2)
     integer                           :: i, j, k, m
+    real(kind=fp)                     :: longlat_center(2)
     INTEGER :: FID
 
     IF ( DEBUG ) CALL GET_FREE_UNIT(FID)  
@@ -634,7 +635,7 @@ end subroutine trace_border_polyline
     do i = 1,n
        xyz(1:3,i) = xyz(1:3,i) - center
        r = norm2(xyz(1:3,i))
-       IF ( DEBUG ) PRINT *,'R =',R
+       !IF ( DEBUG ) PRINT *,'R =',R
        xyz(1:3,i) = xyz(1:3,i)/r
        xyzavg(1:3) = xyzavg(1:3) + xyz(1:3,i)
        ravg = ravg + r
@@ -711,24 +712,31 @@ end subroutine trace_border_polyline
     uv(1,1:n) = atan2(xyzproj(2,1:n), xyzproj(1,1:n))
     uv(2,1:n) = asin(max(-1._fp, min(1._fp, xyzproj(3,1:n))))
     IF ( DEBUG ) CALL WRITE_MATRIX(TRANSPOSE(UV), N, 2, &
-         '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_uv.dat')
+         '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_tl.dat')
 
     ! longitude-latitude bounding box
     minuv = minval(uv, dim=2)
     maxuv = maxval(uv, dim=2)
-    longlat_range = (1._fp + mrg)*max(abs(maxuv), abs(minuv))
-    longlat_range = longlat_range
+    if ( .false. ) then
+      longlat_center(1:2) = 0._fp
+      longlat_range = (1._fp + mrg)*max(abs(maxuv), abs(minuv))
+    else
+      longlat_center = 0.5_fp*(minuv + maxuv)
+      longlat_range = (1._fp + mrg)*0.5_fp*(maxuv - minuv)
+    end if
     do i = 1,n
-       uv(1:2,i) = uv(1:2,i)/longlat_range
+      uv(1:2,i) = (uv(1:2,i) - longlat_center)/longlat_range
     end do
+    IF ( DEBUG ) CALL WRITE_MATRIX(TRANSPOSE(UV), N, 2, &
+         '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_uv.dat')
     solidangle = longlat_range(1) * sin(longlat_range(2)) / CSTpi
 
     ! Chebyshev patch    
     call cgl_nodes(tcgl, degr)
-    cosucgl = cos(longlat_range(1)*tcgl)
-    sinucgl = sin(longlat_range(1)*tcgl)
-    cosvcgl = cos(longlat_range(2)*tcgl)
-    sinvcgl = sin(longlat_range(2)*tcgl)
+    cosucgl = cos(longlat_center(1) + longlat_range(1)*tcgl)
+    sinucgl = sin(longlat_center(1) + longlat_range(1)*tcgl)
+    cosvcgl = cos(longlat_center(2) + longlat_range(2)*tcgl)
+    sinvcgl = sin(longlat_center(2) + longlat_range(2)*tcgl)
 
     do j = 1,m
        do i = 1,m
@@ -753,10 +761,14 @@ end subroutine trace_border_polyline
          m, &
          3, &
          EPSmath )
+    IF ( DEBUG ) CALL WRITE_POLYNOMIAL(surf%x, &
+    '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_surf.cheb')
 
     do i = 1,n
        xyz(1:3,i) = center(1:3) + ravg*xyz(1:3,i)
     end do
+
+    IF ( DEBUG ) PAUSE
 
   end subroutine long_lat_patch_from_points
   !-------------------------------------------------------------
@@ -1760,4 +1772,45 @@ end subroutine trace_border_polyline
   end subroutine newton_intersection_polyline2
 
 
+
+
+
+
+
+   !subroutine long_lat_patch_from_arcs( &
+   !   vxyz, &
+   !   m, &
+   !   cxyz, &
+   !   occ, &
+   !   tng, &
+   !   surf, &
+   !   longlat_ctr, &
+   !   longlat_rng )
+   !   use mod_diffgeom
+   !   use mod_geometry
+   !   implicit none
+   !   real(kind=fp),      intent(in)    :: vxyz(3)
+   !   integer,            intent(in)    :: m
+   !   real(kind=fp),      intent(in)    :: cxyz(3,m)
+   !   real(kind=fp),      intent(in)    :: occ(3,m)
+   !   real(kind=fp),      intent(in)    :: tng(3,m)
+   !   type(type_surface), intent(inout) :: surf
+   !   real(kind=fp),      intent(out)   :: uv(2,n)
+   !   real(kind=fp),      intent(out)   :: longlat_ctr(2)
+   !   real(kind=fp),      intent(out)   :: longlat_rng(2)
+   !   real(kind=fp)                     :: ctr(3), radsqr
+   !   real(kind=fp)                     :: rot(3,3)
+   !  
+   !   ! 1) get axis of smallest cone bounding the points cxyz
+   !   !   a) get smallest sphere bounding the points cxyz
+   !   call smallest_enclosing_ball( &
+   !      m, &
+   !      3, &
+   !      cxyz - spread(vxz, dim=2, ncopies=m), &
+   !      ctr, &
+   !      radsqr )
+   !   !   b) get cone axis
+   !   rot(1:3,1) = ctr/norm2(ctr)  
+   !  
+   !end subroutine long_lat_patch_from_arcs
 end module mod_eos

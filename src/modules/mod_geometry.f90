@@ -654,4 +654,155 @@ contains
     
   end subroutine circumcircle
 
+
+
+  
+  ! ==================================================================
+  ! cf. "Computational Geometry, Algorithms, and Applications", M. de Berg et al. (2000)
+  subroutine smallest_enclosing_ball( &
+       n, &
+       dim, &
+       p, &
+       ctr, &
+       radsqr )
+    implicit none
+    integer,       intent(in)  :: n
+    integer,       intent(in)  :: dim
+    real(kind=fp), intent(in)  :: p(dim,n)
+    real(kind=fp), intent(out) :: ctr(dim)
+    real(kind=fp), intent(out) :: radsqr
+    integer                    :: i
+
+    if ( n < 2 ) then
+       ctr = p(1:dim,1)
+       radsqr = 0._fp
+       return
+    end if
+
+    ctr = 0.5_fp*sum(p(1:dim,1:2), 2)
+    radsqr = 0.25_fp*sum( (p(1:dim,1) - p(1:dim,2))**2 )
+
+    do i = 3,n
+       if ( sum( (p(1:dim,i) - ctr)**2 ) > radsqr ) then
+          call smallest_enclosing_ball_with_point( &
+               i-1, &
+               dim, &
+               p(1:dim,1:i-1), &
+               p(1:dim,i), &
+               ctr, &
+               radsqr )
+       end if
+    end do
+
+  end subroutine smallest_enclosing_ball
+
+
+  subroutine smallest_enclosing_ball_with_point( &
+       n, &
+       dim, &
+       p, &
+       q, &
+       ctr, &
+       radsqr )
+    implicit none
+    integer,       intent(in)  :: n
+    integer,       intent(in)  :: dim
+    real(kind=fp), intent(in)  :: p(dim,n)
+    real(kind=fp), intent(in)  :: q(dim)
+    real(kind=fp), intent(out) :: ctr(dim)
+    real(kind=fp), intent(out) :: radsqr
+    integer                    :: i
+
+    ctr = 0.5_fp*(p(1:dim,1) + q)
+    radsqr = 0.25_fp*sum( (p(1:dim,1) - q)**2 )
+
+    do i = 2,n
+       if ( sum( (p(1:dim,i) - ctr)**2 ) > radsqr ) then
+          call smallest_enclosing_ball_with_two_points( &
+               n, &
+               dim, &
+               p(1:dim,1:i-1), &
+               p(1:dim,i), &
+               q, &
+               ctr, &
+               radsqr )
+       end if
+    end do
+
+  end subroutine smallest_enclosing_ball_with_point
+
+
+  subroutine smallest_enclosing_ball_with_two_points( &
+       n, &
+       dim, &
+       p, &
+       q1, &
+       q2, &
+       ctr, &
+       radsqr )
+    implicit none
+    integer,       intent(in)  :: n
+    integer,       intent(in)  :: dim
+    real(kind=fp), intent(in)  :: p(dim,n)
+    real(kind=fp), intent(in)  :: q1(dim)
+    real(kind=fp), intent(in)  :: q2(dim)
+    real(kind=fp), intent(out) :: ctr(dim)
+    real(kind=fp), intent(out) :: radsqr
+    integer                    :: i
+
+    ctr = 0.5_fp*(q1 + q2)
+    radsqr = 0.25_fp*sum( (q1 - q2)**2 )
+
+    do i = 1,n
+       if ( sum( (p(1:dim,i) - ctr)**2 ) > radsqr ) then
+          call circumsphere( &
+               dim, &
+               p(1:dim,i), &
+               q1, &
+               q2, &
+               ctr, &
+               radsqr )
+       end if
+    end do
+
+  end subroutine smallest_enclosing_ball_with_two_points
+  ! ==================================================================
+
+
+
+
+
+  subroutine circumsphere( &
+       dim, &
+       p1, &
+       p2, &
+       p3, &
+       ctr, &
+       radsqr )
+    implicit none
+    integer,       intent(in)                 :: dim
+    real(kind=fp), intent(in), dimension(dim) :: p1, p2, p3
+    real(kind=fp), intent(out)                :: ctr(dim)
+    real(kind=fp), intent(out)                :: radsqr
+    real(kind=fp), dimension(dim)             :: u, v, w
+    real(kind=fp)                             :: usqr, vsqr, denom
+
+    u = p2 - p1
+    v = p3 - p1
+    usqr = sum(u**2)
+    vsqr = sum(v**2)
+    w = usqr*v - vsqr*u
+
+    denom = usqr*vsqr - dot_product(u,v)**2
+    if ( denom < EPSfp ) then
+       ctr = (p1 + p2 + p3)/3._fp
+       radsqr = 0._fp
+    else
+       ctr = 0.5_fp * (dot_product(v,w)*u - dot_product(u,w)*w) / denom
+       radsqr = sum(ctr**2)
+       ctr = ctr + p3
+    end if
+
+  end subroutine circumsphere
+
 end module mod_geometry
