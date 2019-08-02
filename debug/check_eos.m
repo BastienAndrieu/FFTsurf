@@ -4,7 +4,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/Matlab/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Chebyshev/');
 addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface_2/');
 
-eos_from_faces = 1;
+eos_from_faces = 0;
 eos_from_edges = 1;
 eos_from_verts = 1;
 
@@ -80,7 +80,7 @@ if 1
     end
     
     if eos_from_verts
-        for i = 1:nv
+        for i = 7%1:nv
             c = readCoeffs2(files_v{i});
             [si, lu, lv] = surf_chebyshev(c, 1, n, niso);
             set(si, 'facecolor', cl(i+ns+ne,:));

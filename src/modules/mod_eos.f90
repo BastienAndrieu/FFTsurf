@@ -14,16 +14,30 @@ contains
        m, &
        n )
     implicit none
+    real(kind=fp), parameter                  :: a = 0.15_fp
+    real(kind=fp), parameter                  :: b = 0.1_fp
+    real(kind=fp), parameter                  :: rx0 = 0.14566821_fp
+    real(kind=fp), parameter                  :: ry0 = -0.10358889_fp
+    real(kind=fp), parameter                  :: rz0 = 0.14410795_fp
+    real(kind=fp), parameter                  :: x0 = 0.439243264585777_fp
+    real(kind=fp), parameter                  :: y0 = 0.402450687497095_fp
+    real(kind=fp), parameter                  :: z0 = 0.412987587851315_fp
     integer,                       intent(in) :: m, n
     real(kind=fp), dimension(m,n), intent(in) :: x, y, z
     real(kind=fp)                             :: normal_speed(m,n)
+    real(kind=fp)                             :: c, d, e
+
+    c = rx0/(a*b)
+    d = ry0/(a*b)
+    e = rz0/(a*b)
 
     !normal_speed(1:m,1:n) = 0.15d0
     !normal_speed = 0.15d0*(1.d0+ 0.3d0*(x+1.d0) - 0.08d0*(y+1.d0) + 0.12d0*(z+1.d0))
     !normal_speed = 0.15d0*(1.d0 + 0.3d0*cos(6.d0*(x+y+z)))
     !normal_speed = 0.15d0*(1.d0 + 0.15d0*cos(5.d0*(x+y+z)))
-    !normal_speed = 0.15d0*(1.d0 + 0.05d0*cos(5.d0*(x+y+z)))
+    !normal_speed = 0.15d0*(1.d0 + 0.05d0*cos(5.d0*(x+y+z))) !***
     normal_speed = 0.15d0*(1.d0 + 0.1d0*sin(6.d0*(x - 0.4d0 + y - 0.4d0 + z - 0.4d0)))
+    !normal_speed = a*( 1.d0 + b*sin(c*(x - x0) + d*(y - y0) + e*(z - z0)) * exp(-2._fp*((x - x0)**2 + (y - y0)**2 + (z - z0)**2)) )
   end function normal_speed
   !-------------------------------------------------------------
 
@@ -604,7 +618,7 @@ end subroutine trace_border_polyline
     USE MOD_UTIL
     implicit none
     LOGICAL :: DEBUG = .false.
-    real(kind=fp), parameter          :: mrg = 0.05_fp
+    real(kind=fp), parameter          :: mrg = 0.02_fp
     real(kind=fp),      intent(in)    :: center(3)
     integer,            intent(in)    :: n
     real(kind=fp),      intent(inout) :: xyz(3,n)
