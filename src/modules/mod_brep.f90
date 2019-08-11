@@ -260,7 +260,8 @@ contains
     close(fid)
 
     ! run surface mesher
-    call system('/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
+    call system( &!'/stck/bandrieu/Bureau/MeshGen/./meshgen.out &
+         '/home/bastien/MeshGen/./meshgen.out &
          & '//trim(filec)//'&
          & '//trim(filebpts)//'&
          & '//trim(filebedg)//'&
@@ -373,7 +374,7 @@ contains
     use mod_intersection
     use mod_tolerances
     implicit none
-    LOGICAL, PARAMETER :: DEBUG = .true.
+    LOGICAL, PARAMETER :: DEBUG = .false.
     integer,                      intent(in)    :: nsurf
     type(type_surface), target,   intent(in)    :: surf(nsurf)
     type(type_intersection_data), intent(inout) :: interdata

@@ -81,7 +81,7 @@ contains
             uv(1:2,ip) )
     end do
 
-end subroutine trace_border_polyline
+  end subroutine trace_border_polyline
   !-------------------------------------------------------------
 
 
@@ -134,7 +134,7 @@ end subroutine trace_border_polyline
 
     stat = 0
     FRACcurvature_radius = 2._fp*sqrt(tolchord*(2._fp - tolchord))
-    
+
     select case (iborder)
     case (1)
        ivar = 2
@@ -175,7 +175,7 @@ end subroutine trace_border_polyline
             curvature )
        IF ( DEBUG ) PRINT *,'  ENDPOINT #',IPT,', CURVATURE =', CURVATURE
        h_ends(ipt) = FRACcurvature_radius/max(EPSfp, curvature)
-       
+
        call eval( &
             xyz_ends(1:3,ipt), &
             curv, &
@@ -200,7 +200,7 @@ end subroutine trace_border_polyline
          2, &
          uv, &
          ntmp )
-    
+
     w = w_ends(1)
     h = h_ends(1)
 
@@ -246,9 +246,9 @@ end subroutine trace_border_polyline
           end if
 
           call eval_curvature_curve( &
-            curv, &
-            w_next, &
-            curvature )
+               curv, &
+               w_next, &
+               curvature )
           h_next = FRACcurvature_radius/max(EPSfp, curvature)
           h_next = min(hmax, max(hmin, h_next))
 
@@ -262,21 +262,21 @@ end subroutine trace_border_polyline
        ! add point
        IF ( DEBUG ) PRINT *,' + 1 POINT'
        call append_vec( &
-         xyz_next, &
-         3, &
-         xyz, &
-         np )
+            xyz_next, &
+            3, &
+            xyz, &
+            np )
        ntmp = np - 1
        uv_next(ivar) = uv(ivar,1)
        uv_next(jvar) = w_next
        call append_vec( &
-         uv_next, &
-         2, &
-         uv, &
-         ntmp )
+            uv_next, &
+            2, &
+            uv, &
+            ntmp )
        w = w_next
        h = h_next
-            
+
     end do outer
 
     ! last point
@@ -299,7 +299,7 @@ end subroutine trace_border_polyline
     !   if ( size(uv,1) < 2 .or. size(uv,2) < np ) deallocate(uv)
     !end if
     !if ( .not.allocated(uv) ) allocate(uv(2,np))  
-    
+
   end subroutine trace_border_polyline_adaptive
   !-------------------------------------------------------------
 
@@ -392,14 +392,14 @@ end subroutine trace_border_polyline
     integer                                    :: i, j
     real(kind=fp)                              :: angle, aj, eor90d(3)
     INTEGER :: FID, K
-    
+
     o = g + dg*spread(0.5_fp*sum((er + el - 2._fp*g)*dg,1)/sum(dg**2,1), dim=1, ncopies=3)
-    
+
     IF ( DEBUG ) CALL WRITE_MATRIX( &
          TRANSPOSE(O(1:3,1:M)), &
          M, 3, &
          '../debug/eos_from_polyline_center.dat' )
-    
+
     eor = er - o
     eol = el - o
 
@@ -443,7 +443,7 @@ end subroutine trace_border_polyline
        OPEN(UNIT=FID, &
             FILE='../debug/eos_from_polyline_cgl_tpgrid.dat', &
             ACTION='WRITE')
-       WRITE (FID, *), M, N, 3
+       WRITE (FID, *) M, N, 3
        DO K = 1,3
           DO J = 1,N
              DO I = 1,M
@@ -495,7 +495,7 @@ end subroutine trace_border_polyline
     integer                                              :: irl, ipt
 
     polyline => curve%polyline
-    
+
     !! fit Chebyshev polynomial to intersection curve
     step = sign(1,tail-head)
     np = 1 + (tail-head)/step
@@ -659,7 +659,7 @@ end subroutine trace_border_polyline
        stat = 2
        return
     end if
-    
+
     xyzavg = xyzavg/sqrt(xyzavg_sqr)
     ravg = ravg/real(n, kind=fp)
 
@@ -732,14 +732,14 @@ end subroutine trace_border_polyline
     minuv = minval(uv, dim=2)
     maxuv = maxval(uv, dim=2)
     if ( .false. ) then
-      longlat_center(1:2) = 0._fp
-      longlat_range = (1._fp + mrg)*max(abs(maxuv), abs(minuv))
+       longlat_center(1:2) = 0._fp
+       longlat_range = (1._fp + mrg)*max(abs(maxuv), abs(minuv))
     else
-      longlat_center = 0.5_fp*(minuv + maxuv)
-      longlat_range = (1._fp + mrg)*0.5_fp*(maxuv - minuv)
+       longlat_center = 0.5_fp*(minuv + maxuv)
+       longlat_range = (1._fp + mrg)*0.5_fp*(maxuv - minuv)
     end if
     do i = 1,n
-      uv(1:2,i) = (uv(1:2,i) - longlat_center)/longlat_range
+       uv(1:2,i) = (uv(1:2,i) - longlat_center)/longlat_range
     end do
     IF ( DEBUG ) CALL WRITE_MATRIX(TRANSPOSE(UV), N, 2, &
          '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_uv.dat')
@@ -776,7 +776,7 @@ end subroutine trace_border_polyline
          3, &
          EPSmath )
     IF ( DEBUG ) CALL WRITE_POLYNOMIAL(surf%x, &
-    '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_surf.cheb')
+         '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/debug/debuglonglat_surf.cheb')
 
     do i = 1,n
        xyz(1:3,i) = center(1:3) + ravg*xyz(1:3,i)
@@ -1124,7 +1124,7 @@ end subroutine trace_border_polyline
           end if
 
           !PRINT *,'EOS_FROM_CURVE OK'
-          
+
           call reset_polynomial(surf_new(nsurf_new)%x, 2, 1, [m-1,n-1], 3)
           call fcht2( &
                xyz, &
@@ -1317,6 +1317,16 @@ end subroutine trace_border_polyline
                   0.5_fp*(xyzlonglat(1:3,1:np) + xyzlonglat(1:3,2*np:np+1:-1))
 
           else
+             ! *************************************
+             !call LL_patch_from_arcs( &
+             !     nplanes, &
+             !     cc_center, &
+             !     normal, &
+             !     corner, &
+             !     vxyz, &
+             !     degr, &
+             !     surf )
+             ! *************************************
              nsurf_new = nsurf_new + 1
              allocate(uvlonglat(2,nptot))
              call long_lat_patch_from_points( &
@@ -1515,9 +1525,9 @@ end subroutine trace_border_polyline
     integer                                              :: ipt, jpt, irl
 
     IF ( DEBUG) PRINT *,'HEAD, TAIL =', HEAD, TAIL
-    
+
     m = degr + 1
-    
+
     ! Choose polynomial degree for new surface
     polyline => curve%polyline
     whead = dot_product(curve%param_vector, polyline%xyz(1:3,head))
@@ -1531,14 +1541,14 @@ end subroutine trace_border_polyline
          wtail )
     IF ( DEBUG) PRINT *,'WHEAD, WTAIL =', WHEAD, WTAIL
     sign_dw = sign(1._fp, wtail - whead)
-    
+
     ! sample intersection curve at CGL nodes
     ! (w is chosen to be Hohmeyer's parameter)
     allocate(xyz(3,m), uv(2,2,m))
     ! endpoints
     uv(1:2,1:2,1) = polyline%uv(1:2,1:2,head)
     xyz(1:3,1) = polyline%xyz(1:3,head)
-    
+
     uv(1:2,1:2,m) = polyline%uv(1:2,1:2,tail)
     xyz(1:3,m) = polyline%xyz(1:3,tail)
 
@@ -1575,7 +1585,7 @@ end subroutine trace_border_polyline
             stat, &
             uv(1:2,1:2,ipt), &
             xyz(1:3,ipt) )
-       
+
     end do
 
     !! compute tangents
@@ -1656,7 +1666,7 @@ end subroutine trace_border_polyline
     w = -1._fp + 2._fp*(w - whead)/(wtail - whead)
 
     deallocate(wcgl, uv, xyz, dxyz_dw)
-    
+
   end subroutine eos_from_curve2
 
 
@@ -1702,7 +1712,7 @@ end subroutine trace_border_polyline
        PRINT *,'LOWERB =',LOWERB
        PRINT *,'UPPERB =',UPPERB
     END IF
-    
+
     stat = 1
     erruv = 0._fp
     cond = 1._fp
@@ -1725,64 +1735,64 @@ end subroutine trace_border_polyline
 
        !! compute Jacobian matrix
        do isurf = 1,2
-        do ivar = 1,2
-           call evald1( &
-                jac(1:3,2*(isurf-1)+ivar), &
-                surf(isurf)%ptr, &
-                uv(:,isurf), &
-                ivar)
-        end do
-     end do
-     jac(1:3,3:4) = -jac(1:3,3:4)
-     do ivar = 1,2
-        jac(4,ivar) = dot_product(param_vector, jac(1:3,ivar))
-     end do
-     jac(4,3:4) = 0._fp
+          do ivar = 1,2
+             call evald1( &
+                  jac(1:3,2*(isurf-1)+ivar), &
+                  surf(isurf)%ptr, &
+                  uv(:,isurf), &
+                  ivar)
+          end do
+       end do
+       jac(1:3,3:4) = -jac(1:3,3:4)
+       do ivar = 1,2
+          jac(4,ivar) = dot_product(param_vector, jac(1:3,ivar))
+       end do
+       jac(4,3:4) = 0._fp
 
-     !! solve for Newton step
-     call linsolve_svd( &
-          duv, &
-          jac, &
-          [resxyz, resw], &
-          4, &
-          4, &
-          1, &
-          cond )
-     erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
+       !! solve for Newton step
+       call linsolve_svd( &
+            duv, &
+            jac, &
+            [resxyz, resw], &
+            4, &
+            4, &
+            1, &
+            cond )
+       erruv = max(sum(duv(1:2)**2), sum(duv(3:4)**2))
 
-     !! correct Newton step to keep the iterate inside feasible region
-     call nd_box_reflexions( &
-          reshape(uv, [4]), &
-          lowerb, &
-          upperb, &
-          duv, &
-          4, &
-          stat_refl )
-     if ( stat_refl > 0 ) return
+       !! correct Newton step to keep the iterate inside feasible region
+       call nd_box_reflexions( &
+            reshape(uv, [4]), &
+            lowerb, &
+            upperb, &
+            duv, &
+            4, &
+            stat_refl )
+       if ( stat_refl > 0 ) return
 
-     !! update solution
-     uv(:,1) = uv(:,1) + duv(1:2)
-     uv(:,2) = uv(:,2) + duv(3:4)
+       !! update solution
+       uv(:,1) = uv(:,1) + duv(1:2)
+       uv(:,2) = uv(:,2) + duv(3:4)
 
-     !! termination criteria
-     if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <--------+
-        if ( sum(resxyz**2) < EPSxyzsqr .and. &                     !
-             abs(resw) < tolw ) then ! <-------------------------+  !
-           stat = 0                                              !  !
-           do isurf = 1,2 ! <------------+                       !  !
-              call eval( &               !                       !  !
-                   xyz_tmp(:,isurf), &   !                       !  !
-                   surf(isurf)%ptr, &    !                       !  !
-                   uv(:,isurf) )         !                       !  !
-           end do ! <--------------------+                       !  !
-           xyz = 0.5_fp * sum(xyz_tmp, 2)                        !  !
-        else ! --------------------------------------------------+  !
-        end if ! ------------------------------------------------+  !
-        return                                                      !
-     end if ! <-----------------------------------------------------+
+       !! termination criteria
+       if ( erruv < max(EPSuvsqr, EPSfpsqr*cond**2) ) then ! <--------+
+          if ( sum(resxyz**2) < EPSxyzsqr .and. &                     !
+               abs(resw) < tolw ) then ! <-------------------------+  !
+             stat = 0                                              !  !
+             do isurf = 1,2 ! <------------+                       !  !
+                call eval( &               !                       !  !
+                     xyz_tmp(:,isurf), &   !                       !  !
+                     surf(isurf)%ptr, &    !                       !  !
+                     uv(:,isurf) )         !                       !  !
+             end do ! <--------------------+                       !  !
+             xyz = 0.5_fp * sum(xyz_tmp, 2)                        !  !
+          else ! --------------------------------------------------+  !
+          end if ! ------------------------------------------------+  !
+          return                                                      !
+       end if ! <-----------------------------------------------------+
 
-  end do
-  
+    end do
+
   end subroutine newton_intersection_polyline2
 
 
@@ -1791,40 +1801,470 @@ end subroutine trace_border_polyline
 
 
 
-   !subroutine long_lat_patch_from_arcs( &
-   !   vxyz, &
-   !   m, &
-   !   cxyz, &
-   !   occ, &
-   !   tng, &
-   !   surf, &
-   !   longlat_ctr, &
-   !   longlat_rng )
-   !   use mod_diffgeom
-   !   use mod_geometry
-   !   implicit none
-   !   real(kind=fp),      intent(in)    :: vxyz(3)
-   !   integer,            intent(in)    :: m
-   !   real(kind=fp),      intent(in)    :: cxyz(3,m)
-   !   real(kind=fp),      intent(in)    :: occ(3,m)
-   !   real(kind=fp),      intent(in)    :: tng(3,m)
-   !   type(type_surface), intent(inout) :: surf
-   !   real(kind=fp),      intent(out)   :: uv(2,n)
-   !   real(kind=fp),      intent(out)   :: longlat_ctr(2)
-   !   real(kind=fp),      intent(out)   :: longlat_rng(2)
-   !   real(kind=fp)                     :: ctr(3), radsqr
-   !   real(kind=fp)                     :: rot(3,3)
-   !  
-   !   ! 1) get axis of smallest cone bounding the points cxyz
-   !   !   a) get smallest sphere bounding the points cxyz
-   !   call smallest_enclosing_ball( &
-   !      m, &
-   !      3, &
-   !      cxyz - spread(vxz, dim=2, ncopies=m), &
-   !      ctr, &
-   !      radsqr )
-   !   !   b) get cone axis
-   !   rot(1:3,1) = ctr/norm2(ctr)  
-   !  
-   !end subroutine long_lat_patch_from_arcs
+
+  
+  ! ==================================================================
+  function extrema_latitude( &
+       o_minus_v, &
+       normal, &
+       r1, &
+       angle, &
+       b3 )
+    implicit none
+    real(kind=fp), intent(in), dimension(3) :: o_minus_v, normal, r1, b3
+    real(kind=fp), intent(in)               :: angle
+    real(kind=fp)                           :: extrema_latitude(2)
+    real(kind=fp)                           :: r1perp(3)
+    real(kind=fp)                           :: beta(2)
+    real(kind=fp)                           :: u(4)
+    integer                                 :: nu
+    real(kind=fp)                           :: x(3), lat
+    integer                                 :: i    
+
+    beta = [0._fp, CSTpi] + atan2(dot_product(r1, cross(normal, b3)), dot_product(r1, b3))
+    
+    !beta = mod(beta, 2._fp*CSTpi)
+    
+    u(1) = 0._fp
+    u(2) = angle
+    nu = 2
+    do i = 1,2
+       if ( beta(i) < 0._fp ) beta(i) = beta(i) + 2._fp*CSTpi
+       if ( beta(i) <= angle ) then
+          nu = nu + 1
+          u(nu) = beta(i)
+       end if
+    end do
+
+    extrema_latitude = 4*[1._fp, -1._fp]
+    
+    r1perp = cross(r1, normal)
+    do i = 1,nu
+       x = o_minus_v + r1*cos(u(i)) + r1perp*sin(u(i))
+       lat = asin(dot_product(x, b3)/norm2(x))
+       extrema_latitude(1) = min(extrema_latitude(1), lat)
+       extrema_latitude(2) = max(extrema_latitude(2), lat)
+    end do
+
+  end function extrema_latitude
+
+
+
+
+  function extrema_longitude( &
+       o_minus_v, &
+       normal, &
+       r1, &
+       angle, &
+       B, &
+       nsample )
+    implicit none
+    real(kind=fp), intent(in), dimension(3) :: o_minus_v, normal, r1
+    real(kind=fp), intent(in)               :: angle
+    real(kind=fp), intent(in)               :: B(3,3)
+    integer,       intent(in)               :: nsample
+    real(kind=fp)                           :: extrema_longitude(2)
+    real(kind=fp)                           :: usample(nsample)
+    real(kind=fp)                           :: r1perp(3)
+    integer                                 :: iext(2)
+    real(kind=fp)                           :: u
+    real(kind=fp)                           :: x(3), lon
+    integer                                 :: stat
+    integer                                 :: i, j
+
+    r1perp = cross(r1, normal)
+    usample = linspace(0._fp, 1._fp, nsample)
+    extrema_longitude(1) = 100._fp
+    extrema_longitude(2) = -100._fp
+    iext(:) = 0
+    do i = 1,nsample
+       x = o_minus_v + r1*cos(angle*usample(i)) + r1perp*sin(angle*usample(i))
+       lon = atan2(dot_product(x, B(1:3,2)), dot_product(x, B(1:3,1)))
+       if ( lon < extrema_longitude(1) ) then
+          iext(1) = i
+          extrema_longitude(1) = lon
+       end if
+       if ( lon > extrema_longitude(2) ) then
+          iext(2) = i
+          extrema_longitude(2) = lon
+       end if
+    end do
+
+    extrema_longitude = 7._fp*[1._fp, -1._fp]
+    do j = 1,2
+       i = iext(j)
+       if ( i == 1 ) then
+          u = 0._fp
+       elseif ( i == nsample ) then
+          u = angle
+       else
+          u = usample(i)*angle
+          call Newton_extremum_longitude( &
+               u, &
+               o_minus_v, &
+               r1, &
+               r1perp, &
+               B, &
+               stat )
+          if ( stat > 0 ) then
+             u = usample(i)*angle
+          end if
+       end if
+
+       x = o_minus_v + r1*cos(u) + r1perp*sin(u)
+       lon = atan2(dot_product(x, B(1:3,2)), dot_product(x, B(1:3,1)))
+       extrema_longitude(1) = min(extrema_longitude(1), lon)
+       extrema_longitude(2) = max(extrema_longitude(2), lon)
+    end do
+    
+  end function extrema_longitude
+
+
+
+
+
+
+  
+
+
+  subroutine Newton_extremum_longitude( &
+       u, &
+       o_minus_v, &
+       r1, &
+       r1perp, &
+       B, &
+       stat )
+    implicit none
+    real(kind=fp), parameter                :: TOL = real(1.d-6, kind=fp)
+    integer, parameter                      :: itmax = 20
+    real(kind=fp), intent(inout)            :: u
+    real(kind=fp), intent(in), dimension(3) :: o_minus_v, r1, r1perp
+    real(kind=fp), intent(in)               :: B(3,3)
+    integer,       intent(out)              :: stat
+    real(kind=fp), dimension(3)             :: rvec, x, x_u, x_uu, e, e_u
+    real(kind=fp)                           :: f, f_u, du
+    integer                                 :: it
+
+    stat = 1
+    
+    do it = 1,itmax
+       rvec = r1*cos(u) + r1perp*sin(u)
+       x = o_minus_v + rvec
+       x_u = r1perp*cos(u) - r1*sin(u)
+       x_uu = rvec
+
+       e = matmul(B, [-dot_product(x, B(:,2)), dot_product(x, B(:,1)) , 0._fp])
+       e_u = matmul(B, [-dot_product(x_u, B(:,2)), dot_product(x_u, B(:,1)) , 0._fp])
+
+       f = dot_product(e, x_u)
+       f_u = dot_product(e_u, x_u) + dot_product(e, x_uu)
+       PRINT *,'      IT #', IT, ', |F| =', ABS(F)
+
+       if ( abs(f_u) < TOL ) then
+          stat = 2
+          return
+       end if
+       
+       du = -f/f_u
+       u = u + du
+
+       if ( abs(du) < TOL .and. abs(f) < TOL ) then
+          stat = 0
+          return
+       end if
+    end do
+    
+  end subroutine Newton_extremum_longitude
+       
+
+
+
+
+
+
+
+
+  subroutine LL_patch_from_arcs( &
+       nplanes, &
+       cc_center, &
+       normal, &
+       corner, &
+       vxyz, &
+       degr, &
+       surf )
+    use mod_diffgeom
+    use mod_geometry
+    use mod_chebyshev
+    use mod_polynomial
+    USE MOD_UTIL
+    implicit none
+    LOGICAL :: DEBUG = .true.
+    integer,            intent(in)                       :: nplanes
+    real(kind=fp),      intent(in), dimension(3,nplanes) :: cc_center, normal, corner
+    real(kind=fp),      intent(in)                       :: vxyz(3)
+    integer,            intent(in)                       :: degr
+    type(type_surface), intent(inout)                    :: surf
+    integer                                              :: ns
+    real(kind=fp)                                        :: s(3,2*nplanes), ri, ravg
+    real(kind=fp)                                        :: s_dot_b1(2*nplanes)
+    real(kind=fp)                                        :: p(3,2*nplanes)
+    real(kind=fp)                                        :: p_OBB(2,4)
+    real(kind=fp)                                        :: B(3,3)
+    real(kind=fp), dimension(2)                          :: min_lonlat, max_lonlat
+    real(kind=fp), dimension(3)                          :: r1, r2, r1perp
+    real(kind=fp)                                        :: angle
+    real(kind=fp), dimension(2)                          :: minmax_lat, minmax_lon
+    real(kind=fp), dimension(2)                          :: ctr_lonlat, rng_lonlat
+    real(kind=fp), dimension(degr+1)                     :: tcgl, cosucgl, sinucgl, cosvcgl, sinvcgl
+    real(kind=fp)                                        :: xyzcgl(3,(degr+1)**2)
+    integer                                              :: m
+    integer                                              :: i, j, k
+    INTEGER :: FID
+
+    IF ( DEBUG ) CALL GET_FREE_UNIT(FID)  
+
+    IF ( .FALSE. ) THEN
+       ! normalize corners onto unit sphere
+       ravg = 0._fp
+       do i = 1,nplanes
+          s(1:3,i) = corner(1:3,i) - vxyz
+          ri = norm2(s(1:3,i))
+          ravg = ravg + ri
+          s(1:3,i) = s(1:3,i)/ri
+       end do
+       ns = nplanes
+    ELSE
+       ! normalize onto unit sphere
+       do i = 1,nplanes
+          j = 1 + mod(i+nplanes-2,nplanes)
+          r1 = corner(1:3,j) - cc_center(1:3,i)
+          r2 = corner(1:3,i) - cc_center(1:3,i)
+          
+          r1perp = cross(r1, normal(1:3,i))
+          
+          angle = atan2(dot_product(r2, r1perp), dot_product(r2, r1))
+          if ( angle < 0._fp ) angle = angle + 2._fp*CSTpi
+
+          s(1:3,2*i-1) = corner(1:3,j)
+          s(1:3,2*i) = cc_center(1:3,i) + r1*cos(0.5_fp*angle) + r1perp*sin(0.5_fp*angle)
+       end do
+       ns = 2*nplanes
+
+       ravg = 0._fp
+       do i = 1,2*nplanes
+          s(1:3,i) = s(1:3,i) - vxyz
+          ri = norm2(s(1:3,i))
+          ravg = ravg + ri
+          s(1:3,i) = s(1:3,i)/ri
+       end do
+    END IF
+    ravg = ravg/real(ns, kind=fp)
+    PRINT *, 'RAVG =', RAVG
+
+    IF ( DEBUG ) CALL WRITE_MATRIX( transpose(s(1:3,1:ns)), ns, 3, &
+         '../debug/LL_patch_from_arcs/s.dat' )
+    
+    ! orthonormal basis
+    B(1:3,1) = sum(s, 2)
+    B(1:3,1) = B(1:3,1)/norm2(B(1:3,1))
+    
+    call complete_orthonormal_basis(B(1:3,1), B(1:3,2), B(1:3,3))
+    IF ( DEBUG ) CALL WRITE_MATRIX( B, 3, 3, &
+         '../debug/LL_patch_from_arcs/Btmp.dat' )
+
+    ! central projection onto plane tangent to unit sphere at point b1 = B(1:3,1)
+    s_dot_b1(1:ns) = s(1,1:2*nplanes)*B(1,1) + s(2,1:2*nplanes)*B(2,1) + s(3,1:2*nplanes)*B(3,1)
+    s_dot_b1(1:ns) = sign(1._fp, s_dot_b1)*max(real(1.d-6, kind=fp), abs(s_dot_b1))
+    p(1:3,1:ns) = s(1:3,1:ns)/spread(s_dot_b1(1:ns), dim=1, ncopies=3)
+    IF ( DEBUG ) CALL WRITE_MATRIX( transpose(p(1:3,1:ns)), ns, 3, &
+         '../debug/LL_patch_from_arcs/p.dat' )
+
+    ! coordinates in local frame (b2, b3)
+    p(1:2,1:ns) = matmul(transpose(B(1:3,2:3)), p(1:3,1:ns))
+    IF ( DEBUG ) CALL WRITE_MATRIX( transpose(p(1:2,1:ns)), ns, 2, &
+         '../debug/LL_patch_from_arcs/p_2d.dat' )
+
+    ! mimimum-area OBB
+    IF ( .FALSE. ) THEN
+       call minimum_area_OBB_2d( &
+            p(1:2,1:ns), &
+            ns, &
+            p_OBB(1:2,1), &
+            p_OBB(1:2,2), &
+            p_OBB(1:2,3:4) )
+    ELSE
+       call minimal_OBB( &
+            xy=p(1:2,1:ns), &
+            n=ns, &
+            critere=0, &
+            center=p_OBB(1:2,1), &
+            ranges=p_OBB(1:2,2), &
+            axes=p_OBB(1:2,3:4), &
+            tol=real(1.d-6, kind=fp))
+    END IF
+ 
+    IF ( DEBUG ) CALL WRITE_MATRIX( p_OBB, 2, 4, &
+         '../debug/LL_patch_from_arcs/p_OBB.dat' )
+
+    ! final rotation matrix
+    B(1:3,2:3) = matmul(B(1:3,2:3), p_OBB(1:2,3:4))
+    IF ( DEBUG ) CALL WRITE_MATRIX( B, 3, 3, &
+         '../debug/LL_patch_from_arcs/B.dat' )
+    
+    ! longitude-latitude extrema
+    min_lonlat = CSTpi*[1._fp, 0.5_fp]
+    max_lonlat = -min_lonlat
+    IF ( DEBUG ) THEN
+       OPEN(UNIT=FID, &
+            FILE='../debug/LL_patch_from_arcs/arcs.dat', &
+            ACTION='WRITE')
+       WRITE (FID,*) VXYZ
+       WRITE (FID,*) NPLANES
+    END IF
+    
+    do i = 1,nplanes
+       j = 1 + mod(i+nplanes-2,nplanes)
+       r1 = corner(1:3,j) - cc_center(1:3,i)
+       r2 = corner(1:3,i) - cc_center(1:3,i)
+       
+       r1perp = cross(r1, normal(1:3,i))
+       !angle = mod(atan2(dot_product(r2, r1perp), dot_product(r2, r1)), 2._fp*CSTpi)
+       angle = atan2(dot_product(r2, r1perp), dot_product(r2, r1))
+       if ( angle < 0._fp ) angle = angle + 2._fp*CSTpi
+
+       ! latitude
+       minmax_lat = extrema_latitude( &
+            cc_center(1:3,i) - vxyz, &
+            normal(1:3,i), &
+            r1, &
+            angle, &
+            B(1:3,3) )
+       PRINT *,'MINMAX_LAT/PI =', MINMAX_LAT/CSTPI
+       min_lonlat(2) = min(min_lonlat(2), minmax_lat(1))
+       max_lonlat(2) = max(max_lonlat(2), minmax_lat(2))
+
+       ! longitude
+       minmax_lon = extrema_longitude( &
+            cc_center(1:3, i) - vxyz, &
+            normal(1:3,i), &
+            r1, &
+            angle, &
+            B, &
+            10 )
+       PRINT *,'MINMAX_LON/PI =', MINMAX_LON/CSTPI
+       min_lonlat(1) = min(min_lonlat(1), minmax_lon(1))
+       max_lonlat(1) = max(max_lonlat(1), minmax_lon(2))
+
+       IF ( DEBUG ) THEN
+          WRITE (FID,*) CC_CENTER(:,I)
+          WRITE (FID,*) NORMAL(:,I)
+          WRITE (FID,*) CORNER(:,J)
+          WRITE (FID,*) CORNER(:,I)
+          WRITE (FID,*) R1
+          WRITE (FID,*) R1PERP
+          WRITE (FID,*) ANGLE
+          WRITE (FID,*) MINMAX_LON
+          WRITE (FID,*) MINMAX_LAT
+       END IF
+    end do
+    IF ( DEBUG ) CLOSE(FID)
+
+    PRINT *, min_lonlat(1)/CSTpi, ' < LON/PI <', max_lonlat(1)/CSTpi
+    PRINT *, min_lonlat(2)/CSTpi, ' < LAT/PI <', max_lonlat(2)/CSTpi
+
+    ctr_lonlat = 0.5_fp*(max_lonlat + min_lonlat)
+    rng_lonlat = 0.5_fp*(max_lonlat - min_lonlat)
+    IF ( DEBUG ) THEN
+      OPEN(UNIT=FID, &
+           FILE='../debug/LL_patch_from_arcs/lonlat_OBB.dat', &
+           ACTION='WRITE')
+      WRITE (FID,*) CTR_LONLAT
+      WRITE (FID,*) RNG_LONLAT
+      PRINT *,'AREA =', RNG_LONLAT(1)*COS(CTR_LONLAT(2))*SIN(RNG_LONLAT(2))
+   END IF
+
+    ! Chebyshev patch    
+    call cgl_nodes(tcgl, degr)
+    cosucgl = cos(ctr_lonlat(1) + rng_lonlat(1)*tcgl)
+    sinucgl = sin(ctr_lonlat(1) + rng_lonlat(1)*tcgl)
+    cosvcgl = cos(ctr_lonlat(2) + rng_lonlat(2)*tcgl)
+    sinvcgl = sin(ctr_lonlat(2) + rng_lonlat(2)*tcgl)
+
+    m = degr + 1
+    do j = 1,m
+       do i = 1,m
+          k = m*(j-1) + i
+          xyzcgl(1,k) = cosucgl(i)*cosvcgl(j)
+          xyzcgl(2,k) = sinucgl(i)*cosvcgl(j)
+          xyzcgl(3,k) = sinvcgl(j)
+       end do
+    end do
+
+    xyzcgl = matmul(B, xyzcgl)
+
+    do i = 1,m*m
+       xyzcgl(1:3,i) = vxyz + ravg*xyzcgl(1:3,i) 
+    end do
+
+    call reset_polynomial(surf%x, 2, 1, [degr, degr], 3)
+    call fcht2( &
+         reshape(transpose(xyzcgl), [m,m,3]), &
+         surf%x%coef(1:m,1:m,1:3), &
+         m, &
+         m, &
+         3, &
+         EPSmath )
+
+    IF ( DEBUG ) PAUSE
+    
+  end subroutine LL_patch_from_arcs
+
+
+
+
+
+
+
+
+
+
+
+
+
+  !subroutine long_lat_patch_from_arcs( &
+  !   vxyz, &
+  !   m, &
+  !   cxyz, &
+  !   occ, &
+  !   tng, &
+  !   surf, &
+  !   longlat_ctr, &
+  !   longlat_rng )
+  !   use mod_diffgeom
+  !   use mod_geometry
+  !   implicit none
+  !   real(kind=fp),      intent(in)    :: vxyz(3)
+  !   integer,            intent(in)    :: m
+  !   real(kind=fp),      intent(in)    :: cxyz(3,m)
+  !   real(kind=fp),      intent(in)    :: occ(3,m)
+  !   real(kind=fp),      intent(in)    :: tng(3,m)
+  !   type(type_surface), intent(inout) :: surf
+  !   real(kind=fp),      intent(out)   :: uv(2,n)
+  !   real(kind=fp),      intent(out)   :: longlat_ctr(2)
+  !   real(kind=fp),      intent(out)   :: longlat_rng(2)
+  !   real(kind=fp)                     :: ctr(3), radsqr
+  !   real(kind=fp)                     :: rot(3,3)
+  !  
+  !   ! 1) get axis of smallest cone bounding the points cxyz
+  !   !   a) get smallest sphere bounding the points cxyz
+  !   call smallest_enclosing_ball( &
+  !      m, &
+  !      3, &
+  !      cxyz - spread(vxz, dim=2, ncopies=m), &
+  !      ctr, &
+  !      radsqr )
+  !   !   b) get cone axis
+  !   rot(1:3,1) = ctr/norm2(ctr)  
+  !  
+  !end subroutine long_lat_patch_from_arcs
 end module mod_eos

@@ -805,4 +805,120 @@ contains
 
   end subroutine circumsphere
 
+
+
+
+
+
+
+  subroutine minimal_OBB( &
+       xy, &
+       n, &
+       critere, &
+       center, &
+       ranges, &
+       axes, &
+       tol )
+    implicit none
+    real(kind=fp), parameter    :: tol_default = 0._fp
+    integer,       intent(in)   :: n         ! nombre de points
+    real(kind=fp), intent(in)   :: xy(2,n)   ! coordonnées xy des points
+    integer,       intent(in)   :: critere   ! 0: area, 1: width
+    real(kind=fp), intent(out)  :: center(2) ! coordonnées xy du centre de la boîte
+    real(kind=fp), intent(out)  :: ranges(2) ! demi-côtés de la boîte
+    real(kind=fp), intent(out)  :: axes(2,2) ! axes de la boîte
+    real(kind=fp), intent(in), optional :: tol
+    real(kind=fp)               :: frac
+    integer                     :: hull(n), nhull
+    real(kind=fp)               :: vec(2), rot(2,2)
+    real(kind=fp), allocatable  :: xy_rot(:,:)
+    real(kind=fp)               :: val, val_tmp
+    real(kind=fp), dimension(2) :: mn, mx, ranges_tmp
+    integer                     :: i
+
+    if ( present(tol) ) then
+       frac = (1._fp + tol)
+    else
+       frac = (1._fp + tol_default)
+    end if
+    
+    ! get convex hull
+    call quickhull( &
+         xy, &
+         n, &
+         hull, &
+         nhull )
+
+    ! handle special cases
+    if ( nhull < 1 ) then
+       center(:) = 0._fp
+       ranges(:) = 0._fp
+       axes = identity_matrix(2) ! rotation_matrix2d( 0._fp )
+       return
+
+    elseif ( nhull == 1 ) then
+       center = xy(:,hull(1))
+       ranges(:) = 0._fp
+       axes = identity_matrix(2) ! rotation_matrix2d( 0._fp )
+       return
+
+    elseif( nhull == 2 ) then
+       center = 0.5_fp * sum( xy(:,hull(1:2)), 2 )
+       vec = xy(:,hull(2)) - xy(:,hull(1))
+       ranges(1) = 0.5_fp * norm2( vec )
+       ranges(2) = 0._fp
+       axes = rotation_matrix2d( -atan2( vec(2), vec(1) ) )
+       return
+       
+    end if
+
+    allocate(xy_rot(2,nhull))
+    val = huge(1._fp)
+    do i = 1,nhull
+       ! i-th edge of the convex hull
+       vec = xy(:,hull(1+mod(i,nhull))) - xy(:,hull(i))
+
+       !apply rotation that makes that edge parallel to the x-axis
+       rot = rotation_matrix2d(atan2(vec(2), vec(1)))
+       xy_rot = matmul(rot, xy(:,hull(1:nhull)))
+
+       ! xy ranges of the rotated convex hull
+       mn = minval(xy_rot, 2)
+       mx = maxval(xy_rot, 2)
+       ranges_tmp = mx - mn
+       if ( critere == 1 ) then
+          val_tmp = minval(ranges_tmp)
+       else
+          val_tmp = product(ranges_tmp)
+       end if
+       PRINT *,'VAL_TMP =', VAL_TMP, ', VAL_TMP - VAL =', VAL_TMP - VAL
+       
+
+       if ( val_tmp < val*frac ) then
+          val = val_tmp
+          ! inverse rotation
+          rot = transpose(rot)
+          center = matmul(rot, 0.5_fp*(mn + mx))
+          if ( ranges_tmp(2) > ranges_tmp(1) ) then
+             ranges = 0.5_fp*ranges_tmp([2,1])
+             axes(1:2,1) = rot(1:2,2)
+             axes(1:2,2) = -rot(1:2,1)
+          else
+             ranges = 0.5_fp*ranges_tmp
+             axes = rot
+          end if
+       end if
+       
+    end do
+
+    deallocate(xy_rot)
+    
+  end subroutine minimal_OBB
+
+
+
+
+
+  
+
 end module mod_geometry
