@@ -5,40 +5,6 @@ import sys
 sys.path.append('/d/GitHub/FFTsurf/test/graph/')
 from lib_curved_graph import *
 
-
-"""
-class GraphCycle:
-    def __init__(self, nodes=None, arcs=None):
-        if nodes is None:
-            self.nodes = []
-        else:
-            self.nodes = nodes
-        if arcs is None:
-            self.arcs = []
-        else:
-            self.arcs = arcs
-        return
-"""
-#############################################################
-def remove_dangling_branches(nodes, arcs):
-    while True:
-        changes = False
-        for node in nodes:
-            remove = False
-            if len(node.ingoing) < 1:
-                remove = True
-                for arc in node.outgoing:
-                    arc.dest.ingoing.remove(arc)
-                    arcs.remove(arc)
-            if len(node.outgoing) < 1:
-                remove = True
-                for arc in node.ingoing:
-                    arc.orig.outgoing.remove(arc)
-                    arcs.remove(arc)
-            if remove:
-                changes = True
-                nodes.remove(node)
-        if not changes: return nodes, arcs
 #############################################################
 def diff_angle(a1, a2):
     c1 = cos(a1)

@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import cos, sin, atan2, pi
 import sys
+sys.path.append('/d/bandrieu/GitHub/Code/Python/')
+import lib_bezier as lbez
 
 #############################################################
 #############################################################
@@ -33,13 +35,43 @@ class GraphArc:
         else:
             self.angles = angles
         return
-    
+    #
     def curve(self, n=100, tension=1):
         return curved_arc([self.orig.co, self.dest.co], self.angles, n, tension)
-    
+    #
     def plot(self, ax, n=100, tension=1, color='k', arrow_length=0):
         aabb = plot_curved_arc(ax, [self.orig.co, self.dest.co], self.angles, n, tension, color, arrow_length)
         return aabb
+#############################################################
+class GraphArcB:
+    def __init__(self, orig=None, dest=None, bp=None):
+        self.orig = orig
+        self.dest = dest
+        self.bp = bp
+        self.compute_angles()
+        return
+    #
+    def compute_angles(self):
+        if self.bp is not None:
+            self.angles = [
+                np.arctan2(v[1], v[0])
+                for v in [self.bp[1] - self.bp[0], self.bp[-1] - self.bp[-2]]
+            ]
+        return
+    #
+    def curve(self, n=100, tension=1):
+        t = np.linspace(0,1,n)
+        return lbez.eval_bezier_curve(self.bp, t)
+    #
+    def plot(self, ax, n=100, tension=1, color='k', arrow_length=0):
+        #xy = self.curve(n, tension)
+        #plot_directed_curve(ax, xy, color, arrow_length)
+        xy = plot_directed_bezier_curve(ax, self.bp, n, color, arrow_length)
+        xymin = np.amin(xy, axis=0)
+        xymax = np.amax(xy, axis=0)
+        return (xymin[0], xymax[0], xymin[1], xymax[1])
+
+
 #############################################################
 class GraphCycle:
     def __init__(self, points=None, angles=None):
@@ -51,6 +83,11 @@ class GraphCycle:
             self.angles = []
         else:
             self.angles = angles
+        return
+#############################################################
+class GraphCycleB:
+    def __init__(self, segments=None):
+        self.segments = segments
         return
 #############################################################
 def curve_midpoint_index(points):
@@ -92,11 +129,9 @@ def curved_arc_bezier_control_points(points, angles, tension=1):
     m0, m1 = curved_arc_end_tangents(points, angles, tension)
     return np.array([p0, p0+m0/3., p1-m1/3., p1])
 #############################################################
-def plot_curved_arc(ax, points, angles, n=100, tension=1, color='k', arrow_length=0):
-    p = curved_arc(points, angles, n, tension)
+def plot_directed_curve(ax, p, color='k', arrow_length=0):
     ax.plot(p[:,0], p[:,1], color=color, lw=1)
     if arrow_length > 0:
-        #m = int(n/2)
         m = curve_midpoint_index(p)
         pm = p[m]
         dpm = p[m+1] - pm
@@ -109,9 +144,20 @@ def plot_curved_arc(ax, points, angles, n=100, tension=1, color='k', arrow_lengt
             head_width=arrow_length, 
             length_includes_head=True
         )
+    return 
+#############################################################
+def plot_curved_arc(ax, points, angles, n=100, tension=1, color='k', arrow_length=0):
+    p = curved_arc(points, angles, n, tension)
+    plot_directed_curve(ax, p, color, arrow_length)
     xymin = np.amin(p, axis=0)
     xymax = np.amax(p, axis=0)
     return (xymin[0], xymax[0], xymin[1], xymax[1])
+#############################################################
+def plot_directed_bezier_curve(ax, bp, n=100, color='k', arrow_length=0):
+    t = np.linspace(0,1,n)
+    xy = lbez.eval_bezier_curve(bp, t)
+    if ax is not None: plot_directed_curve(ax, xy, color, arrow_length)
+    return xy
 #############################################################
 def plot_graph(ax, nodes, arcs, node_color='k', arc_color='k'):
     huge = 1e6
@@ -125,6 +171,26 @@ def plot_graph(ax, nodes, arcs, node_color='k', arc_color='k'):
         ax.plot(node.co[0], node.co[1], 'o', c=node_color, mew=0)
     return aabb
 #############################################################
+def remove_dangling_branches(nodes, arcs):
+    while True:
+        changes = False
+        for node in nodes:
+            remove = False
+            if len(node.ingoing) < 1:
+                remove = True
+                for arc in node.outgoing:
+                    arc.dest.ingoing.remove(arc)
+                    arcs.remove(arc)
+            if len(node.outgoing) < 1:
+                remove = True
+                for arc in node.ingoing:
+                    arc.orig.outgoing.remove(arc)
+                    arcs.remove(arc)
+            if remove:
+                changes = True
+                nodes.remove(node)
+        if not changes: return nodes, arcs
+#############################################################
 def make_faces(cycles, n=100, tension=1):
     sys.path.append('/d/bandrieu/GitHub/Code/Python/')
     from lib_compgeom import is_inside_polygon
@@ -133,22 +199,27 @@ def make_faces(cycles, n=100, tension=1):
     # make cycle polygons
     polys = []
     for cycle in cycles:
-        m = len(cycle.points)
         poly = np.empty((0,2), dtype=float)
-        x = [p[0] for p in cycle.points]
-        y = [p[1] for p in cycle.points]
-        for i in range(m):
-            j = (i+1)%m
-            curve = curved_arc(
-                points=[
-                    [x[i], y[i]],
-                    [x[j], y[j]]
-                ],
-                angles=cycle.angles[i],
-                n=n,
-                tension=tension
-            )
-            poly = np.vstack([poly, curve[:-1]])
+        if isinstance(cycle, GraphCycleB):
+            for bp in cycle.segments:
+                xy = plot_directed_bezier_curve(None, bp, n)
+                poly = np.vstack([poly, xy[:-1]])
+        else:
+            m = len(cycle.points)
+            x = [p[0] for p in cycle.points]
+            y = [p[1] for p in cycle.points]
+            for i in range(m):
+                j = (i+1)%m
+                curve = curved_arc(
+                    points=[
+                        [x[i], y[i]],
+                        [x[j], y[j]]
+                    ],
+                    angles=cycle.angles[i],
+                    n=n,
+                    tension=tension
+                )
+                poly = np.vstack([poly, curve[:-1]])
         polys.append(poly)
 
     # get inclusion relationships
