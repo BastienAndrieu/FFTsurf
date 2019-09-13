@@ -1740,5 +1740,62 @@ subroutine write_tecplot_mesh_displacement2( &
     end do
     
   end subroutine swap_edge
+
+
+
+
+
+
+  subroutine smoothing_closed_polyline( &
+   poly, &
+   dim, &
+   n, &
+   itmax, &
+   eps_opt )
+   ! cf "Optimization-based smoothing algorithm for triangle meshes over 
+   ! arbitrarily shaped domains", D. Aubram (2014) (pp.5-6)
+   ! and "Simulation of 3D metal-forming using an arbitrary Lagrangian-Eulerian finite element method", 
+   ! J.L. Aymone et al. (2001) (section 3.2)
+   ! eps_opt allows to stop the smoothing process before the max number of iterations,
+   ! if the maximum displacement becomes too small (rather than computing distances 
+   ! in 3d space, the local parameter displacement (ti) is used as a proxy, which 
+   ! correlates well with the 3d displacement normalized by the local point spacing)
+   implicit none
+   integer,       intent(in)           :: dim, n
+   real(kind=fp), intent(inout)        :: poly(dim,n)
+   integer,       intent(in)           :: itmax
+   real(kind=fp), intent(in), optional :: eps_opt
+   real(kind=fp)                       :: poly_tmp(dim,n), dist(2), ti, ti2, eps_t, max_t
+   integer                             :: it, i, im, ip
+
+   if ( present(eps_opt) ) eps_t = 0.5_fp*sqrt(1._fp + 4._fp*eps_opt) - 0.5_fp
+
+   do it = 1,itmax
+      if ( present(eps_opt) ) max_t = 0._fp
+      do i = 1,n
+         ip = 1 + mod(i,n)
+         im = 1 + mod(i+n-2,n)
+         !
+         dist(1) = norm2(poly(1:3,i) - poly(1:3,im))
+         dist(2) = norm2(poly(1:3,i) - poly(1:3,ip))
+         !
+         ti = (dist(2) - dist(1))/(dist(2) + dist(1))
+         if ( present(eps_opt) ) max_t = max(max_t, abs(ti))
+         ti2 = ti**2
+         !
+         poly_tmp(1:3,i) = &
+         poly(1:3,im) * 0.5_fp*(ti2 - ti) + &
+         poly(1:3,i)  * (1._fp - ti2)     + &
+         poly(1:3,ip) * 0.5_fp*(ti2 + ti)
+      end do
+
+      poly(1:3,1:n) = poly_tmp(1:3,1:n)
+
+      if ( present(eps_opt) ) then
+         if ( max_t < eps_t ) return
+      end if
+   end do
+
+  end subroutine smoothing_closed_polyline
   
 end module mod_optimmesh

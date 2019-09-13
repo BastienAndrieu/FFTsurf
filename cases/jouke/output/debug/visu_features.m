@@ -53,11 +53,13 @@ axlim = [0.4,1.1,repmat(0.4*[-1,1],1,2)];
 figure('units','normalized', 'position', [.1 .1 .8 .8]);
 hold on
 
+X = [];
 for instant = instant1:instant2
     clf;
     hold on
     
     xyz = importdata(sprintf('../pos_%3.3d.dat',instant));
+    X = cat(3, X, xyz);
     if plotpaths
         for i = 1:npths
             l = pth(i).verts;
@@ -76,9 +78,19 @@ for instant = instant1:instant2
     view(3)
     camproj('persp');
     
-    pause(0.1);
+    pause(0.01);
 end
 
+
+if plotpaths
+    for i = 1:npths
+        l = pth(i).verts;
+        for j = l
+            x = reshape(X(j,:,:), 3, [])';
+            plot3(x(:,1), x(:,2), x(:,3), '-', 'color', 0.5*clp(i,:), 'linewidth', 0.5);
+        end
+    end
+end
 
 
 

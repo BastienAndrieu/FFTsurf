@@ -4978,7 +4978,8 @@ subroutine diffgeom_intersection( &
      duv_ds, &
      dxyz_ds, &
      stat, &
-     curvature )
+     curvature, &
+     normalize_scale )
   ! Computes tangent direction(s) and curvature of the intersection curve between
   ! two surfaces at a given intersection point.
   ! Returns: stat =-1 if one surface is singular at that point (normal = zero vector)
@@ -4989,23 +4990,44 @@ subroutine diffgeom_intersection( &
   !               = 4 if the point is an high-order tangential contact point (possible degeneracy)
   use mod_math
   use mod_diffgeom
+  use mod_obb
   ! ( see "Shape interrogation for computer aided design and manufacturing", &
   ! Patrikalakis et al. (2009), pp.166-175, 
   ! and "Tracing surface intersections with validated ODE system solver", Mukundan et al (2004)
   implicit none
   real(kind=fp), parameter             :: EPS = 1.d-9
+  real(kind=fp), parameter             :: EPSB = 1.d-7
   type(ptr_surface),       intent(in)  :: surf(2)
   real(kind=fp),           intent(in)  :: uv(2,2)
   real(kind=fp),           intent(out) :: duv_ds(2,2,2) ! u/v, #branch, #surf
   real(kind=fp),           intent(out) :: dxyz_ds(3,2)
   integer,                 intent(out) :: stat
   real(kind=fp), optional, intent(out) :: curvature(2)
+  logical, optional,       intent(in)  :: normalize_scale
   real(kind=fp)                        :: dxyz_duv(3,2,2), n(3,2), d2xyz_duv2(3)
   real(kind=fp)                        :: dotn, sgndotn, aux(3), w
   real(kind=fp), dimension(3,2)        :: EFG, LMN
   real(kind=fp), dimension(2)          :: detEFG, invsqrtdetEFG
   real(kind=fp)                        :: A(2,2), B(3), discr, invdenom, kn(2)
+  real(kind=fp)                        :: scale
+  type(type_obb)                       :: obb
   integer                              :: isurf, jsurf, ivar, i, j
+
+  scale = 1._fp
+  if ( present(normalize_scale) ) then
+     if ( normalize_scale ) then
+        scale = huge(1._fp)
+        do isurf = 1,2
+           call chebOBB2( &
+                surf(isurf)%ptr%x%coef(1:surf(isurf)%ptr%x%degr(1)+1, 1:surf(isurf)%ptr%x%degr(2)+1, 1:3), &
+                surf(isurf)%ptr%x%degr, &
+                obb )
+           scale = min(scale, 2._fp*norm2(obb%rng))
+        end do
+        scale = 1._fp/scale
+        !PRINT *,'SCALE =', SCALE
+     end if
+  end if
 
   do isurf = 1,2 ! <------------------------------------------------------------------+
      ! tangent vectors                                                                !
@@ -5015,6 +5037,7 @@ subroutine diffgeom_intersection( &
              uv(:,isurf), &                        !                                  !
              ivar )                                !                                  !
      end do ! <------------------------------------+                                  !
+     !dxyz_duv = dxyz_duv*scale
      ! First Fundamental Form coefficients                                            !
      EFG(1,isurf) = dot_product(dxyz_duv(:,1,isurf), dxyz_duv(:,1,isurf))             !
      EFG(2,isurf) = dot_product(dxyz_duv(:,1,isurf), dxyz_duv(:,2,isurf))             !
@@ -5039,7 +5062,7 @@ subroutine diffgeom_intersection( &
   dotn = dot_product(n(:,1), n(:,2))
   !PRINT *,'DOTN =',DOTN
 
-  if ( dotn > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <--------------------------+
+  if ( abs(dotn) > (1._fp - EPS)*product(sqrt(detEFG)) ) then ! <--------------------------+
      !! tangential intersection                                                       !
      sgndotn = sign(1._fp, dotn)                                                      !
      ! Second Fundamental Form coefficients                                           !
@@ -5049,6 +5072,7 @@ subroutine diffgeom_intersection( &
                 surf(isurf)%ptr, &                                !   !               !
                 uv(:,isurf), &                                    !   !               !
                 ivar )                                            !   !               !
+           !d2xyz_duv2 = d2xyz_duv2*scale
            LMN(ivar,isurf) = dot_product(n(:,isurf), d2xyz_duv2)  !   !               !
         end do ! <------------------------------------------------+   !               !
      end do ! <-------------------------------------------------------+               !
@@ -5081,24 +5105,25 @@ subroutine diffgeom_intersection( &
      B(3) = LMN(1,isurf)*A(1,2)**2 + 2._fp*LMN(2,isurf)*A(1,2)*A(2,2) + LMN(3,isurf)*A(2,2)**2
      !B = B / detEFG(jsurf)
      B = LMN(:,jsurf) - sign(1._fp, dotn)*B
+     B = B*scale
      where( abs(B) < EPSmath ) B = 0._fp
      !PRINT *,'B =',B
      discr = B(2)**2 - B(1)*B(3)                                                      !
      !A = sign(invsqrtdetEFG(jsurf), dotn)*A
      !PRINT *,'DISCR =',DISCR
      !                                                                                !
-     if ( all(abs(B) < EPS) ) then ! <-------------------------------------+          !
+     if ( all(abs(B) < EPSB) ) then ! <------------------------------------+          !
         ! high-order contact point (dxyz_ds cannot be determined)          !          !
         stat = 4                                                           !          !
         return                                                             !          !
         !                                                                  !          !
-     elseif ( discr < -EPS ) then ! ---------------------------------------+          !
+     elseif ( discr < -EPSB ) then ! --------------------------------------+          !
         ! isolated tangential contact point (dxyz_ds undefined)            !          !
         stat = 3                                                           !          !
         return                                                             !          !
         !                                                                  !          !
      else ! ---------------------------------------------------------------+          !
-        if ( discr < EPS ) then ! <------------------------------+         !          !
+        if ( discr < EPSB ) then ! <-----------------------------+         !          !
            ! tangential intersection curve (one single dxyz_ds)  !         !          !
            stat = 1                                              !         !          !
            discr = 0._fp                                         !         !          !

@@ -436,6 +436,12 @@ program fftsurf
                 options%hmin, &
                 options%hmax )
 
+            call write_tecplot_mesh( &
+                mesh, &
+                '../debug/pre_deform4.dat', &
+                'optimized' )
+            PAUSE
+
            ! Export new positions
            call write_xyz_positions( &
                 trim(options%directory) // 'output/', &

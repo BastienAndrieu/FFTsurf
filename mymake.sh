@@ -176,3 +176,8 @@ gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_intersection.o
 echo "...demo_EoS_propagation.out"
 gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/demo_EoS_propagation.f90 -o test/obj/demo_EoS_propagation.o
 gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/demo_EoS_propagation.out test/obj/demo_EoS_propagation.o obj/mod_options.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_tolerances.o obj/mod_types_intersection.o obj/mod_intersection.o obj/mod_graph.o obj/mod_types_brep.o obj/mod_halfedge.o obj/mod_brep.o obj/mod_hypergraph.o obj/mod_mesh.o obj/mod_projection.o obj/mod_optimmesh.o obj/mod_propagation.o obj/mod_import.o obj/mod_init.o obj/mod_eos.o -Lsrc/dfftpack -ldfftpack
+
+
+echo "...singular_surface_surface_intersection.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/singular_surface_surface_intersection.f90 -o test/obj/singular_surface_surface_intersection.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/singular_surface_surface_intersection.out test/obj/singular_surface_surface_intersection.o obj/mod_util.o obj/mod_math.o obj/mod_linalg.o obj/mod_chebyshev.o obj/mod_bernstein.o obj/mod_polynomial.o obj/mod_diffgeom.o obj/mod_tolerances.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o obj/mod_obb.o obj/mod_regiontree.o obj/mod_types_intersection.o obj/mod_intersection.o -Lsrc/dfftpack -ldfftpack
