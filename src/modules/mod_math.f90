@@ -110,6 +110,58 @@ contains
   ! =======================================
 
 
+
+  subroutine solve_quadratic_equation(a, b, c, nsol, sol)
+    implicit none
+    real(kind=fp), intent(in)  :: a, b, c
+    integer,       intent(out) :: nsol
+    real(kind=fp), intent(out) :: sol(2)
+    real(kind=fp)              :: d
+
+    d = b**2 - 4._fp*a*c
+    
+    if ( abs(a) < EPSfp ) then
+       ! linear equation
+       if ( abs(b) < EPSfp ) then
+          ! no solution
+          nsol = 0
+       else
+          nsol = 1
+          sol(1) = -c/b
+       end if
+       return
+    end if
+    
+    if ( d < -EPSfp ) then
+       ! no real solution
+       nsol = 0
+    elseif ( d < EPSfp ) then
+       nsol = 1
+       ! solution with multiplicity 2
+       sol(1) = -0.5_fp*b/a
+    else
+       ! general quadratic equation with 2 distinct solutions
+       ! use alternate formula to avoid cancellation errors
+       ! cf 'Numerical Linear Algebra with Applications', W. Ford (2015), section 8.4.2
+       nsol = 2
+       if ( abs(b) < EPSfp ) then
+          d = sqrt(d)
+       elseif ( b < 0._fp ) then
+          d = sqrt(d) - b
+       else
+          d = -(b + sqrt(d))
+       end if
+       sol(1) = 0.5_fp*d/a
+       sol(2) = 2._fp*c/d
+
+       if ( sol(2) < sol(1) ) then
+          ! sort solutions in ascending order
+          sol(1:2) = sol([2,1])
+       end if
+    end if
+    
+  end subroutine solve_quadratic_equation
+
   ! -----------------------------------------
   ! solve_up_tri
   ! Résolution de système triangulaire supérieur
