@@ -2,12 +2,16 @@ from paraview.simple import *
 import os
 import math
 
+ROOT = '/home/bastien/'#/d/bandrieu/
+QUALITY = False
+SCALE = 1#.5
+
 #### disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
 
 renderView = GetRenderView()
 
-liste = os.popen("ls /d/bandrieu/GitHub/FFTsurf/visu/jouke/vtk/*.vtk").readlines()
+liste = os.popen("ls " + ROOT + "GitHub/FFTsurf/visu/jouke/vtk/*.vtk").readlines()
 for i in range(len(liste)):
     liste[i] = liste[i][:-1]
 ninstants = len(liste)
@@ -47,11 +51,11 @@ renderView.BackLightKBRatio = 2.0 # def. 3.5
 renderView.HeadLightKHRatio = 3.0 # def. 3.0
 
 renderView.PPI = 96 # def 96
-renderView.ViewSize = [800, 600]
+renderView.ViewSize = [int(SCALE*800), int(SCALE*600)]
 renderView.OrientationAxesVisibility = 0 # hide xyz axes
 
 
-if True:
+if QUALITY:
     renderView.UseLight = 0 # no shading
     # create a new 'Mesh Quality'
     meshQuality1 = MeshQuality(Input=instants)
@@ -103,16 +107,16 @@ if True:
 
     qualityLUTColorBar.TitleFontFamily = 'File'
     qualityLUTColorBar.TitleFontSize = 18
-    qualityLUTColorBar.TitleFontFile = '/d/bandrieu/GitHub/FFTsurf/visu/fonts/texgyreheros-bold-webfont.ttf'
+    qualityLUTColorBar.TitleFontFile = ROOT + 'GitHub/FFTsurf/visu/fonts/texgyreheros-bold-webfont.ttf'
 
     # Properties modified on qualityLUTColorBar
     qualityLUTColorBar.LabelFontFamily = 'File'
-    qualityLUTColorBar.LabelFontFile = '/d/bandrieu/GitHub/FFTsurf/visu/fonts/texgyreheros-regular-webfont.ttf'
+    qualityLUTColorBar.LabelFontFile = ROOT + 'GitHub/FFTsurf/visu/fonts/texgyreheros-regular-webfont.ttf'
 
 
 
 # save animation
-SaveAnimation('/d/bandrieu/GitHub/FFTsurf/visu/jouke/img/instant_.jpeg',
+SaveAnimation(ROOT + 'GitHub/FFTsurf/visu/jouke/img/instant_.jpeg',
               renderView,
               ImageResolution=[1600, 1200],
               FrameWindow=[0, int(anim.EndTime)], 

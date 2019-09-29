@@ -679,6 +679,10 @@ contains
           exit
        end if
     end do
+    IF ( jedge > hyperedge%ne ) THEN
+      PRINT *, 'projection_hyperedge: edge #', IEDGE, 'not in hyperedge'
+      STOP
+    END IF
 
     uvtmp = uv
     duvtmp = duv

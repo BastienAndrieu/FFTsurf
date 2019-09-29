@@ -284,6 +284,10 @@ contains
        ! CHECK UVs
        IF ( .true. ) call check_uvs(brep, mesh)
 
+       call write_inria_mesh( &
+          mesh, &
+          trim(dir) // 'mesh/initmesh_optim.mesh' )
+
     end if
 
   end subroutine init_from_surfaces
