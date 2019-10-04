@@ -41,9 +41,9 @@ echo ""
 #gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/separation.out test/obj/separation.o obj/mod_util.o obj/mod_math.o obj/mod_linprog.o obj/mod_geometry.o obj/mod_separation.o 
 
 
-#echo "...linearprogramming.out"
-#gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/linearprogramming.f90 -o test/obj/linearprogramming.o
-#gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/linearprogramming.out test/obj/linearprogramming.o obj/mod_util.o obj/mod_math.o obj/mod_linprog.o
+echo "...linearprogramming.out"
+gfortran -Wall -Wextra -fbounds-check -g -c -Iobj/ test/src/linearprogramming.f90 -o test/obj/linearprogramming.o
+gfortran -Wall -Wextra -fbacktrace -fbounds-check -g -o test/linearprogramming.out test/obj/linearprogramming.o obj/mod_util.o obj/mod_math.o obj/mod_linprog.o
 
 
 #echo "...convex_hull.out"

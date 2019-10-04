@@ -8,7 +8,7 @@ addpath('/stck/bandrieu/Bureau/CYPRES/FFTsurf/FORTRAN/Intersection/Curve-Surface
 plotfaces = 0;
 plotdisplacement = 0;
 
-instant = 61;
+instant = 10;
 
 nsurf = 1;
 cls = colorcet( 'I2', 'N', nsurf );

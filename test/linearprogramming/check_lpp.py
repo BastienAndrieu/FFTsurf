@@ -52,5 +52,8 @@ ax.plot( v[:,0], v[:,1], 'k.' )
 #ax.quiver( 0.0, 0.0, c[0], c[1] )
 if stat == 0:
     ax.plot( x[0], x[1], 'r*' )
+
+ax.quiver(x[0], x[1], c[0], c[1], color='r')
+
 ax.set_aspect('equal', adjustable='box')
 plt.show()

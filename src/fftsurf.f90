@@ -20,7 +20,7 @@ program fftsurf
   ! --------------------------------------------------------------
   ! Parameters
   integer, parameter                    :: freq_checkpoint = 10
-  integer, parameter                    :: PARAM_passmax = 30!
+  integer, parameter                    :: PARAM_passmax = 0!30!
   real(kind=fp), parameter              :: PARAM_frac_conf1 = 1._fp
   real(kind=fp), parameter              :: PARAM_frac_conf2 = 0.7_fp
   integer, parameter                    :: PARAM_ipass1 = 0!5
