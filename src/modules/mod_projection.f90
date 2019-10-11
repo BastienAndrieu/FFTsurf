@@ -628,6 +628,7 @@ contains
        dxyz, &
        iedgetmp, &
        uvtmp, &
+       xyztmp, &
        debug, &
        stat_proj )
     use mod_linalg
@@ -649,9 +650,10 @@ contains
     real(kind=fp),        intent(in)          :: dxyz(3)
     integer,              intent(out)         :: iedgetmp
     real(kind=fp),        intent(out)         :: uvtmp(2,2)
+    real(kind=fp),        intent(out)         :: xyztmp(3)
     integer,              intent(out)         :: stat_proj
     real(kind=fp)                             :: duvtmp(2,2)
-    real(kind=fp), dimension(3)               :: xyzprev, xyztmp, xyztarget, dxyztmp, p
+    real(kind=fp), dimension(3)               :: xyzprev, xyztarget, dxyztmp, p
     type(type_intersection_curve), pointer    :: curve => null()
     type(type_intersection_polyline), pointer :: polyline => null()
     real(kind=fp)                             :: w, wfirst, wlast, ds, duv_ds(2,2,2), dxyz_ds(3,2)
@@ -781,6 +783,7 @@ contains
     end do
 
     uvtmp = uv
+    xyztmp = xyz
     iedgetmp = iedge
     PRINT *,'projection_hyperedge : failed to reproject'
     RETURN

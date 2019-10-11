@@ -4,6 +4,8 @@ module mod_optimmesh
 
   implicit none
 
+  logical, parameter :: CURVATURE_BASED_IDEAL_AREA = .FALSE.
+
 contains
 
 
@@ -72,7 +74,7 @@ contains
                      nhe, &
                      mesh, &
                      [iedge,iface] )
-                
+
                 !call write_connectivity( &
                 !     '../debug/', &
                 !     mesh, &
@@ -132,7 +134,7 @@ contains
 
     verts = mesh%tri([ihedg(1), 1+mod(ihedg(1),3)],ihedg(2))
     PRINT *,'VERTS =',VERTS
-    
+
     !PRINT *,'XYZ ='
     !CALL PRINT_MAT(TRANSPOSE(MESH%XYZ(1:3,VERTS)))
 
@@ -166,12 +168,13 @@ contains
                   dxyz, &
                   idsnew, &
                   uvnew, &
+                  xyznew, &
                   .true., &
                   stat )
-             call eval( &
-                  xyznew, &
-                  brep%edges(idsnew)%curve%surf(1)%ptr, &
-                  uvnew(:,1) )
+             !call eval( &
+             !     xyznew, &
+             !     brep%edges(idsnew)%curve%surf(1)%ptr, &
+             !     uvnew(:,1) )
              !call eval( &
              !     xyznew, &
              !     brep%edges(idsnew)%curve%surf(2)%ptr, &
@@ -204,12 +207,13 @@ contains
                   dxyz, &
                   idsnew, &
                   uvnew, &
+                  xyznew, &
                   .true., &
                   stat )
-             call eval( &
-                  xyznew, &
-                  brep%edges(idsnew)%curve%surf(2)%ptr, &
-                  uvnew(:,1) )
+             !call eval( &
+             !     xyznew, &
+             !     brep%edges(idsnew)%curve%surf(2)%ptr, &
+             !     uvnew(:,1) )
           else
              do ivar = 1,2
                 call evald1( &
@@ -266,7 +270,7 @@ contains
     v_old2new(imx) = inew
     v_old2new(imx+1:mesh%nv) = [(j, j=imx,mesh%nv-1)]
     !v_old2new([irm,ikp]) = inew
- 
+
     if ( mesh%typ(irm) == 1 ) then
        ihype = brep%edges(mesh%ids(irm))%hyperedge
        do ip = 1,mesh%npaths
@@ -298,7 +302,7 @@ contains
     PRINT *,' UV_NEW =',uvnew
     PRINT *,'TYP_NEW =',typnew
     PRINT *,'IDS_NEW =',idsnew
-    
+
     ! remove vertex
     mesh%typ(imx:mesh%nv-1) = mesh%typ(imx+1:mesh%nv)
     mesh%ids(imx:mesh%nv-1) = mesh%ids(imx+1:mesh%nv)
@@ -342,7 +346,7 @@ contains
 
 
 
-  
+
 
   subroutine smooth_function_mesh( &
        mesh, &
@@ -366,7 +370,7 @@ contains
           sumw = 0._fp
           n = 0
           adjacent_verts : do
-             n = n + 1
+             !n = n + 1
              jvert = get_dest(mesh, ihedg)
              w = sum((mesh%xyz(:,jvert) - mesh%xyz(:,ivert))**2)
              if ( w > EPSxyzsqr ) then
@@ -399,7 +403,7 @@ contains
 
 
 
-  
+
 
   subroutine discrete_minimum_curvature_radius( &
        mesh, &
@@ -451,7 +455,7 @@ contains
 
           veci = mesh%xyz(:,iv) - mesh%xyz(:,jv)
           veck = mesh%xyz(:,kv) - mesh%xyz(:,jv)
-          
+
           denom = 1._fp - dot_product(veck, veci)**2 / (sum(veck**2)*sum(veci**2))
           !PRINT *,'DENOM =',DENOM
           if ( denom < EPSfp ) then
@@ -524,8 +528,8 @@ contains
     logical                                :: singular
     real(kind=fp), dimension(4)            :: lowerb, upperb
     real(kind=fp)                          :: uvtmp(2,2), dxyz(3), maxdxyz, maxdxyz_rc
-    integer, dimension(mesh%nv)            :: idsnew, typnew
-    real(kind=fp)                          :: uvnew(2,2,mesh%nv)
+    integer, dimension(mesh%nv)            :: idsnew!, typnew
+    real(kind=fp)                          :: uvnew(2,2,mesh%nv), xyznew(3,mesh%nv)
     integer                                :: ivert, jvert, ihedg(2)
     integer                                :: iedge, ihype
     integer                                :: iface, jface
@@ -559,9 +563,10 @@ contains
        PRINT *,''
        PRINT *,'OPTIM PASS',IPASS,'/',PASSMAX
        ! compute target edge lengths at vertices
-       if ( .false. ) then!ipass < 6 ) then
-          hve(:) = 1._fp
-       else
+       !if ( .false. ) then!ipass < 6 ) then
+       !   hve(:) = 1._fp
+       !else
+       if ( CURVATURE_BASED_IDEAL_AREA ) then
           IF ( .false. ) THEN
              hve(:) = huge(1._fp)
              do ivert = 1,mesh%nv
@@ -588,7 +593,7 @@ contains
           call smooth_function_mesh( &
                mesh, &
                hve, &
-               30 )
+               20 )
        end if
 
        IF ( .false. ) THEN
@@ -603,7 +608,7 @@ contains
                '../test/optimmesh/optim_'//strnum//'.vtk' )
        END IF
 
-       
+
        !! compute triangle weights
        !!wei(:) = 1._fp
        !call compute_triangle_weights( &
@@ -611,7 +616,7 @@ contains
        !     5._fp, &
        !     1._fp, &
        !     wei )
-       
+
        ! compute energy, gradient and hessian
        if ( ipass < ipass1 ) then
           frac_conf_ramp = frac_conf1
@@ -623,18 +628,30 @@ contains
        end if
        PRINT *,'FRAC_CONF_RAMP =',frac_conf_ramp
 
-       call energy_jiao( &
-            mesh%nt, &
-            mesh%tri(1:3,1:mesh%nt), &
-            wei, &
-            mesh%nv, &
-            mesh%xyz(1:3,1:mesh%nv), &
-            hve, &
-            frac_conf_ramp, &
-            hminsqr, &
-            ener, &
-            grad, &
-            hess )
+       IF ( .TRUE. ) THEN
+          call energy_jiao2( &
+               mesh, &
+               wei, &
+               hve, &
+               frac_conf_ramp, &
+               hminsqr, &
+               ener, &
+               grad, &
+               hess )
+       ELSE
+          call energy_jiao( &
+               mesh%nt, &
+               mesh%tri(1:3,1:mesh%nt), &
+               wei, &
+               mesh%nv, &
+               mesh%xyz(1:3,1:mesh%nv), &
+               hve, &
+               frac_conf_ramp, &
+               hminsqr, &
+               ener, &
+               grad, &
+               hess )
+       END IF
 
        if ( .false. ) then !passmax < 10 ) then
           open(unit=13, file='../tmp/xyz.dat', action='write')
@@ -676,8 +693,9 @@ contains
           select case ( mesh%typ(ivert) ) ! <-------------------------------+
           case (0) ! -------------------------------------------------------+
              uvnew(:,:,ivert) = mesh%uv(:,:,ivert)                          !
+             xyznew(1:3,ivert) = brep%verts(mesh%ids(ivert))%point%xyz
              idsnew(ivert) = mesh%ids(ivert)
-             typnew(ivert) = 0
+             !typnew(ivert) = 0
              DXYZ(:) = 0._FP
              DXYZVISU(:,IVERT) = 0._FP
           case (1) ! -------------------------------------------------------+
@@ -701,7 +719,7 @@ contains
                 maxdxyz_rc = max(maxdxyz_rc, sum(dxyz**2)/rc(ivert))
                 DXYZVISU(:,IVERT) = DXYZ
                 !!
-                typnew(ivert) = 1
+                !typnew(ivert) = 1
                 uvnew(:,:,ivert) = mesh%uv(:,:,ivert)!uvtmp
                 iedge = mesh%ids(ivert)   ! brep edge index
                 ihype = brep%edges(iedge)%hyperedge ! hyperedge index
@@ -717,6 +735,7 @@ contains
                      dxyz, &
                      idsnew(ivert), &
                      uvtmp, &
+                     xyznew(1:3,ivert), &
                      .false., &!(ivert == 1666) ,&!
                      stat )
                 if ( stat > 0 ) THEN
@@ -750,7 +769,7 @@ contains
              !
              ! handle passing to an adjacent face (crossing of a smooth edge...)
              idsnew(ivert) = mesh%ids(ivert)
-             typnew(ivert) = 2
+             !typnew(ivert) = 2
              uvnew(:,1,ivert) = mesh%uv(:,1,ivert) + duv(:,1,ivert)
              uvnew(:,2,ivert) = 0._fp
              ihedg = mesh%v2h(:,ivert) ! mesh halfedge index
@@ -809,6 +828,11 @@ contains
                         xyzproj )
                    PRINT *,'UVTMP =',UVTMP(1:2,1)
                    PRINT *,'XYZPROJ =',XYZPROJ
+                else
+                   call eval( &                                                   !   !
+                        xyzproj(1:3), &                                      !   !
+                        brep%faces(idsnew(ivert))%surface, &                              !   !
+                        uvtmp(1:2,1) )  
                 end if
                 if ( stat > 0 ) THEN
                    PRINT *,'IVERT =',IVERT
@@ -816,18 +840,25 @@ contains
                    PAUSE
                 END if
                 uvnew(:,1,ivert) = uvtmp(:,1)
+                !PRINT *,'VERT #', IVERT, ' XYZPROJ =', XYZPROJ
+                xyznew(1:3,ivert) = xyzproj(1:3)
+             else
+                call eval( &                                                   !   !
+                     xyznew(1:3,ivert), &                                      !   !
+                     brep%faces(idsnew(ivert))%surface, &                              !   !
+                     uvnew(1:2,1,ivert) ) 
              end if
              !
           end select ! <----------------------------------------------------+
           !
-          IF ( MAXVAL(ABS(UVNEW(:,:,IVERT))) > 1._FP + EPSUV ) PRINT *, IVERT, TYPNEW(IVERT), IDSNEW(IVERT), UVNEW(:,:,IVERT)
+          IF ( MAXVAL(ABS(UVNEW(:,:,IVERT))) > 1._FP + EPSUV ) PRINT *, IVERT, MESH%TYP(IVERT), IDSNEW(IVERT), UVNEW(:,:,IVERT)
           !WRITE (FID,*) DXYZ
        end do compute_duv
        !CLOSE(FID)
 
        PRINT *,'MAX(DXYZ) =',SQRT(MAXDXYZ)
        PRINT *,'MAX(DXYZ/RC) =',SQRT(MAXDXYZ_RC)
-       
+
        if ( .false. ) then!passmax < 10 ) then
           CALL write_tecplot_mesh_displacement2( &
                mesh, &
@@ -838,26 +869,32 @@ contains
 
        ! update vertices coordinates
        mesh%ids(1:mesh%nv) = idsnew(1:mesh%nv)
-       mesh%typ(1:mesh%nv) = typnew(1:mesh%nv)
+       !mesh%typ(1:mesh%nv) = typnew(1:mesh%nv)
        mesh%uv(1:2,1:2,1:mesh%nv) = uvnew(1:2,1:2,1:mesh%nv)
-       update_uvxyz : do ivert = 1,mesh%nv ! <----------------------------------+
-          select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
-          case (0) ! -------------------------------------------------------+   !
-             mesh%xyz(:,ivert) = brep%verts(mesh%ids(ivert))%point%xyz      !   !
-          case (1) ! -------------------------------------------------------+   !
-             iface = brep%edges(mesh%ids(ivert))%halfedges(2)%face          !   !
-             call eval( &                                                   !   !
-                  mesh%xyz(:,ivert), &                                      !   !
-                  brep%faces(iface)%surface, &                              !   !
-                  mesh%uv(:,1,ivert) )                                      !   !
-          case (2) ! -------------------------------------------------------+   !
-             iface = mesh%ids(ivert)                                        !   !
-             call eval( &                                                   !   !
-                  mesh%xyz(:,ivert), &                                      !   !
-                  brep%faces(iface)%surface, &                              !   !
-                  mesh%uv(:,1,ivert) )                                      !   !
-          end select ! <----------------------------------------------------+   !
-       end do update_uvxyz ! <--------------------------------------------------+
+       mesh%xyz(1:3,1:mesh%nv) = xyznew(1:3,1:mesh%nv)
+       !CALL PRINT_MAT(transpose(XYZNEW))
+       !DO IVERT = 1,MESH%NV
+       !  PRINT *,'VERT #', IVERT, ', TYP =', MESH%TYP(IVERT), ', XYZNEW =', XYZNEW(1:3,IVERT)
+       !END DO
+       !PAUSE
+       !update_uvxyz : do ivert = 1,mesh%nv ! <----------------------------------+
+       !   select case ( mesh%typ(ivert) ) ! <-------------------------------+   !
+       !   case (0) ! -------------------------------------------------------+   !
+       !      mesh%xyz(:,ivert) = brep%verts(mesh%ids(ivert))%point%xyz      !   !
+       !   case (1) ! -------------------------------------------------------+   !
+       !      iface = brep%edges(mesh%ids(ivert))%halfedges(2)%face          !   !
+       !      call eval( &                                                   !   !
+       !           mesh%xyz(:,ivert), &                                      !   !
+       !           brep%faces(iface)%surface, &                              !   !
+       !           mesh%uv(:,1,ivert) )                                      !   !
+       !   case (2) ! -------------------------------------------------------+   !
+       !      iface = mesh%ids(ivert)                                        !   !
+       !      call eval( &                                                   !   !
+       !           mesh%xyz(:,ivert), &                                      !   !
+       !           brep%faces(iface)%surface, &                              !   !
+       !           mesh%uv(:,1,ivert) )                                      !   !
+       !   end select ! <----------------------------------------------------+   !
+       !end do update_uvxyz ! <--------------------------------------------------+
 
 
        IF ( .false. ) THEN
@@ -893,7 +930,7 @@ contains
           PRINT *,'MAX(DXYZ) << MIN(H)'
           exit
        end if
-       
+
        if ( ipass > 1 ) then
           detot = etotprev - etot
           if ( ipass > 2 ) then
@@ -913,7 +950,7 @@ contains
           end if
        end if
        etotprev = etot
-       
+
     end do
 
   end subroutine optim_jiao
@@ -987,6 +1024,7 @@ contains
        htri = sum(hve(tri(:,itr)))
        ! ideal triangle area
        area_ide(itr) = htri**2
+       area_ide(itr) = 0.5_fp*(area_ide(itr) + area_act(itr))!***
     end do
     ! normalize ideal triangle areas
     area_ide = area_ide * sum(area_act) / sum(area_ide)
@@ -1041,7 +1079,7 @@ contains
     end do ! <---------------------------------------------------------------------------------------------+
 
     PRINT *,'HMIN =',SQRT(HMINsqr)
-    
+
   end subroutine energy_jiao
 
 
@@ -1124,7 +1162,7 @@ contains
 
 
 
-subroutine write_tecplot_mesh_displacement2( &
+  subroutine write_tecplot_mesh_displacement2( &
        mesh, &
        filename, &
        zonename, &
@@ -1148,7 +1186,7 @@ subroutine write_tecplot_mesh_displacement2( &
     write (fid,*) 'Nodes=',mesh%nv,', Elements=',mesh%nt
     write (fid,*) 'ZONETYPE=FETriangle'
     write (fid,*) 'DATAPACKING=POINT'
-    
+
     do j = 1,mesh%nv
        write (fid,*) mesh%xyz(:,j), dxyz(:,j)
     end do
@@ -1160,9 +1198,9 @@ subroutine write_tecplot_mesh_displacement2( &
     close(fid)
 
   end subroutine write_tecplot_mesh_displacement2
-  
 
-  
+
+
 
 
 
@@ -1239,7 +1277,7 @@ subroutine write_tecplot_mesh_displacement2( &
 
     bet = (wclose - wfar)/(1._fp - EPS)
     alp = wclose - bet
-    
+
     dv = dv / maxval(dv)
     do iface = 1,mesh%nt
        dt = sum(dv(mesh%tri(:,iface))) / 3._fp
@@ -1247,7 +1285,7 @@ subroutine write_tecplot_mesh_displacement2( &
        wt(iface) = alp + bet*exp(-gam*dt*2._fp/(fhavg*(hmin + hmax)))
     end do
 
-    
+
   end subroutine compute_triangle_weights
 
 
@@ -1283,7 +1321,7 @@ subroutine write_tecplot_mesh_displacement2( &
 
     PRINT *,'PRE_DEFORMATION'
     debugproj = .false.
-    
+
     idsnew(1:mesh%nv) = mesh%ids(1:mesh%nv)
     vertices : do ivert = 1,mesh%nv
        if ( mesh%typ(ivert) < 2 ) cycle
@@ -1386,7 +1424,7 @@ subroutine write_tecplot_mesh_displacement2( &
             brep%faces(idsnew(ivert))%surface, &
             mesh%uv(1:2,1,ivert) )
     end do
-    
+
   end subroutine pre_deformation
 
 
@@ -1422,7 +1460,7 @@ subroutine write_tecplot_mesh_displacement2( &
 
     maxd0 = sqrt(maxval(sum(dxyz**2,1)))
     PRINT *,'MAXD0 =',MAXD0
-    
+
     do ipass = 1,npass
        dxyztmp(1:3,1:mesh%nv) = 0._fp
        do ivert = 1,mesh%nv
@@ -1461,7 +1499,7 @@ subroutine write_tecplot_mesh_displacement2( &
           end if
        end do
        PRINT *,'PASS #',IPASS,', DELTA* =',SQRT(MAXVAL(SUM((DXYZ - DXYZTMP)**2,1))) / maxd0
-       
+
        dxyz(1:3,1:mesh%nv) = dxyztmp(1:3,1:mesh%nv)
     end do
 
@@ -1608,7 +1646,7 @@ subroutine write_tecplot_mesh_displacement2( &
        if ( ipass == 1 ) etot0 = etot
        etot = etot/etot0
        PRINT *,'E/E0 =',real(etot)
-       
+
        ! compute vertex displacements
        maxdxyz = 0._fp
        maxdxyz_rc = 0._fp
@@ -1669,9 +1707,9 @@ subroutine write_tecplot_mesh_displacement2( &
           end if
        end if
        etotprev = etot
-       
+
     end do
-    
+
   end subroutine optim_jiao_uv
 
 
@@ -1716,7 +1754,7 @@ subroutine write_tecplot_mesh_displacement2( &
        jh = 1 + mod(ih,2)
        iface = hedgpair(2,ih)
        jface = hedgpair(2,jh)
-       
+
        ! change v2h
        ivert = tri(1,ih)
        if ( mesh%v2h(1,ivert) == hedgpair(1,ih) .and. &
@@ -1738,7 +1776,7 @@ subroutine write_tecplot_mesh_displacement2( &
           mesh%twin(2,twinj(1,jh),twinj(2,jh)) = iface
        end if
     end do
-    
+
   end subroutine swap_edge
 
 
@@ -1747,55 +1785,204 @@ subroutine write_tecplot_mesh_displacement2( &
 
 
   subroutine smoothing_closed_polyline( &
-   poly, &
-   dim, &
-   n, &
-   itmax, &
-   eps_opt )
-   ! cf "Optimization-based smoothing algorithm for triangle meshes over 
-   ! arbitrarily shaped domains", D. Aubram (2014) (pp.5-6)
-   ! and "Simulation of 3D metal-forming using an arbitrary Lagrangian-Eulerian finite element method", 
-   ! J.L. Aymone et al. (2001) (section 3.2)
-   ! eps_opt allows to stop the smoothing process before the max number of iterations,
-   ! if the maximum displacement becomes too small (rather than computing distances 
-   ! in 3d space, the local parameter displacement (ti) is used as a proxy, which 
-   ! correlates well with the 3d displacement normalized by the local point spacing)
-   implicit none
-   integer,       intent(in)           :: dim, n
-   real(kind=fp), intent(inout)        :: poly(dim,n)
-   integer,       intent(in)           :: itmax
-   real(kind=fp), intent(in), optional :: eps_opt
-   real(kind=fp)                       :: poly_tmp(dim,n), dist(2), ti, ti2, eps_t, max_t
-   integer                             :: it, i, im, ip
+       poly, &
+       dim, &
+       n, &
+       itmax, &
+       eps_opt )
+    ! cf "Optimization-based smoothing algorithm for triangle meshes over 
+    ! arbitrarily shaped domains", D. Aubram (2014) (pp.5-6)
+    ! and "Simulation of 3D metal-forming using an arbitrary Lagrangian-Eulerian finite element method", 
+    ! J.L. Aymone et al. (2001) (section 3.2)
+    ! eps_opt allows to stop the smoothing process before the max number of iterations,
+    ! if the maximum displacement becomes too small (rather than computing distances 
+    ! in 3d space, the local parameter displacement (ti) is used as a proxy, which 
+    ! correlates well with the 3d displacement normalized by the local point spacing)
+    implicit none
+    integer,       intent(in)           :: dim, n
+    real(kind=fp), intent(inout)        :: poly(dim,n)
+    integer,       intent(in)           :: itmax
+    real(kind=fp), intent(in), optional :: eps_opt
+    real(kind=fp)                       :: poly_tmp(dim,n), dist(2), ti, ti2, eps_t, max_t
+    integer                             :: it, i, im, ip
 
-   if ( present(eps_opt) ) eps_t = 0.5_fp*sqrt(1._fp + 4._fp*eps_opt) - 0.5_fp
+    if ( present(eps_opt) ) eps_t = 0.5_fp*sqrt(1._fp + 4._fp*eps_opt) - 0.5_fp
 
-   do it = 1,itmax
-      if ( present(eps_opt) ) max_t = 0._fp
-      do i = 1,n
-         ip = 1 + mod(i,n)
-         im = 1 + mod(i+n-2,n)
-         !
-         dist(1) = norm2(poly(1:3,i) - poly(1:3,im))
-         dist(2) = norm2(poly(1:3,i) - poly(1:3,ip))
-         !
-         ti = (dist(2) - dist(1))/(dist(2) + dist(1))
-         if ( present(eps_opt) ) max_t = max(max_t, abs(ti))
-         ti2 = ti**2
-         !
-         poly_tmp(1:3,i) = &
-         poly(1:3,im) * 0.5_fp*(ti2 - ti) + &
-         poly(1:3,i)  * (1._fp - ti2)     + &
-         poly(1:3,ip) * 0.5_fp*(ti2 + ti)
-      end do
+    do it = 1,itmax
+       if ( present(eps_opt) ) max_t = 0._fp
+       do i = 1,n
+          ip = 1 + mod(i,n)
+          im = 1 + mod(i+n-2,n)
+          !
+          dist(1) = norm2(poly(1:3,i) - poly(1:3,im))
+          dist(2) = norm2(poly(1:3,i) - poly(1:3,ip))
+          !
+          ti = (dist(2) - dist(1))/(dist(2) + dist(1))
+          if ( present(eps_opt) ) max_t = max(max_t, abs(ti))
+          ti2 = ti**2
+          !
+          poly_tmp(1:3,i) = &
+               poly(1:3,im) * 0.5_fp*(ti2 - ti) + &
+               poly(1:3,i)  * (1._fp - ti2)     + &
+               poly(1:3,ip) * 0.5_fp*(ti2 + ti)
+       end do
 
-      poly(1:3,1:n) = poly_tmp(1:3,1:n)
+       poly(1:3,1:n) = poly_tmp(1:3,1:n)
 
-      if ( present(eps_opt) ) then
-         if ( max_t < eps_t ) return
-      end if
-   end do
+       if ( present(eps_opt) ) then
+          if ( max_t < eps_t ) return
+       end if
+    end do
 
   end subroutine smoothing_closed_polyline
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine energy_jiao2( &
+       mesh, &
+       wei, &
+       hve, &
+       frac_conf, &
+       hminsqr, &
+       ener, &
+       grad, &
+       hess )
+    use mod_mesh
+    use mod_halfedge
+    implicit none
+    type(type_surface_mesh), intent(in)  :: mesh
+    real(kind=fp),           intent(in)  :: wei(mesh%nt)       ! triangle weights
+    real(kind=fp),           intent(in)  :: hve(:)             ! target edge length at vertices
+    real(kind=fp),           intent(in)  :: frac_conf          ! fraction of conformal energy
+    real(kind=fp),           intent(out) :: hminsqr            ! smallest edge length (squared)
+    real(kind=fp),           intent(out) :: ener(mesh%nt)      ! triangle combined energy
+    real(kind=fp),           intent(out) :: grad(3,mesh%nv)    ! gradient at vertices
+    real(kind=fp),           intent(out) :: hess(3,3,mesh%nv)  ! Hessian matrix at vertices
+    real(kind=fp)                        :: frac_isom          ! fraction of isometric energy
+    real(kind=fp)                        :: Id4(3,3)           ! 4*identity(3,3)
+    real(kind=fp)                        :: nor_tri(3,mesh%nt) ! triangle normals
+    real(kind=fp)                        :: area_act(mesh%nt)  ! (twice) triangle area (actual)
+    real(kind=fp)                        :: area_ide(mesh%nt)  ! (twice) triangle area (ideal)
+    real(kind=fp)                        :: htri               ! target edge length in a triangle
+    real(kind=fp)                        :: edg_vec(3,3)       ! edge vectors in a triangle
+    real(kind=fp)                        :: edg_len(3)         ! squared edge lengths in a triangle
+    real(kind=fp)                        :: edg_90d(3,3)       ! 90 degree CCW rotated edge vectors
+    real(kind=fp)                        :: ener_conf          ! conformal energy (angle-preserving)
+    real(kind=fp)                        :: ener_isom          ! isometric energy (area-preserving)
+    real(kind=fp)                        :: grad_conf(3)       ! gradient of conformal energy
+    real(kind=fp)                        :: grad_isom(3)       ! gradient of isometric energy
+    real(kind=fp)                        :: hess_conf(3,3)     ! Hessian of conformal energy
+    real(kind=fp)                        :: hess_isom(3,3)     ! Hessian of isometric energy
+    integer                              :: itr, ive, i, jtr, k
+
+    frac_isom = 1._fp - frac_conf
+    Id4 = 4._fp * identity_matrix(3)
+
+    ! compute triangle normals, actual and target areas
+    do itr = 1,mesh%nt
+       ! (pseudo-)normal vector
+       nor_tri(1:3,itr) = cross( &
+            mesh%xyz(1:3,mesh%tri(2,itr)) - mesh%xyz(1:3,mesh%tri(1,itr)), &
+            mesh%xyz(1:3,mesh%tri(3,itr)) - mesh%xyz(1:3,mesh%tri(1,itr)) )
+       ! actual triangle area
+       area_act(itr) = norm2(nor_tri(1:3,itr))
+       nor_tri(1:3,itr) = nor_tri(1:3,itr) / area_act(itr) ! unit normal
+       ! ideal triangle area
+       IF ( CURVATURE_BASED_IDEAL_AREA ) THEN
+          ! target edge length for current triangle
+          htri = sum(hve(mesh%tri(1:3,itr)))
+          area_ide(itr) = htri**2
+       END IF
+    end do
+
+    IF ( .NOT.CURVATURE_BASED_IDEAL_AREA ) THEN
+       do itr = 1,mesh%nt
+          area_ide(itr) = 0._fp
+          k = 0
+          do i = 1,3
+             jtr = get_face(get_twin(mesh, [i,itr]))
+             if ( jtr > 0 ) then
+                k = k + 1
+                area_ide(itr) = area_ide(itr) + area_act(jtr)
+             end if
+             area_ide(itr) = area_ide(itr)/real(k, kind=fp)
+          end do
+       end do
+    END IF
+
+    ! normalize ideal triangle areas
+    area_ide = area_ide * sum(area_act) / sum(area_ide)
+    PRINT *,'MINMAX AREA_ACT',MINVAL(AREA_ACT), MAXVAL(AREA_ACT)
+    PRINT *,'MINMAX AREA_IDE',MINVAL(AREA_IDE), MAXVAL(AREA_IDE)
+
+
+    grad(:,:) = 0._fp
+    hess(:,:,:) = 0._fp
+    hminsqr = huge(1._fp)
+    do itr = 1,mesh%nt ! <---------------------------------------------------------------------------------+
+       ! edge vectors                                                                                      !
+       edg_vec = mesh%xyz(1:3,mesh%tri([3,1,2],itr)) - mesh%xyz(1:3,mesh%tri([2,3,1],itr))                 !
+       ! squared edge lengths                                                                              !
+       edg_len = sum(edg_vec**2, 1)                                                                        !
+       hminsqr = min(hminsqr, minval(edg_len))                                                             !
+       ! 90 degree counter-clockwise rotated edge vectors                                                  !
+       do i = 1,3 ! <-----------------------------------------------+                                      !
+          edg_90d(1:3,i) = cross(nor_tri(1:3,itr), edg_vec(1:3,i))  !                                      !
+       end do ! <---------------------------------------------------+                                      !
+       ! triangle conformal energy                                                                         !
+       ener_conf = sum(edg_len)/area_act(itr)                                                              !
+       ! triangle isometric energy                                                                         !
+       ener_isom = area_act(itr) / area_ide(itr)                                                           !
+       ener_isom = ener_isom + 1._fp/ener_isom                                                             !
+       ! triangle combined energy                                                                          !
+       ener(itr) = frac_conf*ener_conf + frac_isom*ener_isom                                               !
+       !                                                                                                   !
+       ! vertex-based gradient and Hessian matrix of total energy                                          !
+       do i = 1,3 ! <----------------------------------------------------------------------------------+   !
+          ive = mesh%tri(i,itr)                                                                        !   !
+          ! gradient of conformal energy                                                               !   !
+          grad_conf = 2._fp*(edg_vec(:,1+mod(i,3)) - edg_vec(:,1+mod(i+1,3))) - ener_conf*edg_90d(:,i) !   !
+          grad_conf = grad_conf / area_act(itr)                                                        !   !
+          ! gradient of isometric energy                                                               !   !
+          grad_isom = (area_act(itr)**2 - area_ide(itr)**2)*edg_90d(:,i)                               !   !
+          grad_isom = grad_isom / ( area_ide(itr) * area_act(itr)**2 )                                 !   !
+          ! gradient of total energy                                                                   !   !
+          grad(:,ive) = grad(:,ive) + wei(itr) * ( frac_conf*grad_conf + frac_isom*grad_isom )         !   !
+          !                                                                                            !   !
+          ! Hessian matrix of conformal energy                                                         !   !
+          hess_conf = outer_product(grad_conf, edg_90d(:,i))                                           !   !
+          hess_conf = hess_conf + transpose(hess_conf)                                                 !   !
+          hess_conf = (Id4 - hess_conf) / area_act(itr)                                                !   !
+          ! Hessian matrix of isometric energy                                                         !   !
+          hess_isom = 2._fp * area_ide(itr) * outer_product(edg_90d(:,i), edg_90d(:,i))                !   !
+          hess_isom = hess_isom / area_act(itr)**3                                                     !   !
+          ! Hessian matrix of combined energy                                                          !   !
+          hess(:,:,ive) = hess(:,:,ive) + wei(itr) * ( frac_conf*hess_conf + frac_isom*hess_isom )     !   !
+       end do ! <--------------------------------------------------------------------------------------+   !
+       !                                                                                                   !
+    end do ! <---------------------------------------------------------------------------------------------+
+
+    PRINT *,'HMIN =',SQRT(HMINsqr)
+
+  end subroutine energy_jiao2
+
+
+
 end module mod_optimmesh

@@ -20,7 +20,7 @@ program fftsurf
   ! --------------------------------------------------------------
   ! Parameters
   integer, parameter                    :: freq_checkpoint = 10
-  integer, parameter                    :: PARAM_passmax = 0!30!
+  integer, parameter                    :: PARAM_passmax = 30!
   real(kind=fp), parameter              :: PARAM_frac_conf1 = 1._fp
   real(kind=fp), parameter              :: PARAM_frac_conf2 = 0.7_fp
   integer, parameter                    :: PARAM_ipass1 = 0!5
@@ -114,7 +114,7 @@ program fftsurf
   PRINT '(a8,1x,f8.3,1x,a1)','ELAPSED:', toc - tic, 's'
 
 
-  
+
   if ( options%reprise ) then
      call get_free_unit(fid)
      open(unit=fid, file=trim(options%directory) // 'checkpoint/time.dat', action='read')
@@ -227,7 +227,7 @@ program fftsurf
         !call free_intersection_data(interdata_new)
         nullify(interdata_new)
         allocate(interdata_new)
-        
+
         call copy_tangent_intersections( &
              from = interdata_old, &
              to   = interdata_new )
@@ -243,7 +243,7 @@ program fftsurf
              options%hmin, &
              options%hmax )
         print *,'nf_old =',nf_old
-        
+
         ! debugging >> ..................
         call write_brep_files( &
              brep_new, &
@@ -318,11 +318,20 @@ program fftsurf
 
            ! Regenerate features mesh
            ! uv, ids
-           call regenerate_feature_paths( &
-                brep_new, &
-                hypergraph_new, &
-                mesh, &
-                stat_regen_path )
+           IF ( .false.) THEN
+              call regenerate_feature_paths( &
+                   brep_new, &
+                   hypergraph_new, &
+                   mesh, &
+                   stat_regen_path )
+           ELSE
+              call new_regen_paths( &
+                   brep_new, &
+                   hypergraph_new, &
+                   mesh, &
+                   stat_regen_path )
+              !PAUSE
+           END IF
            if ( stat_regen_path > 0 ) then
               PRINT *,'failed to regenerate feature paths'
               PAUSE
@@ -408,16 +417,16 @@ program fftsurf
               !        mesh%uv(:,1,ivert) )                                      !   !
               !end select ! <----------------------------------------------------+   !
               !end do ! <---------------------------------------------------------------+
-           
+
               ! ********
               !call write_xyz_positions( &
               !     '../debug/', &
               !     mesh, &
               !     1 )
               call write_tecplot_mesh( &
-                mesh, &
-                '../debug/pre_deform3.dat', &
-                'pre-deformed' )
+                   mesh, &
+                   '../debug/pre_deform3.dat', &
+                   'pre-deformed' )
               ! ********
               !PAUSE
            END IF
@@ -436,11 +445,11 @@ program fftsurf
                 options%hmin, &
                 options%hmax )
 
-            call write_tecplot_mesh( &
+           call write_tecplot_mesh( &
                 mesh, &
                 '../debug/pre_deform4.dat', &
                 'optimized' )
-            PAUSE
+           !PAUSE
 
            ! Export new positions
            call write_xyz_positions( &
@@ -454,16 +463,16 @@ program fftsurf
 
         call free_brep(brep_old)
         call free_intersection_data(interdata_old)
-        
+
 
         interdata_old => interdata_new
         brep_old => brep_new
-        
+
      end if
 
      if ( time >= options%timespan ) exit main_loop
      !PAUSE
-     
+
   end do main_loop
   call cpu_time(toc)
   PRINT '(a8,1x,f8.3,1x,a1)','ELAPSED:', toc - tic, 's'
@@ -552,7 +561,7 @@ contains
        end if
     end do
     close(fid)
-    
+
   end subroutine make_checkpoint
 
 
@@ -675,7 +684,7 @@ contains
     integer,              intent(out)        :: stat
     integer,              intent(out)        :: ids(nv)
     real(kind=fp),        intent(out)        :: uv(2,2,nv)
-    real(kind=fp)                            :: xyz(3)
+    real(kind=fp)                            :: xyz(3), xyztmp(3)
     integer                                  :: stat_intersection
     real(kind=fp)                            :: duv_ds(2,2,2), dxyz_ds(3,2)
     real(kind=fp)                            :: stot, ds, duv(2,2), dxyz(3)
@@ -772,6 +781,7 @@ contains
             dxyz, &
             ids(ivert), &
             uv(:,:,ivert), &
+            xyztmp, &
             .false., &
             stat_proj )
        if ( stat_proj /= 0 ) then
@@ -816,21 +826,21 @@ contains
     uv(:,:,nv) = brep%edges(ids(nv))%curve%polyline%uv(:,:,ilast)
 
   end subroutine discretize_hyperedge
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   subroutine update_mesh_correspondance( &
        brep_old, &
@@ -982,8 +992,8 @@ contains
                            hypg_old%hyperedges(ihype)%halfedges(1:2,iedge) ))       !  !  !  !     !  !
                       do jedge = 1,hypg_new%hyperedges(jhype)%ne ! <-------------+  !  !  !  !     !  !
                          jvert = get_orig( &                                     !  !  !  !  !     !  !
-                           brep_new, &                                           !  !  !  !  !     !  !
-                           hypg_new%hyperedges(jhype)%halfedges(1:2,jedge) )     !  !  !  !  !     !  !
+                              brep_new, &                                           !  !  !  !  !     !  !
+                              hypg_new%hyperedges(jhype)%halfedges(1:2,jedge) )     !  !  !  !  !     !  !
                          if ( ivert == jvert ) then ! <-----------------------+  !  !  !  !  !     !  !
                             hypg_new%hyperedges(jhype)%verts(1:2) = jvert     !  !  !  !  !  !     !  !
                             call circular_permutation( &                      !  !  !  !  !  !     !  !
@@ -1063,5 +1073,231 @@ contains
 
 
 
+
+  subroutine new_regen_paths( &
+       brep, &
+       hypg, &
+       mesh, &
+       stat )
+    use mod_types_brep
+    use mod_brep
+    use mod_projection
+    use mod_intersection
+    use mod_diffgeom
+    implicit none
+    LOGICAL, PARAMETER :: DEBUG = .false.
+    INTEGER            :: FID
+    type(type_brep),         intent(in)    :: brep
+    type(type_hypergraph),   intent(in)    :: hypg
+    type(type_surface_mesh), intent(inout) :: mesh
+    integer,                 intent(out)   :: stat
+    real(kind=fp)                          :: dist, dist_min, uv(2,2), uv_min(2,2), xyz(3), xyz_min(3), xyztmp(3)
+    integer                                :: iedge, iedge_min
+    integer                                :: stat_intersection
+    real(kind=fp)                          :: duv_ds(2,2,2), dxyz_ds(3,2)
+    real(kind=fp)                          :: ds, duv(2,2), dxyz(3)
+    integer                                :: stat_proj
+    integer                                :: ipath, ihype, jvert, ivert, kvert
+
+    IF ( DEBUG ) PRINT *,'>>>> NEW_REGEN_FEATURES'
+
+    do ipath = 1,mesh%npaths
+       IF ( DEBUG ) THEN
+          PRINT *,''
+          PRINT *,'PATH #', ipath
+
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='../debug/path_old.dat', ACTION='WRITE')
+          DO IVERT = 1,mesh%paths(ipath)%nv
+             WRITE (FID,*) MESH%XYZ(:,MESH%PATHS(IPATH)%VERTS(IVERT))
+          END DO
+          CLOSE(FID)
+
+          CALL GET_FREE_UNIT(FID)
+          OPEN(UNIT=FID, FILE='../debug/path_new.dat', ACTION='WRITE')
+       END IF
+       ihype = mesh%paths(ipath)%hyperedge
+
+       do jvert = 1,mesh%paths(ipath)%nv
+          ivert = mesh%paths(ipath)%verts(jvert)
+          IF ( DEBUG ) THEN
+             PRINT *,''
+             PRINT *,'VERT #', IVERT, '( TYP =', mesh%typ(ivert), ')'
+             PRINT *,'   XYZ =', mesh%xyz(1:3,ivert)
+          END IF
+
+          if ( mesh%typ(ivert) == 0 ) then
+             ! ENDPOINT OF AN OPEN PATH (i.e. either jvert = 1 or mesh%paths(ipath)%nv)
+             ! (?)
+             cycle
+          elseif ( mesh%typ(ivert) == 1 ) then
+
+             ! find closest polyline point
+             IF ( JVERT == 1 ) THEN
+                dist_min = huge(1._fp)
+                do iedge = 1,hypg%hyperedges(ihype)%ne
+                   call distance_from_edge( &
+                        brep, &
+                        hypg%hyperedges(ihype)%halfedges(1:2,iedge), &
+                        mesh%xyz(1:3,ivert), &
+                        dist, &
+                        uv, &
+                        xyz )
+                   !IF ( DEBUG ) PRINT *,'      DIST =', DIST
+                   if ( dist < dist_min ) then
+                      dist_min = dist
+                      uv_min = uv
+                      xyz_min = xyz
+                      iedge_min = hypg%hyperedges(ihype)%halfedges(1,iedge)
+                   end if
+                end do
+             ELSE
+                !kvert = mesh%paths(ipath)%verts(jvert-1)
+                iedge_min = mesh%ids(kvert)
+                uv_min = mesh%uv(1:2,1:2,kvert)
+                !xyz_min = mesh%xyz(1:3,kvert)
+                call eval( &
+                     xyz_min, &
+                     brep%edges(iedge_min)%curve%surf(1)%ptr, &
+                     uv_min(1:2,1) )
+                dist_min = sum( (mesh%xyz(1:3,ivert) - xyz_min)**2 )
+             END IF
+             kvert = ivert
+
+             IF ( DEBUG ) THEN
+                PRINT *,'   DIST_MIN =', SQRT(DIST_MIN)
+                PRINT *,'     UV_MIN =', UV_MIN
+                !CYCLE
+             END IF
+
+             ! refine projection
+             IF ( .FALSE.) THEN
+                mesh%uv(1:2,1:2,ivert) = uv_min
+                mesh%ids(ivert) = iedge_min
+             ELSE
+                call diffgeom_intersection( &
+                     brep%edges(iedge_min)%curve%surf, &
+                     uv_min, &
+                     duv_ds, &
+                     dxyz_ds, &
+                     stat_intersection )
+                if ( stat_intersection /= 0 ) then
+                   stat = 1
+                   PRINT *,'new_regen_paths: not a transversal intersection'
+                   PRINT *,'STAT =', STAT
+                   PAUSE
+                   return
+                else
+                   IF ( DEBUG ) THEN
+                      !PRINT *,'   DUV_DS  =', duv_ds(1:2,1,1:2)
+                      PRINT *,'         DXYZ_DS =', dxyz_ds(1:3,1)
+                      PRINT *,'   XYZ - XYZ_MIN =', mesh%xyz(1:3,ivert) - xyz_min
+                   END IF
+                end if
+
+                ds = dot_product(dxyz_ds(1:3,1), mesh%xyz(1:3,ivert) - xyz_min)
+                duv = ds * duv_ds(1:2,1,1:2)
+                dxyz = ds * dxyz_ds(1:3,1)
+                IF ( DEBUG ) THEN
+                   PRINT *,'   |DS|   =', ABS(DS)
+                   PRINT *,'   |DUV|  =', NORM2(DUV(1:2,1)), NORM2(DUV(1:2,2))
+                   PRINT *,'   |DXYZ| =', NORM2(DXYZ)
+                END IF
+
+                !CYCLE
+                call projection_hyperedge( &
+                     brep, &
+                     hypg%hyperedges(ihype), &
+                     iedge_min, &
+                     uv_min, &
+                     xyz_min, &
+                     duv, &
+                     dxyz, &
+                     mesh%ids(ivert), &
+                     mesh%uv(1:2,1:2,ivert), &
+                     xyztmp, &
+                     .false., &
+                     stat_proj )
+                if ( stat_proj /= 0 ) then
+                   stat = 2
+                   PRINT *,'new_regen_paths: failed to project onto hyperedge'
+                   PRINT *,'DXYZ =',dxyz
+                   CLOSE(FID)
+                   PAUSE
+                   return
+                end if
+             END IF
+
+             IF ( DEBUG ) THEN
+                PRINT *,'   IDS:', IEDGE_MIN, ' ->', mesh%ids(ivert)
+                PRINT *,'   UV =', mesh%uv(1:2,1:2,ivert)
+
+                xyz_min = xyztmp
+                !call eval( &
+                !     xyz_min, &
+                !     brep%edges(mesh%ids(ivert))%curve%surf(1)%ptr, &
+                !     mesh%uv(1:2,1,ivert) )
+                WRITE (FID,*) xyz_min
+             END IF
+
+          end if
+       end do
+
+       IF ( DEBUG ) THEN
+          CLOSE(FID)
+          PAUSE
+       END IF
+    end do
+
+    IF ( DEBUG ) PRINT *,'NEW_REGEN_FEATURES >>>>'
+
+
+  end subroutine new_regen_paths
+
+
+
+
+
+
+
+  subroutine distance_from_edge( &
+       brep, &
+       ihedg, &
+       xyz, &
+       dist_min, &
+       uv_min, &
+       xyz_min )
+    use mod_types_intersection
+    implicit none
+    type(type_brep), intent(in), target       :: brep
+    integer,         intent(in)               :: ihedg(2)
+    real(kind=fp),   intent(in)               :: xyz(3)
+    real(kind=fp),   intent(out)              :: dist_min
+    real(kind=fp),   intent(out)              :: uv_min(2,2)
+    real(kind=fp),   intent(out)              :: xyz_min(3)
+    type(type_intersection_polyline), pointer :: poly => null()
+    real(kind=fp)                             :: dist
+    integer                                   :: ihead, itail, sens, np, iplv
+
+    call get_polyline_endpoints( &
+         brep, &
+         ihedg, &
+         ihead, &
+         itail, &
+         sens, &
+         np )
+
+    dist_min = huge(1._fp)
+    poly => brep%edges(ihedg(1))%curve%polyline
+    do iplv = ihead,itail,sens
+       dist = sum( (xyz - poly%xyz(1:3,iplv))**2 )
+       if ( dist < dist_min ) then
+          dist_min = dist
+          uv_min = poly%uv(1:2,1:2,iplv)
+          xyz_min = poly%xyz(1:3,iplv)
+       end if
+    end do
+
+  end subroutine distance_from_edge
 
 end program fftsurf
