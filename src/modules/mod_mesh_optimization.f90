@@ -6,11 +6,12 @@ module mod_mesh_optimization
 
 contains
 
-  subroutine swap_edge( &
+  subroutine flip_edge( &
        mesh, &
        ihedg, &
        stat )
     implicit none
+    LOGICAL :: DEBUG = .true.
     type(type_surface_mesh), intent(inout) :: mesh
     integer,                 intent(in)    :: ihedg(2)
     integer,                 intent(out)   :: stat
@@ -19,7 +20,15 @@ contains
     integer                                :: opposite_vert(2)
     integer                                :: twin_j(2,2)
     integer                                :: ih, jh, iv, it, jt
-    
+
+    IF ( DEBUG ) THEN
+       PRINT *, '--- SWAP EDGE ---'
+       PRINT *, '   EDGE #', IHEDG(1), ' OF FACE #', IHEDG(2)
+       PRINT *, '   VERTS #', GET_ORIG(MESH, IHEDG), GET_DEST(MESH, IHEDG)
+       PRINT *, '   XYZ_MID =', 0.5_FP*(MESH%XYZ(:,GET_ORIG(MESH, IHEDG)) + &
+            MESH%XYZ(:,GET_DEST(MESH, IHEDG)))
+    END IF
+
     halfedges(1:2,1) = ihedg
     halfedges(1:2,2) = get_twin(mesh, ihedg)
 
@@ -38,7 +47,7 @@ contains
        opposite_vert(ih) = mesh%tri(ijk(3,ih),it)
        twin_j(1:2,ih) = mesh%twin(1:2,ijk(2,ih),it)
     end do
-    
+
     stat = 0
 
     do ih = 1,2
@@ -48,7 +57,7 @@ contains
        ! change tri (f2v)
        mesh%tri(ijk(2,ih),it) = opposite_vert(jh)
        ! change 'interior' twins
-       mesh%twin(1:2,ijk(2,ih),it) = [ijk(2,ih), jt]
+       mesh%twin(1:2,ijk(2,ih),it) = [ijk(2,jh), jt]![ijk(2,ih), jt]
        ! change 'diagonal' twins
        mesh%twin(1:2,ijk(1,ih),it) = twin_j(1:2,jh)
        if ( all(twin_j(1:2,jh) > 0) ) then
@@ -59,7 +68,7 @@ contains
        if ( mesh%v2h(2,iv) == halfedges(2,jh) ) mesh%v2h(1:2,iv) = [ijk(1,ih),it]
     end do
 
-  end subroutine swap_edge
+  end subroutine flip_edge
 
 
 
@@ -68,33 +77,57 @@ contains
 
   subroutine split_edge( &
        mesh, &
+       brep, &
+       hypg, &
        ihedg )
     use mod_util
+    use mod_types_brep
+    use mod_hypergraph
+    use mod_diffgeom
+    use mod_intersection
+    use mod_projection
     implicit none
-    LOGICAL :: DEBUG = .FALSE.
+    LOGICAL :: DEBUG = .true.
+    LOGICAL :: DEBUG_PROJ = .FALSE.
     type(type_surface_mesh), intent(inout) :: mesh
+    type(type_brep),         intent(in)    :: brep
+    type(type_hypergraph),   intent(in)    :: hypg
     integer,                 intent(in)    :: ihedg(2)
     integer                                :: halfedges(2,2)
     integer, dimension(2)                  :: verts, faces, faces_new
     integer                                :: ijk(3,2)
     integer                                :: twin_j(2,2)
     integer                                :: n_new_faces
-    real(kind=fp)                          :: uv_new(2,2,1)
-    real(kind=fp)                          :: xyz_new(3,1)
-    integer                                :: typ_new(1)
-    integer                                :: ids_new(1)
+    real(kind=fp)                          :: uv_new(2,2)
+    real(kind=fp)                          :: xyz_new(3)!,1)
+    integer                                :: typ_new!(1)
+    integer                                :: ids_new!(1)
     integer                                :: tri_new(3,2)
     integer                                :: ihf_new(2)
     integer, allocatable                   :: twin_tmp(:,:,:)
     integer                                :: nv_tmp
     integer                                :: ih, jh, it, iv
-    
+    !
+    real(kind=fp)                          :: dxyz(3), duv(2,2), ds
+    real(kind=fp)                          :: dxyz_ds(3,2), duv_ds(2,2,2)
+    real(kind=fp)                          :: dxyz_duv(3,2)
+    integer                                :: stat_tangent, stat_proj
+    logical                                :: singular
+    integer                                :: iedge, ihype, iface, ivar
+
     verts(1) = get_orig(mesh, ihedg)
     verts(2) = get_dest(mesh, ihedg)
 
+    IF ( DEBUG ) THEN
+       PRINT *, '--- SPLIT EDGE ---'
+       PRINT *, '   EDGE #', IHEDG(1), ' OF FACE #', IHEDG(2)
+       PRINT *, '   VERTS #', VERTS
+       PRINT *, '   XYZ_MID =', 0.5_FP*(MESH%XYZ(:,VERTS(1)) + MESH%XYZ(:,VERTS(2)))
+    END IF
+
     halfedges(1:2,1) = ihedg
     halfedges(1:2,2) = get_twin(mesh, ihedg)
-    
+
     do ih = 1,2
        ijk(1,ih) = halfedges(1,ih) ! local index of origin vertex in incident triangle
        it = halfedges(2,ih) ! global index of incident triangle
@@ -114,7 +147,7 @@ contains
        ihf_new(ih) = mesh%ihf(faces(ih))
        faces_new(ih) = mesh%nt + ih
     end do
-    
+
     call append_triangles( &
          mesh, &
          tri_new(1:3,1:n_new_faces), &
@@ -122,14 +155,89 @@ contains
          n_new_faces )
 
     ! insert new vertex
+    ! 1) sort verts in descending typ order
+    if ( mesh%typ(verts(1)) <  mesh%typ(verts(2))) verts = verts([2,1])
+    dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+    typ_new = mesh%typ(verts(1))
+
+    select case ( mesh%typ(verts(1)) ) 
+    case (1)
+       iedge = mesh%ids(verts(1))
+       ihype = brep%edges(iedge)%hyperedge
+       call diffgeom_intersection( &
+            brep%edges(iedge)%curve%surf, &
+            mesh%uv(1:2,1:2,verts(1)), &
+            duv_ds, &
+            dxyz_ds, &
+            stat_tangent )
+       ds = dot_product(dxyz, dxyz_ds(1:3,1))
+       duv(1:2,1:2) = ds * duv_ds(1:2,1,1:2)
+       dxyz = ds * dxyz_ds(1:3,1)
+       !
+       call projection_hyperedge( &
+            brep, &
+            hypg%hyperedges(ihype), &
+            iedge, &
+            mesh%uv(1:2,1:2,verts(1)), &
+            mesh%xyz(1:3,verts(1)), &
+            duv, &
+            dxyz, &
+            ids_new, &
+            uv_new, &
+            xyz_new, &
+            DEBUG_PROJ, &
+            stat_proj )
+       if ( stat_proj > 0 ) then
+          print *,'split_edge: failed to project on hyperedge'
+          PAUSE
+       end if
+       !
+    case (2)
+       iface = mesh%ids(verts(1))
+       do ivar = 1,2 ! <---------------------+
+          call evald1( &                     !
+               dxyz_duv(1:3,ivar), &         !
+               brep%faces(iface)%surface, &  !
+               mesh%uv(1:2,1,verts(1)), &    !
+               ivar )                        !
+       end do ! <----------------------------+
+       call solve_NxN( &
+            duv(1:2,1), &
+            matmul(transpose(dxyz_duv), dxyz_duv), &
+            matmul(transpose(dxyz_duv), dxyz), &
+            singular )
+       dxyz = matmul(dxyz_duv, duv(1:2,1))
+       !
+       call projection_hyperface( &
+            brep, &
+            iface, &
+            mesh%uv(1:2,1,verts(1)), &
+            mesh%xyz(1:3,verts(1)), &
+            duv, &
+            dxyz, &
+            ids_new, &
+            uv_new(1:2,1), &
+            DEBUG_PROJ, &
+            stat_proj )
+       if ( stat_proj > 0 ) then
+          print *,'split_edge: failed to project on hyperedge'
+          PAUSE
+       else
+          call eval( &
+               xyz_new, &
+               brep%faces(ids_new)%surface, &
+               uv_new(1:2,1) ) 
+       end if
+    end select
+
     ! uv, typ, ids***
-    xyz_new(1:3,1) = 0.5_fp*(mesh%xyz(1:3,verts(1)) + mesh%xyz(1:3,verts(2))) !***
+    !xyz_new(1:3,1) = 0.5_fp*(mesh%xyz(1:3,verts(1)) + mesh%xyz(1:3,verts(2))) !***
     call append_vertices( &
          mesh, &
          xyz_new, &
          uv_new, &
-         ids_new, &
-         typ_new, &
+         [ids_new], &
+         [typ_new], &
          1 )
 
     ! edit tri
@@ -164,11 +272,11 @@ contains
     nv_tmp = mesh%nv - 1
     iv = nv_tmp
     call insert_column_after( &
-      mesh%v2h, &
-      2, &
-      nv_tmp, &
-      [1, faces_new(1)], &
-      iv )
+         mesh%v2h, &
+         2, &
+         nv_tmp, &
+         [1, faces_new(1)], &
+         iv )
     do ih = 1,n_new_faces
        iv = verts(1+mod(ih,2))
        if ( mesh%v2h(2,iv) == faces(ih) ) then
@@ -176,7 +284,7 @@ contains
           mesh%v2h(1:2,iv) = [2, faces_new(ih)]
        end if
     end do
-    
+
   end subroutine split_edge
 
 
@@ -225,7 +333,7 @@ contains
     ! ----------------------------------------------------------------------+
 
     stat = 0
-    
+
     halfedges(1:2,1) = ihedg
     halfedges(1:2,2) = get_twin(mesh, ihedg)
 
@@ -236,7 +344,7 @@ contains
        halfedges(1:2,1:2) = halfedges(1:2,[2,1])
        verts(1:2) = verts([2,1])
     end if
-    
+
     do ih = 1,2
        iv = halfedges(1,ih) ! local index of origin vertex in incident triangle
        it = halfedges(2,ih) ! global index of incident triangle
@@ -282,7 +390,7 @@ contains
           mesh%v2h(1:2,iv) = twin_jk(1:2,1,ih)
        end if
     end do
-    
+
     ! change twins
     do ih = 1,2
        if ( faces(ih) < 1 ) cycle
@@ -304,7 +412,7 @@ contains
        face_id_new(1:faces(2)-1) = [(i, i=1,faces(2)-1)]
        face_id_new(faces(2)+1:mesh%nt) = [(i, i=faces(2),mesh%nt-1)]
     end if
-    
+
     ! remove triangles incident to collapsed edge
     if ( faces(1) > 0 ) then
        mesh%tri(1:3,faces(1):faces(2)-2) = mesh%tri(1:3,faces(1)+1:faces(2)-1)
@@ -333,7 +441,7 @@ contains
           if ( mesh%twin(2,iv,it) > 0 ) then
              mesh%twin(2,iv,it) = face_id_new(mesh%twin(2,iv,it))
           end if
-       end do          
+       end do
     end do
 
     ! remove vertex
@@ -346,7 +454,184 @@ contains
        mesh%v2h(2,iv) = face_id_new(mesh%v2h(2,iv))
     end do
     ! possibly remove from path ...***
-  
+
   end subroutine collapse_edge
+
+
+
+
+
+
+
+  subroutine surface_mesh_optimization( &
+       mesh, &
+       brep, &
+       hypg, &
+       hmin, &
+       hmax &
+       )
+    use mod_types_brep
+    use mod_hypergraph
+    use mod_optimmesh
+    implicit none
+    integer, parameter :: min_valence = 5, max_valence = 7, npass = 1
+    type(type_surface_mesh), intent(inout) :: mesh
+    type(type_brep),         intent(in)    :: brep
+    type(type_hypergraph),   intent(in)    :: hypg
+    real(kind=fp),           intent(in)    :: hmin
+    real(kind=fp),           intent(in)    :: hmax
+    logical                                :: visited(3,mesh%nt)
+    integer                                :: valence(mesh%nv)
+    integer                                :: verts(4)
+    integer                                :: valence_minmax(2,2), valence_tmp(4)
+    integer                                :: stat_flip, flip_count
+    integer                                :: it, jt, ie, iv, ih(2), ipass
+
+    
+
+    do ipass = 1,npass
+       ! 0) compute valence
+       do iv = 1,mesh%nv
+          valence(iv) = 1
+          ih = mesh%v2h(1:2,iv)
+          it = get_face(ih)
+          do
+             ih = get_twin(mesh, get_prev(ih))
+             jt = get_face(ih)
+             if ( jt < 1 .or. jt == it ) exit
+             valence(iv) = valence(iv) + 1
+          end do
+       end do
+
+       ! 1) valence improving edge flipping
+       flip_count = 0
+       valence_improving_flips : do 
+          IF ( FLIP_COUNT > 3*MESH%NT ) EXIT  valence_improving_flips
+          visited(1:3,1:mesh%nt) = .false.
+          do it = 1,mesh%nt
+             do ie = 1,3
+                if ( visited(ie,it) ) cycle
+                visited(ie,it) = .true.
+                ih = get_twin(mesh, [ie,it])
+                if ( ih(2) < 1 ) cycle
+                ! edge vertices
+                verts(1) = mesh%tri(ie,it)
+                verts(2) = mesh%tri(1+mod(ie,3),it)
+                if ( maxval(mesh%typ(verts(1:2))) < 2 ) cycle
+                ! opposite vertices
+                verts(3) = mesh%tri(1+mod(ie+1,3),it)
+                verts(4) = mesh%tri(1+mod(ih(1)+1,3),ih(2))
+                ! compute new valences if the edge gets flipped
+                valence_tmp = valence(verts)
+                valence_tmp(1:2) = valence_tmp(1:2) - 1
+                valence_tmp(3:4) = valence_tmp(3:4) + 1
+                ! compute min/max valence in pair of triangles
+                valence_minmax(1,1:2) = 1000
+                valence_minmax(2,1:2) = 0
+                do iv = 1,4
+                   valence_minmax(1,1) = min(valence_minmax(1,1), valence(verts(iv)))
+                   valence_minmax(2,1) = max(valence_minmax(2,1), valence(verts(iv)))
+                   valence_minmax(1,2) = min(valence_minmax(1,2), valence_tmp(iv))
+                   valence_minmax(2,2) = max(valence_minmax(2,2), valence_tmp(iv))
+                end do
+                !
+                if ( valence_minmax(1,1) >= min_valence .and. &
+                     valence_minmax(2,1) <= max_valence ) cycle
+                ! check if edge flip would improve valence uniformity
+                if ( valence_minmax(2,2) - valence_minmax(1,2) < &
+                     valence_minmax(2,1) - valence_minmax(1,1)) then
+                   PRINT *,'BEFORE: MIN/MAX VAL =', valence_minmax(1:2,1)
+                   PRINT *,'AFTER:  MIN/MAX VAL =', valence_minmax(1:2,2)
+                   ! flip egde
+                   call flip_edge( &
+                        mesh, &
+                        [ie,it], &
+                        stat_flip )
+                   PRINT *,'STAT_FLIP =', STAT_FLIP
+                   PRINT *,''
+                   !PAUSE
+                   if ( stat_flip == 0 ) then
+                      flip_count = flip_count + 1
+                      do iv = 1,4
+                         valence(verts(iv)) = valence_tmp(iv)
+                      end do
+                      cycle valence_improving_flips
+                   end if
+                end if
+             end do
+          end do
+
+          ! we get there if and only if no more edge flips are performed
+          exit valence_improving_flips ! 
+
+       end do valence_improving_flips
+
+       PRINT *, flip_count, ' EDGE FLIP(S) (mesh contains', mesh%nt, ' triangles)'
+
+       ! 2) variational mesh optimization
+       call optim_jiao( &
+            brep, &
+            hypg%hyperedges(1:hypg%nhe), &
+            hypg%nhe, &
+            mesh, &
+            1._fp, &
+            0.7_fp, &
+            2, &
+            4, &
+            6, &
+            hmin, &
+            hmax )
+       
+       ! 3) energy reduction edge flipping
+    end do
+  end subroutine surface_mesh_optimization
+
+
+
+
+
+
+
+
+
+
+
+  !subroutine compute_mesh_gradation( &
+  !     mesh, &
+  !     htarget, &
+  !     gradation, &
+  !     nedg )
+  !  ! cf. "Geometric surface mesh optimization", Frey and Borouchaki (1998)
+  !  implicit none
+  !  type(type_surface_mesh), intent(in)  :: mesh
+  !  real(kind=fp),           intent(in)  :: htarget(mesh%nv)
+  !  real(kind=fp),           intent(out) :: gradation(:)
+  !  integer, optional,       intent(out) :: nedg
+  !  real(kind=fp)                        :: norm_len
+  !  integer                              :: it, ie, iv, jv
+  !  k = 0
+  !  do it = 1,mesh%nt
+  !     do ie = 1,3
+  !        iv = mesh%tri(ie,it)
+  !        jv = mesh%tri(1+mod(ie,3),it)
+  !        if ( iv < jv ) then
+  !           k = k + 1
+  !           norm_len = norm2(mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))
+  !           if ( abs(htarget(iv) - htarget(jv)) < EPSfp ) then
+  !              norm_len = norm_len/htarget(iv)
+  !           else
+  !              norm_len = norm_len*(htarget(iv) - htarget(jv)) / &
+  !                   (htarget(iv)*htarget(jv)*(log(htarget(iv)) - log(htarget(jv)))
+  !           end if
+  !           gradation(k) = max(htarget(iv)/htarget(jv), htarget(jv)/htarget(iv))**(1._fp/norm_len)
+  !        end if            
+  !     end do
+  !  end do
+  !  if ( present(nedg) ) nedg = k  
+  !end subroutine compute_mesh_gradation
+
+
+
+
 
 end module mod_mesh_optimization

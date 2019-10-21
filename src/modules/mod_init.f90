@@ -29,6 +29,7 @@ contains
     use mod_mesh
     use mod_polynomial
     use mod_optimmesh
+    use mod_mesh_optimization
     use mod_tolerances
     ! mode = 0 : propagation des surfaces
     !        1 : regeneration BREP + hypergraphe
@@ -47,6 +48,11 @@ contains
     integer                                        :: fid
     logical, allocatable                           :: feat_edge(:), feat_vert(:)
     integer                                        :: isurf, icurv, i, j
+    !
+    INTEGER                                        :: IT, IE, IHEDG(2)
+    REAL(KIND=FP)                                  :: H, HMAX
+    INTEGER                                        :: STAT_SWAP
+    REAL(KIND=FP), ALLOCATABLE                     :: htarget(:)
 
     ! Read options file
     call read_options( &
@@ -212,6 +218,10 @@ contains
             mesh, &
             0.25_fp*options%hmin )
 
+      IF ( .TRUE. ) THEN ! **********************
+         options%hmin = 0.5_FP*options%hmin     !
+      END IF ! **********************************
+
        ! debugging >> ..................
        call write_connectivity( &
             '../debug/', &
@@ -255,6 +265,69 @@ contains
 
        PAUSE
 
+       IF ( .true. ) THEN
+         call optim_jiao( &
+            brep, &
+            hypergraph%hyperedges(1:hypergraph%nhe), &
+            hypergraph%nhe, &
+            mesh, &
+            1._fp, &!PARAM_frac_conf1, &
+            0.7_fp, &!PARAM_frac_conf2, &
+            5, &!PARAM_ipass1, &
+            15, &!PARAM_ipass2, &
+            5, &
+            options%hmin, &
+            options%hmax )
+       END IF
+       
+       call write_gmsh_mesh( &
+         mesh, &
+         '../debug/split_edge_before.msh' )
+
+       hmax = 0._fp
+       ihedg = [0,0]
+       do it = 1,mesh%nt
+         do ie = 1,3
+            h = sum( &
+               ( mesh%xyz(1:3,mesh%tri(ie,it)) - &
+               mesh%xyz(1:3,mesh%tri(1+mod(ie,3),it)) )**2 &
+            )
+            if ( h > hmax ) then
+               hmax = h
+               ihedg(1) = ie
+               ihedg(2) = it
+            end if
+         end do
+      end do
+
+      IF ( .FALSE. ) THEN
+       call split_edge( &
+         mesh, &
+         brep, &
+         hypergraph, &
+         ihedg )
+      ELSE
+         !call flip_edge( &
+         !   mesh, &
+         !   ihedg, &
+         !   stat_swap )
+         call surface_mesh_optimization( &
+            mesh, &
+            brep, &
+            hypergraph, &
+            options%hmin, &
+            options%hmax )
+      END IF
+
+      call write_gmsh_mesh( &
+         mesh, &
+         '../debug/split_edge_after.msh' )
+
+
+       
+
+       PAUSE
+
        !IF ( .TRUE. ) THEN
        !   do i = 1,interdata%nc
        !      if ( interdata%curves(i)%smooth ) then
@@ -281,6 +354,35 @@ contains
             options%hmin, &
             options%hmax )
 
+      call write_gmsh_mesh( &
+         mesh, &
+         trim(dir) // 'mesh/initmesh_optim.msh' )
+
+
+      IF ( .false. ) THEN
+         allocate(htarget(mesh%nv))
+         call discrete_minimum_curvature_radius( &
+            mesh, &
+            htarget )
+         htarget = min(htarget, 10._fp*options%hmax)
+         htarget = max(htarget, 0.1_fp*options%hmin)
+         PRINT *,'BEFORE HC CORRECTION:, MIN/MAX H =', MINVAL(htarget), MAXVAL(htarget)
+         call write_vtk_mesh_solv( &
+            mesh, &
+            htarget, &
+            trim(dir) // 'mesh/htarget_hc_0.vtk' )
+
+         call Hc_correction( &
+            mesh, &
+            htarget, &
+            2._fp, &
+            10 )
+         PRINT *,'AFTER HC CORRECTION:,  MIN/MAX H =', MINVAL(htarget), MAXVAL(htarget)
+         call write_vtk_mesh_solv( &
+            mesh, &
+            htarget, &
+            trim(dir) // 'mesh/htarget_hc_1.vtk' )
+      END IF
        ! CHECK UVs
        IF ( .true. ) call check_uvs(brep, mesh)
 

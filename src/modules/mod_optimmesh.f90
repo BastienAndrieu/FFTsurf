@@ -502,6 +502,7 @@ contains
     use mod_projection
     USE MOD_TOLERANCES
     implicit none
+    INTEGER, parameter                     :: NPASSMIN = 6
     real(kind=fp), parameter               :: EPSdxyz = 5.d-2 ! *min(h)
     real(kind=fp), parameter               :: EPSdxyzsqr = EPSdxyz**2
     type(type_brep),         intent(in)    :: brep
@@ -584,16 +585,28 @@ contains
           rc = 0.25_fp * hve**2
           !hve = min(minval(hve)*hmax/hmin, hve)
           !PRINT *,''!MIN(HVE) =', real(minval(hve)), minloc(hve,1)
-          hve = hve/minval(hve)
-          hve = min(hmax/hmin, hve)
-          !hve = min(3._fp, hve)
-          ! normalize to [0,1] for plotting
-          !hve = (hve - minval(hve)) / (maxval(hve) - minval(hve))
-
-          call smooth_function_mesh( &
+          
+          IF ( .TRUE. ) THEN
+            !hve = min(hve, 10._fp*hmax)
+            !hve = max(hve, 0.1_fp*hmin)
+            !call Hc_correction( &
+            !   mesh, &
+            !   hve, &
+            !   2._fp, &
+            !   10 )
+            call target_edge_lengths(mesh, hmin, hmax, hve)
+          ELSE
+            hve = hve/minval(hve)
+            hve = min(hmax/hmin, hve)
+            !hve = min(3._fp, hve)
+            ! normalize to [0,1] for plotting
+            !hve = (hve - minval(hve)) / (maxval(hve) - minval(hve))
+            call smooth_function_mesh( &
                mesh, &
                hve, &
                20 )
+          END IF 
+          
        end if
 
        IF ( .false. ) THEN
@@ -926,7 +939,7 @@ contains
 
        if ( .false. ) PAUSE
 
-       if ( maxdxyz/hminsqr < EPSdxyzsqr ) then
+       if ( maxdxyz/hminsqr < EPSdxyzsqr .and. ipass > NPASSMIN ) then
           PRINT *,'MAX(DXYZ) << MIN(H)'
           exit
        end if
@@ -936,13 +949,15 @@ contains
           if ( ipass > 2 ) then
              if ( detot0 < 0._fp ) detot0 = detot
              PRINT *,'DETOT/DETOT0 =',real(detot/detot0)
-             if ( detot < 0.01_fp * detot0 ) then ! .or. abs(detot) < 0.005 ) then
-                IF ( DETOT < 0._FP ) THEN
-                   PRINT *,'NON DECROISSANT'
-                ELSE
-                   PRINT *,'STATIONNAIRE'
-                END IF
-                exit
+             if ( ipass > NPASSMIN ) then
+               if ( detot < 0.01_fp * detot0 ) then ! .or. abs(detot) < 0.005 ) then
+                  IF ( DETOT < 0._FP ) THEN
+                     PRINT *,'NON DECROISSANT'
+                  ELSE
+                     PRINT *,'STATIONNAIRE'
+                  END IF
+                  exit
+               end if
              end if
           else
              detot0 = detot
@@ -1984,5 +1999,139 @@ contains
   end subroutine energy_jiao2
 
 
+
+
+
+  subroutine Hc_correction( &
+   mesh, &
+   htarget, &
+   gradation_max, &
+   npassmax )
+! cf. "Mesh gradation control", Borouchaki et al. (1998)
+   use mod_mesh
+implicit none
+type(type_surface_mesh), intent(in)    :: mesh
+real(kind=fp),           intent(inout) :: htarget(mesh%nv)
+real(kind=fp),           intent(in)    :: gradation_max
+integer,                 intent(in)    :: npassmax
+integer                                :: ipass, k, nedg
+logical                                :: changes
+real(kind=fp)                          :: gradation, norm_len, scale
+integer                                :: it, ie, iv,jv
+
+nedg = 3*mesh%nt
+outer: do ipass = 1,npassmax
+   k = 0
+   changes = .false.
+   do it = 1,mesh%nt
+      do ie = 1,3
+         iv = mesh%tri(ie,it)
+         jv = mesh%tri(1+mod(ie,3),it)
+         if ( htarget(iv) >= htarget(jv) ) then
+            k = k + 1
+
+            norm_len = norm2(mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))
+            if ( abs(htarget(iv) - htarget(jv)) < EPSfp ) then
+               norm_len = norm_len/htarget(iv)
+            else
+               norm_len = norm_len*(htarget(iv) - htarget(jv)) / &
+                    ( htarget(iv)*htarget(jv)*(log(htarget(iv)) - log(htarget(jv))) )
+            end if
+
+            gradation = max(htarget(iv)/htarget(jv), htarget(jv)/htarget(iv))**(1._fp/norm_len)
+
+            if ( gradation > gradation_max ) then
+               scale = (gradation_max/gradation)**norm_len
+               !PRINT *,'Hc CORRECTION, SCALE =', scale
+               htarget(iv) = scale*htarget(iv)
+               changes = .true.
+            end if
+            
+            if ( k >= nedg ) cycle outer
+         end if
+      end do
+   end do
+
+   if ( .not.changes ) return
+   if ( ipass == 1 ) nedg = k
+end do outer
+
+end subroutine Hc_correction
+
+
+
+subroutine statistics_edge_lengths(mesh, hmin, hmax, havg)
+   use mod_mesh
+   implicit none
+   type(type_surface_mesh), intent(in)  :: mesh
+   real(kind=fp),           intent(out) :: hmin
+   real(kind=fp),           intent(out) :: hmax
+   real(kind=fp),           intent(out) :: havg
+   real(kind=fp)                        :: h
+   integer                              :: it, ie, iv, jv, k
+
+   hmin = huge(1._fp)
+   hmax = 0._fp
+   havg = 0._fp
+
+   k = 0
+   do it = 1,mesh%nt
+      do ie = 1,3
+         iv = mesh%tri(ie,it)
+         jv = mesh%tri(1+mod(ie,3),it)
+         if ( iv < jv ) then
+            k = k + 1
+            h = norm2(mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))
+            hmin = min(h, hmin)
+            hmax = max(h, hmax)
+            havg = havg + h
+         end if
+      end do
+   end do
+
+   havg = havg/real(k, kind=fp)
+
+end subroutine statistics_edge_lengths
+
+
+
+
+
+
+
+subroutine target_edge_lengths(mesh, hmin0, hmax0, htarget)
+   use mod_mesh
+   implicit none
+   real(kind=fp), parameter             :: gradation_max = 2._fp
+   integer, parameter                   :: npassHc = 10
+   type(type_surface_mesh), intent(in)  :: mesh
+   real(kind=fp),           intent(in)  :: hmin0
+   real(kind=fp),           intent(in)  :: hmax0
+   real(kind=fp),           intent(out) :: htarget(mesh%nv)
+   real(kind=fp)                        :: hmin, hmax, havg, factor
+
+   call statistics_edge_lengths(mesh, hmin, hmax, havg)
+
+   call discrete_minimum_curvature_radius(mesh, htarget)
+
+   IF ( .true. ) THEN
+      factor = 1._fp
+   ELSE
+      factor = 0.5_fp*(hmin0 + hmax0)/havg
+   END IF
+
+   hmin = min(hmin, factor*hmin0)
+   hmax = max(hmax, factor*hmax0)
+   
+
+   htarget = min(htarget, 2._fp*hmax)
+   htarget = max(htarget, 0.5_fp*hmin)
+   call Hc_correction( &
+      mesh, &
+      htarget, &
+      gradation_max, &
+      npassHc )
+
+end subroutine target_edge_lengths
 
 end module mod_optimmesh

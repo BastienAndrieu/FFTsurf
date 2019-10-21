@@ -47,6 +47,7 @@ program fftsurf
   real(kind=fp), allocatable            :: xyzprev(:,:), xyztmp(:,:), dxyz(:,:)
   integer                               :: stat_corresp, stat_regen_path
   integer                               :: ivert, iface
+  REAL(KIND=FP), ALLOCATABLE            :: htarget(:)
   ! --------------------------------------------------------------
   ! Physical time
   real                                  :: time
@@ -176,6 +177,7 @@ program fftsurf
   call cpu_time(tic)
   if ( options%mode > 0 ) allocate(interdata_new, brep_new)
   if ( options%mode > 1 ) allocate(hypergraph_new)
+  if ( options%mode > 1 ) allocate(htarget(mesh%nv))
 
   if ( options%mode > 1 ) nf_old = brep_old%nf
   main_loop : do
@@ -450,6 +452,24 @@ program fftsurf
                 '../debug/pre_deform4.dat', &
                 'optimized' )
            !PAUSE
+            IF ( .TRUE. ) THEN
+               write (strnum, '(i3.3)') instant
+               !call discrete_minimum_curvature_radius( &
+               !   mesh, &
+               !   htarget )
+               !htarget = min(htarget, 10._fp*options%hmax)
+               !htarget = max(htarget, 0.1_fp*options%hmin)
+               !call Hc_correction( &
+               !   mesh, &
+               !   htarget, &
+               !   2._fp, &
+               !   10 )
+               call target_edge_lengths(mesh, options%hmin, options%hmax, htarget)
+               call write_vtk_mesh_solv( &
+                  mesh, &
+                  htarget, &
+                  trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk' )
+            END IF
 
            ! Export new positions
            call write_xyz_positions( &

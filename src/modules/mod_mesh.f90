@@ -393,6 +393,53 @@ contains
   end subroutine write_vtk_mesh
 
 
+  subroutine write_vtk_mesh_solv( &
+   mesh, &
+   solv, &
+   filename )
+use mod_util
+implicit none
+type(type_surface_mesh), intent(in) :: mesh
+real(kind=fp),           intent(in) :: solv(mesh%nv)
+character(*),            intent(in) :: filename
+integer                             :: fid, i, j
+
+call get_free_unit(fid)
+open(unit=fid, file=filename, action='write')
+
+write (fid,'(A26)') '# vtk DataFile Version 2.0'
+write (fid,*) filename    
+write (fid,'(A5)') 'ASCII'
+write (fid,'(A25)') 'DATASET UNSTRUCTURED_GRID'
+write (fid,'(A6,1x,I0,1x,A6)') 'POINTS', mesh%nv, 'double'
+do j = 1,mesh%nv
+   do i = 1,3
+      write (fid,'(ES22.15,1x)', advance='no') mesh%xyz(i,j)
+   end do
+   write (fid,*)
+end do
+
+write (fid,'(A5,1x,I0,1x,I0)') 'CELLS', mesh%nt, 4*mesh%nt
+do j = 1,mesh%nt
+   write (fid,'(I0,1x,I0,1x,I0,1x,I0)') 3, mesh%tri(1:3,j) - 1
+end do
+
+write (fid,'(A10,1x,I0)') 'CELL_TYPES', mesh%nt
+do j = 1,mesh%nt
+   write (fid,'(I1)') 5
+end do
+
+write (fid,'(A10,1x,I0)') 'POINT_DATA', mesh%nv
+write (fid,*) 'SCALARS field float'
+write (fid,'(A20)') 'LOOKUP_TABLE default'
+do j = 1,mesh%nv
+   write (fid,'(ES22.15)') solv(j)
+end do
+
+close(fid)   
+
+end subroutine write_vtk_mesh_solv
+
 
 
   subroutine write_gmsh_mesh( &
