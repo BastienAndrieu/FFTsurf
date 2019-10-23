@@ -47,7 +47,7 @@ program fftsurf
   real(kind=fp), allocatable            :: xyzprev(:,:), xyztmp(:,:), dxyz(:,:)
   integer                               :: stat_corresp, stat_regen_path
   integer                               :: ivert, iface
-  REAL(KIND=FP), ALLOCATABLE            :: htarget(:)
+  REAL(KIND=FP), ALLOCATABLE            :: htarget(:),tri_weights(:)
   ! --------------------------------------------------------------
   ! Physical time
   real                                  :: time
@@ -177,7 +177,7 @@ program fftsurf
   call cpu_time(tic)
   if ( options%mode > 0 ) allocate(interdata_new, brep_new)
   if ( options%mode > 1 ) allocate(hypergraph_new)
-  if ( options%mode > 1 ) allocate(htarget(mesh%nv))
+  if ( options%mode > 1 ) allocate(htarget(mesh%nv), tri_weights(mesh%nt))
 
   if ( options%mode > 1 ) nf_old = brep_old%nf
   main_loop : do
@@ -445,7 +445,8 @@ program fftsurf
                 PARAM_ipass2, &
                 PARAM_passmax, &
                 options%hmin, &
-                options%hmax )
+                options%hmax, &
+                .true. )
 
            call write_tecplot_mesh( &
                 mesh, &
@@ -464,11 +465,19 @@ program fftsurf
                !   htarget, &
                !   2._fp, &
                !   10 )
-               call target_edge_lengths(mesh, options%hmin, options%hmax, htarget)
-               call write_vtk_mesh_solv( &
+               call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep_new)
+               !call write_vtk_mesh_solv( &
+               !   mesh, &
+               !   htarget, &
+               !   trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk' )
+               call compute_triangle_weights(mesh, 4._fp, 1._fp, tri_weights)
+               call write_vtk_mesh_sol( &
                   mesh, &
+                  trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk', &
+                  tri_weights, &
+                  'weight', &
                   htarget, &
-                  trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk' )
+                  'hTarget' )
             END IF
 
            ! Export new positions

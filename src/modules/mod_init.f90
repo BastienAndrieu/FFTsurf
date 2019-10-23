@@ -49,8 +49,8 @@ contains
     logical, allocatable                           :: feat_edge(:), feat_vert(:)
     integer                                        :: isurf, icurv, i, j
     !
-    INTEGER                                        :: IT, IE, IHEDG(2)
-    REAL(KIND=FP)                                  :: H, HMAX
+    INTEGER                                        :: IT, IE, IHEDG(2), JHEDG(2), IV, JV
+    REAL(KIND=FP)                                  :: H, HMAX, HMIN
     INTEGER                                        :: STAT_SWAP
     REAL(KIND=FP), ALLOCATABLE                     :: htarget(:)
 
@@ -285,27 +285,48 @@ contains
          '../debug/split_edge_before.msh' )
 
        hmax = 0._fp
+       hmin = huge(1._fp)
        ihedg = [0,0]
+       jhedg = [0,0]
        do it = 1,mesh%nt
          do ie = 1,3
-            h = sum( &
-               ( mesh%xyz(1:3,mesh%tri(ie,it)) - &
-               mesh%xyz(1:3,mesh%tri(1+mod(ie,3),it)) )**2 &
-            )
+            iv = mesh%tri(ie,it)
+            jv = mesh%tri(1+mod(ie,3),it)
+            h = sum((mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))**2)
             if ( h > hmax ) then
                hmax = h
                ihedg(1) = ie
                ihedg(2) = it
             end if
+            !
+            if ( h < hmin ) then
+               if ( mesh%typ(iv) == 0 .and. mesh%typ(jv) == 0 ) cycle
+               if ( mesh%typ(iv) == 1 .and. mesh%typ(jv) == 1 ) then
+                  if ( brep%edges(mesh%ids(iv))%hyperedge /= brep%edges(mesh%ids(jv))%hyperedge ) cycle
+
+                  hmin = h
+                  jhedg(1) = ie
+                  jhedg(2) = it
+               end if
+            end if
          end do
       end do
 
-      IF ( .FALSE. ) THEN
-       call split_edge( &
-         mesh, &
-         brep, &
-         hypergraph, &
-         ihedg )
+      IF ( .false. ) THEN
+         IF ( .false. ) THEN
+            call collapse_edge( &
+               mesh, &
+               brep, &
+               hypergraph, &
+               jhedg, &
+               stat_swap )
+         ELSE
+            call split_edge( &
+               mesh, &
+               brep, &
+               hypergraph, &
+               ihedg )
+         END IF
       ELSE
          !call flip_edge( &
          !   mesh, &
@@ -352,35 +373,31 @@ contains
             15, &!PARAM_ipass2, &
             50, &
             options%hmin, &
-            options%hmax )
+            options%hmax, &
+            .true. )
 
       call write_gmsh_mesh( &
          mesh, &
          trim(dir) // 'mesh/initmesh_optim.msh' )
 
 
-      IF ( .false. ) THEN
+      IF ( .true. ) THEN
          allocate(htarget(mesh%nv))
-         call discrete_minimum_curvature_radius( &
-            mesh, &
-            htarget )
-         htarget = min(htarget, 10._fp*options%hmax)
-         htarget = max(htarget, 0.1_fp*options%hmin)
-         PRINT *,'BEFORE HC CORRECTION:, MIN/MAX H =', MINVAL(htarget), MAXVAL(htarget)
+         !call continuous_minimum_curvature_radius(mesh, brep, htarget)
+         !htarget = min(htarget, 1._fp*minval(htarget)*options%hmax/options%hmin)
+         !call write_vtk_mesh_solv( &
+         !   mesh, &
+         !   htarget, &
+         !   trim(dir) // 'mesh/htarget_hc_0.vtk' )
+         call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true.)
          call write_vtk_mesh_solv( &
             mesh, &
-            htarget, &
+            htarget/maxval(htarget), &
             trim(dir) // 'mesh/htarget_hc_0.vtk' )
-
-         call Hc_correction( &
-            mesh, &
-            htarget, &
-            2._fp, &
-            10 )
-         PRINT *,'AFTER HC CORRECTION:,  MIN/MAX H =', MINVAL(htarget), MAXVAL(htarget)
+         call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep)
          call write_vtk_mesh_solv( &
             mesh, &
-            htarget, &
+            htarget/maxval(htarget), &
             trim(dir) // 'mesh/htarget_hc_1.vtk' )
       END IF
        ! CHECK UVs

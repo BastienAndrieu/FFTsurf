@@ -79,20 +79,19 @@ contains
        mesh, &
        brep, &
        hypg, &
-       ihedg )
+       ihedg, &
+       resulting_vertex )
     use mod_util
     use mod_types_brep
     use mod_hypergraph
-    use mod_diffgeom
-    use mod_intersection
-    use mod_projection
     implicit none
     LOGICAL :: DEBUG = .true.
-    LOGICAL :: DEBUG_PROJ = .FALSE.
+    !LOGICAL :: DEBUG_PROJ = .FALSE.
     type(type_surface_mesh), intent(inout) :: mesh
     type(type_brep),         intent(in)    :: brep
     type(type_hypergraph),   intent(in)    :: hypg
     integer,                 intent(in)    :: ihedg(2)
+    integer, optional,       intent(out)   :: resulting_vertex
     integer                                :: halfedges(2,2)
     integer, dimension(2)                  :: verts, faces, faces_new
     integer                                :: ijk(3,2)
@@ -107,13 +106,7 @@ contains
     integer, allocatable                   :: twin_tmp(:,:,:)
     integer                                :: nv_tmp
     integer                                :: ih, jh, it, iv
-    !
-    real(kind=fp)                          :: dxyz(3), duv(2,2), ds
-    real(kind=fp)                          :: dxyz_ds(3,2), duv_ds(2,2,2)
-    real(kind=fp)                          :: dxyz_duv(3,2)
-    integer                                :: stat_tangent, stat_proj
-    logical                                :: singular
-    integer                                :: iedge, ihype, iface, ivar
+    integer                                :: stat_proj
 
     verts(1) = get_orig(mesh, ihedg)
     verts(2) = get_dest(mesh, ihedg)
@@ -157,77 +150,40 @@ contains
     ! insert new vertex
     ! 1) sort verts in descending typ order
     if ( mesh%typ(verts(1)) <  mesh%typ(verts(2))) verts = verts([2,1])
-    dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+    !dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
     typ_new = mesh%typ(verts(1))
 
+    ! 2) find midpoint
     select case ( mesh%typ(verts(1)) ) 
     case (1)
-       iedge = mesh%ids(verts(1))
-       ihype = brep%edges(iedge)%hyperedge
-       call diffgeom_intersection( &
-            brep%edges(iedge)%curve%surf, &
-            mesh%uv(1:2,1:2,verts(1)), &
-            duv_ds, &
-            dxyz_ds, &
-            stat_tangent )
-       ds = dot_product(dxyz, dxyz_ds(1:3,1))
-       duv(1:2,1:2) = ds * duv_ds(1:2,1,1:2)
-       dxyz = ds * dxyz_ds(1:3,1)
-       !
-       call projection_hyperedge( &
-            brep, &
-            hypg%hyperedges(ihype), &
-            iedge, &
-            mesh%uv(1:2,1:2,verts(1)), &
-            mesh%xyz(1:3,verts(1)), &
-            duv, &
-            dxyz, &
-            ids_new, &
-            uv_new, &
-            xyz_new, &
-            DEBUG_PROJ, &
-            stat_proj )
-       if ( stat_proj > 0 ) then
-          print *,'split_edge: failed to project on hyperedge'
-          PAUSE
-       end if
-       !
+      call get_midpoint_hyperedge( &
+         mesh, &
+         verts, &
+         brep, &
+         hypg, &
+         stat_proj, &
+         ids_new, &
+         uv_new, &
+         xyz_new )
+      if ( stat_proj > 0 ) then
+         print *,'split_edge: failed to project on hyperedge'
+         PAUSE
+      end if
+      !
     case (2)
-       iface = mesh%ids(verts(1))
-       do ivar = 1,2 ! <---------------------+
-          call evald1( &                     !
-               dxyz_duv(1:3,ivar), &         !
-               brep%faces(iface)%surface, &  !
-               mesh%uv(1:2,1,verts(1)), &    !
-               ivar )                        !
-       end do ! <----------------------------+
-       call solve_NxN( &
-            duv(1:2,1), &
-            matmul(transpose(dxyz_duv), dxyz_duv), &
-            matmul(transpose(dxyz_duv), dxyz), &
-            singular )
-       dxyz = matmul(dxyz_duv, duv(1:2,1))
-       !
-       call projection_hyperface( &
-            brep, &
-            iface, &
-            mesh%uv(1:2,1,verts(1)), &
-            mesh%xyz(1:3,verts(1)), &
-            duv, &
-            dxyz, &
-            ids_new, &
-            uv_new(1:2,1), &
-            DEBUG_PROJ, &
-            stat_proj )
-       if ( stat_proj > 0 ) then
-          print *,'split_edge: failed to project on hyperedge'
-          PAUSE
-       else
-          call eval( &
-               xyz_new, &
-               brep%faces(ids_new)%surface, &
-               uv_new(1:2,1) ) 
-       end if
+      call get_midpoint_hyperface( &
+         mesh, &
+         verts, &
+         brep, &
+         stat_proj, &
+         ids_new, &
+         uv_new(1:2,1), &
+         xyz_new )
+      if ( stat_proj > 0 ) then
+         print *,'split_edge: failed to project on hyperface'
+         PAUSE
+      end if
+      !
     end select
 
     ! uv, typ, ids***
@@ -239,6 +195,7 @@ contains
          [ids_new], &
          [typ_new], &
          1 )
+    if ( present(resulting_vertex) ) resulting_vertex = mesh%nv
 
     ! edit tri
     do ih = 1,n_new_faces
@@ -294,13 +251,22 @@ contains
 
   subroutine collapse_edge( &
        mesh, &
+       brep, &
+       hypg, &
        ihedg, &
-       stat )
+       stat, &
+       resulting_vertex )
+    use mod_util
+    use mod_types_brep
+    use mod_hypergraph
     implicit none
-    LOGICAL :: DEBUG = .FALSE.
+    LOGICAL :: DEBUG = .true.
     type(type_surface_mesh), intent(inout) :: mesh
+    type(type_brep),         intent(in)    :: brep
+    type(type_hypergraph),   intent(in)    :: hypg
     integer,                 intent(in)    :: ihedg(2)
     integer,                 intent(out)   :: stat
+    integer, optional,       intent(out)   :: resulting_vertex
     integer                                :: halfedges(2,2)
     integer, dimension(2)                  :: verts, faces, opposite_vert
     integer                                :: twin_jk(2,2,2)
@@ -308,9 +274,22 @@ contains
     integer                                :: vert_id_new(mesh%nv)
     integer                                :: face_id_new(mesh%nt)
     integer                                :: ih, iv, jv, kv, it, i
+    real(kind=fp)                          :: uv_new(2,2)
+    real(kind=fp)                          :: xyz_new(3)
+    integer                                :: typ_new
+    integer                                :: ids_new
+    integer                                :: stat_proj
+    integer                                :: ihype, ipath
 
     verts(1) = get_orig(mesh, ihedg)
     verts(2) = get_dest(mesh, ihedg)
+
+    IF ( DEBUG ) THEN
+      PRINT *, '--- COLLAPSE EDGE ---'
+      PRINT *, '   EDGE #', IHEDG(1), ' OF FACE #', IHEDG(2)
+      PRINT *, '   VERTS #', VERTS
+      PRINT *, '   XYZ_MID =', 0.5_FP*(MESH%XYZ(:,VERTS(1)) + MESH%XYZ(:,VERTS(2)))
+    END IF
 
     ! prevent degenerate cases ---------------------------------------------+
     if ( is_boundary_vertex(mesh, verts(1)) .and. &                         !
@@ -364,13 +343,66 @@ contains
     ! new vertex resulting from collapse
     i_new_vert = minval(verts)
     i_removed_vert = maxval(verts)
-    ! uv, typ, ids, xyz***
+    ! uv, typ, ids, xyz***!****
     if ( is_boundary_vertex(mesh, verts(2)) .and. &
          .not.is_boundary_vertex(mesh, verts(1)) ) then
        mesh%xyz(1:3,i_new_vert) = mesh%xyz(1:3,verts(2))
     else
-       mesh%xyz(1:3,i_new_vert) = 0.5_fp*(mesh%xyz(1:3,verts(1)) + mesh%xyz(1:3,verts(2))) !***
+       !mesh%xyz(1:3,i_new_vert) = 0.5_fp*(mesh%xyz(1:3,verts(1)) + mesh%xyz(1:3,verts(2))) !***
+      ! 1) sort verts in ascending typ order
+      if ( mesh%typ(verts(1)) > mesh%typ(verts(2)) ) verts = verts([2,1])
+      typ_new = mesh%typ(verts(1))
+      !
+      if ( mesh%typ(verts(1)) < mesh%typ(verts(2)) ) then
+         ids_new = mesh%ids(verts(1))
+         uv_new = mesh%uv(1:2,1:2,verts(1))
+         xyz_new = mesh%xyz(1:3,verts(1))
+      else ! mesh%typ(verts(1)) == mesh%typ(verts(2))
+         select case ( mesh%typ(verts(1)) )
+         case (0)
+            stat = 2
+            return
+         case (1)
+            call get_midpoint_hyperedge( &
+               mesh, &
+               verts, &
+               brep, &
+               hypg, &
+               stat_proj, &
+               ids_new, &
+               uv_new, &
+               xyz_new )
+            if ( stat_proj > 0 ) then
+               print *,'collapse_edge: failed to project on hyperedge'
+               stat = stat_proj
+               PAUSE
+               return
+            end if
+            !
+         case (2)
+            call get_midpoint_hyperface( &
+               mesh, &
+               verts, &
+               brep, &
+               stat_proj, &
+               ids_new, &
+               uv_new(1:2,1), &
+               xyz_new )
+            if ( stat_proj > 0 ) then
+               print *,'collapse_edge: failed to project on hyperface'
+               stat = stat_proj
+               PAUSE
+               return
+            end if
+            !
+         end select
+      end if
     end if ! *******
+
+    mesh%typ(i_new_vert) = typ_new
+    mesh%ids(i_new_vert) = ids_new
+    mesh%uv(1:2,1:2,i_new_vert) = uv_new
+    mesh%xyz(1:3,i_new_vert) = xyz_new
 
     ! change v2h of new vertex
     if ( is_boundary_vertex(mesh, verts(2)) .and. &
@@ -445,7 +477,9 @@ contains
     end do
 
     ! remove vertex
-    ! uv, typ, ids***
+    mesh%typ(i_removed_vert:mesh%nv-1) = mesh%typ(i_removed_vert+1:mesh%nv)
+    mesh%ids(i_removed_vert:mesh%nv-1) = mesh%ids(i_removed_vert+1:mesh%nv)
+    mesh%uv(1:2,1:2,i_removed_vert:mesh%nv-1) = mesh%uv(1:2,1:2,i_removed_vert+1:mesh%nv)
     mesh%xyz(1:3,i_removed_vert:mesh%nv-1) = mesh%xyz(1:3,i_removed_vert+1:mesh%nv)
     mesh%v2h(1:2,i_removed_vert:mesh%nv-1) = mesh%v2h(1:2,i_removed_vert+1:mesh%nv)
     mesh%nv = mesh%nv - 1
@@ -453,7 +487,21 @@ contains
     do iv = 1,mesh%nv
        mesh%v2h(2,iv) = face_id_new(mesh%v2h(2,iv))
     end do
-    ! possibly remove from path ...***
+    ! possibly remove from path
+    if ( mesh%typ(i_removed_vert) == 1 ) then
+      ihype = brep%edges(mesh%ids(i_removed_vert))%hyperedge
+      do ipath = 1,mesh%npaths
+         if ( mesh%paths(ipath)%hyperedge == ihype ) then
+            call remove_from_list( &
+                 i_removed_vert, &
+                 mesh%paths(ipath)%verts, &
+                 mesh%paths(ipath)%nv )
+            exit
+         end if
+      end do
+    end if
+
+    if ( present(resulting_vertex) ) resulting_vertex = i_new_vert
 
   end subroutine collapse_edge
 
@@ -474,23 +522,88 @@ contains
     use mod_hypergraph
     use mod_optimmesh
     implicit none
-    integer, parameter :: min_valence = 5, max_valence = 7, npass = 1
+    integer, parameter :: min_valence = 5, max_valence = 7, npass = 3
+    LOGICAL :: ALLOW_SPLIT = .FALSE.
+    LOGICAL :: ALLOW_COLLAPSE = .FALSE.
     type(type_surface_mesh), intent(inout) :: mesh
     type(type_brep),         intent(in)    :: brep
     type(type_hypergraph),   intent(in)    :: hypg
     real(kind=fp),           intent(in)    :: hmin
     real(kind=fp),           intent(in)    :: hmax
-    logical                                :: visited(3,mesh%nt)
-    integer                                :: valence(mesh%nv)
+    real(kind=fp)                          :: htarget(2*mesh%nv), h
+    logical                                :: visited(3,2*mesh%nt)
+    integer                                :: valence(2*mesh%nv)
     integer                                :: verts(4)
     integer                                :: valence_minmax(2,2), valence_tmp(4)
+    integer                                :: stat_split, split_count
+    integer                                :: stat_collapse, collapse_count
     integer                                :: stat_flip, flip_count
-    integer                                :: it, jt, ie, iv, ih(2), ipass
+    integer                                :: it, jt, ie, iv, ih(2), ipass, nt0
 
-    
-
+    nt0 = mesh%nt
     do ipass = 1,npass
-       ! 0) compute valence
+      ! 1) split long edges/collapse short edges
+      split_count = 0
+      collapse_count = 0
+      edge_splits_collapses : do
+         call target_edge_lengths( &
+            mesh, &
+            hmin, &
+            hmax, &
+            htarget(1:mesh%nv), &
+            .false., &
+            brep )
+         IF ( split_count > 3*nt0 ) EXIT edge_splits_collapses
+         IF ( mesh%nt < 5 ) EXIT edge_splits_collapses
+         visited(1:3,1:mesh%nt) = .false.
+         do it = 1,mesh%nt
+            do ie = 1,3
+               if ( visited(ie,it) ) cycle
+               visited(ie,it) = .true.
+               ih = get_twin(mesh, [ie,it])
+               if ( ih(2) < 1 ) cycle
+               visited(ih(1),ih(2)) = .true.
+
+               verts(1) = mesh%tri(ie,it)
+               verts(2) = mesh%tri(1+mod(ie,3),it)
+               h = sum((mesh%xyz(1:3,verts(1)) - mesh%xyz(1:3,verts(2)))**2)
+               if ( h > 4._fp*maxval(htarget(verts(1:2)))**2 .and. ALLOW_SPLIT ) then
+                  call split_edge( &
+                     mesh, &
+                     brep, &
+                     hypg, &
+                     [ie,it] )
+                  stat_split = 0
+                  if ( stat_split == 0 ) then
+                     split_count = split_count + 1
+                     if ( mesh%nt > size(visited,2) ) stop
+                     if ( mesh%nv > size(htarget) ) stop
+                     cycle edge_splits_collapses
+                  end if
+               elseif ( h < 0.2_fp*minval(htarget(verts(1:2)))**2 .and. ALLOW_COLLAPSE ) then
+                  call collapse_edge( &
+                     mesh, &
+                     brep, &
+                     hypg, &
+                     [ie,it], &
+                     stat_collapse )
+                     if ( stat_collapse == 0 ) then
+                        collapse_count = collapse_count + 1
+                        cycle edge_splits_collapses
+                     end if
+               end if
+            end do
+         end do
+
+         ! we get there if and only if no more edge splits/collapses are performed
+         exit edge_splits_collapses
+      end do edge_splits_collapses
+
+      PRINT *, split_count, ' EDGE SPLIT(S) (mesh originally had', nt0, ' triangles)'
+      PRINT *, collapse_count, ' EDGE COLLAPSE(S) (mesh originally had', nt0, ' triangles)'
+      !PAUSE
+
+       ! 2) compute valence
        do iv = 1,mesh%nv
           valence(iv) = 1
           ih = mesh%v2h(1:2,iv)
@@ -503,7 +616,7 @@ contains
           end do
        end do
 
-       ! 1) valence improving edge flipping
+       ! 3) valence improving edge flipping
        flip_count = 0
        valence_improving_flips : do 
           IF ( FLIP_COUNT > 3*MESH%NT ) EXIT  valence_improving_flips
@@ -514,6 +627,7 @@ contains
                 visited(ie,it) = .true.
                 ih = get_twin(mesh, [ie,it])
                 if ( ih(2) < 1 ) cycle
+                visited(ih(1),ih(2)) = .true.
                 ! edge vertices
                 verts(1) = mesh%tri(ie,it)
                 verts(2) = mesh%tri(1+mod(ie,3),it)
@@ -568,7 +682,7 @@ contains
 
        PRINT *, flip_count, ' EDGE FLIP(S) (mesh contains', mesh%nt, ' triangles)'
 
-       ! 2) variational mesh optimization
+       ! 4) variational mesh optimization
        call optim_jiao( &
             brep, &
             hypg%hyperedges(1:hypg%nhe), &
@@ -630,8 +744,285 @@ contains
   !  if ( present(nedg) ) nedg = k  
   !end subroutine compute_mesh_gradation
 
+subroutine get_midpoint_hyperedge( &
+   mesh, &
+   verts, &
+   brep, &
+   hypg, &
+   stat, &
+   ids_mid, &
+   uv_mid, &
+   xyz_mid )
+   use mod_types_brep
+   use mod_hypergraph
+   use mod_diffgeom
+   use mod_intersection
+   use mod_projection
+   implicit none
+   LOGICAL :: DEBUG_PROJ = .false.
+   type(type_surface_mesh), intent(in)  :: mesh
+   integer,                 intent(in)  :: verts(2)
+   type(type_brep),         intent(in)  :: brep
+   type(type_hypergraph),   intent(in)  :: hypg
+   integer,                 intent(out) :: stat
+   integer,                 intent(out) :: ids_mid
+   real(kind=fp),           intent(out) :: uv_mid(2,2)
+   real(kind=fp),           intent(out) :: xyz_mid(3)
+   integer                              :: iedge, ihype
+   real(kind=fp)                        :: duv_ds(2,2,2), dxyz_ds(3,2)
+   real(kind=fp)                        :: ds, duv(2,2), dxyz(3)
+
+   dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+
+   iedge = mesh%ids(verts(1))
+   ihype = brep%edges(iedge)%hyperedge
+   call diffgeom_intersection( &
+      brep%edges(iedge)%curve%surf, &
+      mesh%uv(1:2,1:2,verts(1)), &
+      duv_ds, &
+      dxyz_ds, &
+      stat )
+   if ( stat > 0 ) then
+      print *,'get_midpoint_hyperedge: not a tangential intersection curve'
+      return
+   end if
+   ds = dot_product(dxyz, dxyz_ds(1:3,1))
+   duv(1:2,1:2) = ds * duv_ds(1:2,1,1:2)
+   dxyz = ds * dxyz_ds(1:3,1)
+   !
+   call projection_hyperedge( &
+      brep, &
+      hypg%hyperedges(ihype), &
+      iedge, &
+      mesh%uv(1:2,1:2,verts(1)), &
+      mesh%xyz(1:3,verts(1)), &
+      duv, &
+      dxyz, &
+      ids_mid, &
+      uv_mid, &
+      xyz_mid, &
+      DEBUG_PROJ, &
+      stat )
+   if ( stat > 0 ) then
+      print *,'get_midpoint_hyperedge: failed to project on hyperedge'
+      return
+   end if
+
+end subroutine get_midpoint_hyperedge
 
 
 
+
+
+subroutine get_midpoint_hyperface( &
+   mesh, &
+   verts, &
+   brep, &
+   stat, &
+   ids_mid, &
+   uv_mid, &
+   xyz_mid )
+   use mod_types_brep
+   use mod_diffgeom
+   use mod_intersection
+   use mod_projection
+   implicit none
+   LOGICAL :: DEBUG_PROJ = .false.
+   type(type_surface_mesh), intent(in)  :: mesh
+   integer,                 intent(in)  :: verts(2)
+   type(type_brep),         intent(in)  :: brep
+   integer,                 intent(out) :: stat
+   integer,                 intent(out) :: ids_mid
+   real(kind=fp),           intent(out) :: uv_mid(2)
+   real(kind=fp),           intent(out) :: xyz_mid(3)
+   integer                              :: iface, ivar
+   real(kind=fp)                        :: dxyz_duv(3,2)
+   real(kind=fp)                        :: duv(2), dxyz(3)
+   logical                              :: singular
+
+   dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+
+   iface = mesh%ids(verts(1))
+   do ivar = 1,2 ! <-------------------+
+      call evald1( &                   !
+         dxyz_duv(1:3,ivar), &         !
+         brep%faces(iface)%surface, &  !
+         mesh%uv(1:2,1,verts(1)), &    !
+         ivar )                        !
+   end do ! <--------------------------+
+   call solve_NxN( &
+      duv(1:2), &
+      matmul(transpose(dxyz_duv), dxyz_duv), &
+      matmul(transpose(dxyz_duv), dxyz), &
+      singular )
+   dxyz = matmul(dxyz_duv, duv(1:2))
+   !
+   call projection_hyperface( &
+      brep, &
+      iface, &
+      mesh%uv(1:2,1,verts(1)), &
+      mesh%xyz(1:3,verts(1)), &
+      duv, &
+      dxyz, &
+      ids_mid, &
+      uv_mid, &
+      DEBUG_PROJ, &
+      stat )
+   if ( stat > 0 ) then
+      print *,'get_midpoint_hyperface: failed to project on hyperedge'
+      return
+   else
+      call eval( &
+         xyz_mid, &
+         brep%faces(ids_mid)%surface, &
+         uv_mid ) 
+   end if
+
+end subroutine get_midpoint_hyperface
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+! subroutine surface_mesh_optimization2( &
+!    mesh, &
+!    brep, &
+!    hypg, &
+!    hmin, &
+!    hmax, &
+!    fixed_connectivity, &
+!    allow_flip, &
+!    allow_split, &
+!    allow_collapse, &
+!    )
+!    use mod_util
+!    use mod_types_brep
+!    use mod_hypergraph
+!    use mod_optimmesh
+!    implicit none
+!    integer, parameter :: min_valence = 5, max_valence = 7, npass = 3
+!    type(type_surface_mesh), intent(inout) :: mesh
+!    type(type_brep),         intent(in)    :: brep
+!    type(type_hypergraph),   intent(in)    :: hypg
+!    real(kind=fp),           intent(in)    :: hmin
+!    real(kind=fp),           intent(in)    :: hmax
+!    logical,                 intent(in)    :: fixed_connectivity
+!    logical,                 intent(in)    :: allow_flip
+!    logical,                 intent(in)    :: allow_split
+!    logical,                 intent(in)    :: allow_collapse
+!    integer, allocatable                   :: queue(:,:)
+!    integer                                :: nqueue
+!    logical, allocatable                   :: in_queue(:,:)
+!    integer                                :: verts(4)
+!    integer                                :: it, ie, ih(2), ipass, iv
+
+!    allocate(queue(3,1000))
+!    allocate(in_queue(3,2*mesh%nt))
+
+!    do ipass = 1,npass
+!       if ( .not. fixed_connectivity ) then
+!          call target_edge_lengths( &
+!             mesh, &
+!             hmin, &
+!             hmax, &
+!             htarget(1:mesh%nv), &
+!             .false., &
+!             brep )
+
+!          ! Edge splits/collapses
+!          visited(1:3,1:mesh%nt) = .false.
+!          in_queue(1:3,1:mesh%nt) = .false.
+!          do it = 1,mesh%nt
+!             do ie = 1,3
+!                if ( visited(ie,it) ) cycle
+!                visited(ie,it) = .true.
+!                ih = get_twin(mesh, [ie,it])
+!                if ( ih(2) < 1 ) cycle
+!                visited(ih(1),ih(2)) = .true.
+
+!                verts(1) = mesh%tri(ie,it)
+!                verts(2) = mesh%tri(1+mod(ie,3),it)
+!                h = sum((mesh%xyz(1:3,verts(1)) - mesh%xyz(1:3,verts(2)))**2)
+!                if ( h > 4._fp*maxval(htarget(verts(1:2)))**2 .and. allow_split ) then
+!                   ! edge needs to be split
+!                   call insert_column_after( &
+!                      queue, &
+!                      3, &
+!                      nqueue, &
+!                      [ie,it,1], &
+!                      nqueue )
+!                   in_queue(ie,it) = .true.
+!                   in_queue(ih(1),ih(2)) = .true.
+!                else if ( h < 0.5_fp*minval(htarget(verts(1:2)))**2 .and. allow_collapse ) then
+!                   ! edge needs to be collapsed
+!                   call insert_column_after( &
+!                      queue, &
+!                      3, &
+!                      nqueue, &
+!                      [ie,it,2], &
+!                      nqueue )
+!                   in_queue(ie,it) = .true.
+!                   in_queue(ih(1),ih(2)) = .true.
+!                end if
+!             end do
+!          end do
+
+!          do while ( nqueue > 0 ) 
+!             ih = queue(1:2,1)
+!             verts(1) = mesh%tri(ie,it)
+!             verts(2) = mesh%tri(1+mod(ie,3),it)
+!             if ( queue(3,1) == 1 ) then
+!                ! split
+!                call split_edge( &
+!                   mesh, &
+!                   brep, &
+!                   hypg, &
+!                   ih, &
+!                   iv )
+!                stat = 0
+!             else if ( queue(3,1) == 2 ) then
+!                ! collapse
+!                call collapse_edge( &
+!                   mesh, &
+!                   brep, &
+!                   hypg, &
+!                   ih, &
+!                   stat, &
+!                   iv )
+!             end if
+
+!             queue(1:3,1:nqueue-1) = queue(1:3,2:nqueue)
+!             nqueue = nqueue - 1
+
+!             ! update status of modified edges (already in queue or not)
+!             ! 1) apply triangle renumbering to edges in queue
+!             ! ...
+!             ! 2) check if edges incident to resulting vertex need to be split/collapsed
+!             ih = mesh%v2h(iv)
+!             htarget(iv) = 0.5_fp*(htarget(verts(1)) + htarget(verts(2)))
+!             it = ih(2)
+!             do
+!                jv = get_dest(mesh, ih)
+!                h = sum((mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))**2)
+
+!             end do
+!          end do
+         
+!       end if
+
+
+!    end do
+
+
+! end subroutine surface_mesh_optimization2
 
 end module mod_mesh_optimization

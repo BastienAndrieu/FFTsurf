@@ -51,7 +51,7 @@ renderView.ViewSize = [800, 600]
 renderView.OrientationAxesVisibility = 0 # hide xyz axes
 
 
-if True:
+if False:
     renderView.UseLight = 0 # no shading
     # create a new 'Mesh Quality'
     meshQuality1 = MeshQuality(Input=instants)

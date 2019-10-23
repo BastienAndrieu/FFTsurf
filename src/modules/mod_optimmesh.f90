@@ -4,7 +4,7 @@ module mod_optimmesh
 
   implicit none
 
-  logical, parameter :: CURVATURE_BASED_IDEAL_AREA = .FALSE.
+  logical, parameter :: CURVATURE_BASED_IDEAL_AREA = .true.
 
 contains
 
@@ -489,7 +489,8 @@ contains
        ipass2, &
        passmax, &
        hmin, &
-       hmax )
+       hmax, &
+       continuous_opt )
     USE MOD_UTIL
     use mod_diffgeom
     use mod_intersection
@@ -516,6 +517,8 @@ contains
     integer,                 intent(in)    :: passmax
     real(kind=fp),           intent(in)    :: hmin
     real(kind=fp),           intent(in)    :: hmax
+    logical, optional,       intent(in)    :: continuous_opt
+    logical                                :: continuous
     real(kind=fp)                          :: hve(mesh%nv), rc(mesh%nv)
     real(kind=fp)                          :: wei(mesh%nt)
     real(kind=fp)                          :: hminsqr
@@ -546,6 +549,12 @@ contains
 
     CALL GET_FREE_UNIT(FID)
 
+    if ( present(continuous_opt) ) then
+      continuous = continuous_opt
+    else
+      continuous = .false.
+    end if
+
     lowerb(:) = -2._fp
     upperb(:) = 2._fp
 
@@ -555,7 +564,7 @@ contains
     ELSE
        call compute_triangle_weights( &
             mesh, &
-            2._fp, &
+            4._fp, &
             1._fp, &
             wei )
     END IF
@@ -594,7 +603,11 @@ contains
             !   hve, &
             !   2._fp, &
             !   10 )
-            call target_edge_lengths(mesh, hmin, hmax, hve)
+            if ( continuous ) then
+               call target_edge_lengths(mesh, hmin, hmax, hve, .true., brep)
+            else
+               call target_edge_lengths(mesh, hmin, hmax, hve, .true. )
+            end if
           ELSE
             hve = hve/minval(hve)
             hve = min(hmax/hmin, hve)
@@ -1236,7 +1249,7 @@ contains
     real(kind=fp),           intent(in)  :: wclose
     real(kind=fp),           intent(in)  :: wfar
     real(kind=fp),           intent(out) :: wt(mesh%nt)
-    real(kind=fp)                        :: hmin, hmax, alp, bet
+    real(kind=fp)                        :: hmin, hmax, invhf, alp, bet
     real(kind=fp)                        :: dv(mesh%nv), dij, dt
     logical                              :: visited(mesh%nv)
     integer, dimension(mesh%nv)          :: front, fronttmp
@@ -1292,12 +1305,13 @@ contains
 
     bet = (wclose - wfar)/(1._fp - EPS)
     alp = wclose - bet
+    invhf = 2._fp/(fhavg*(hmin + hmax))
 
     dv = dv / maxval(dv)
     do iface = 1,mesh%nt
        dt = sum(dv(mesh%tri(:,iface))) / 3._fp
        !wt(iface) = wclose + (wfar - wclose)*dt
-       wt(iface) = alp + bet*exp(-gam*dt*2._fp/(fhavg*(hmin + hmax)))
+       wt(iface) = alp + bet*exp(-gam*dt*invhf)
     end do
 
 
@@ -2099,33 +2113,48 @@ end subroutine statistics_edge_lengths
 
 
 
-subroutine target_edge_lengths(mesh, hmin0, hmax0, htarget)
+subroutine target_edge_lengths( &
+   mesh, &
+   hmin0, &
+   hmax0, &
+   htarget, &
+   adapt_scale_opt, &
+   brep &
+   )
    use mod_mesh
+   use mod_types_brep
    implicit none
-   real(kind=fp), parameter             :: gradation_max = 2._fp
-   integer, parameter                   :: npassHc = 10
-   type(type_surface_mesh), intent(in)  :: mesh
-   real(kind=fp),           intent(in)  :: hmin0
-   real(kind=fp),           intent(in)  :: hmax0
-   real(kind=fp),           intent(out) :: htarget(mesh%nv)
-   real(kind=fp)                        :: hmin, hmax, havg, factor
+   real(kind=fp), parameter               :: gradation_max = 2._fp
+   integer, parameter                     :: npassHc = 10
+   type(type_surface_mesh),   intent(in)  :: mesh
+   real(kind=fp),             intent(in)  :: hmin0
+   real(kind=fp),             intent(in)  :: hmax0
+   real(kind=fp),             intent(out) :: htarget(mesh%nv)
+   logical, optional,         intent(in)  :: adapt_scale_opt
+   type(type_brep), optional, intent(in)  :: brep
+   logical                                :: adapt_scale
+   real(kind=fp)                          :: hmin, hmax, havg
 
-   call statistics_edge_lengths(mesh, hmin, hmax, havg)
+   if ( present(adapt_scale_opt) ) then
+      adapt_scale = adapt_scale_opt
+   else
+      adapt_scale = .true.
+   end if
 
-   call discrete_minimum_curvature_radius(mesh, htarget)
+   if ( present(brep) ) then
+      PRINT *,'target_edge_lengths: USE BREP'
+      call continuous_minimum_curvature_radius(mesh, brep, htarget)
+   else
+      call discrete_minimum_curvature_radius(mesh, htarget)
+   end if
 
-   IF ( .true. ) THEN
-      factor = 1._fp
-   ELSE
-      factor = 0.5_fp*(hmin0 + hmax0)/havg
-   END IF
+   IF ( adapt_scale ) then
+      call statistics_edge_lengths(mesh, hmin, hmax, havg)
+      htarget = min(htarget, (hmax0/hmin0)*minval(htarget))
+   else
+      htarget = min(max(htarget, hmin0), hmax0)
+   end if
 
-   hmin = min(hmin, factor*hmin0)
-   hmax = max(hmax, factor*hmax0)
-   
-
-   htarget = min(htarget, 2._fp*hmax)
-   htarget = max(htarget, 0.5_fp*hmin)
    call Hc_correction( &
       mesh, &
       htarget, &
@@ -2133,5 +2162,74 @@ subroutine target_edge_lengths(mesh, hmin0, hmax0, htarget)
       npassHc )
 
 end subroutine target_edge_lengths
+
+
+
+
+
+subroutine continuous_minimum_curvature_radius(mesh, brep, r)
+   use mod_types_brep
+   use mod_mesh
+   use mod_types_intersection
+   use mod_intersection
+   use mod_diffgeom
+   implicit none
+   type(type_surface_mesh), intent(in)  :: mesh
+   type(type_brep),         intent(in)  :: brep
+   real(kind=fp),           intent(out) :: r(mesh%nv)
+   type(type_point_on_surface), pointer :: pos => null()
+   real(kind=fp)                        :: rtmp
+   real(kind=fp)                        :: duv_ds(2,2,2), dxyz_ds(3,2), curvature(2)
+   integer                              :: stat_tng
+   integer                              :: iv, j
+
+   do iv = 1,mesh%nv
+      r(iv) = huge(1._fp)
+      select case ( mesh%typ(iv) )
+      case (0)
+         pos => brep%verts(mesh%ids(iv))%point%pos
+         do j = 1,brep%verts(mesh%ids(iv))%point%npos
+            call eval_minimum_curvature_radius( &
+               pos%surf, &
+               pos%uv, &
+               rtmp )
+            r(iv) = min(r(iv), rtmp)
+            pos => pos%next
+         end do
+         !
+      case (1)
+         do j = 1,2
+            call eval_minimum_curvature_radius( &
+               brep%edges(mesh%ids(iv))%curve%surf(j)%ptr, &
+               mesh%uv(1:2,j,iv), &
+               rtmp )
+            r(iv) = min(r(iv), rtmp)
+         end do
+         !
+         call diffgeom_intersection( &
+            brep%edges(mesh%ids(iv))%curve%surf, &
+            mesh%uv(1:2,1:2,iv), &
+            duv_ds, &
+            dxyz_ds, &
+            stat_tng, &
+            curvature )
+         if ( stat_tng == 0 ) then
+            r(iv) = min(r(iv), 1._fp/max(EPSfp, curvature(1)))
+         end if
+         !
+      case (2)
+         call eval_minimum_curvature_radius( &
+            brep%faces(mesh%ids(iv))%surface, &
+            mesh%uv(1:2,1,iv), &
+            r(iv) )
+      end select
+   end do
+
+end subroutine continuous_minimum_curvature_radius
+
+
+
+
+
 
 end module mod_optimmesh
