@@ -50,7 +50,7 @@ contains
     integer                                        :: isurf, icurv, i, j
     !
     INTEGER                                        :: IT, IE, IHEDG(2), JHEDG(2), IV, JV
-    REAL(KIND=FP)                                  :: H, HMAX, HMIN
+    REAL(KIND=FP)                                  :: H, HMAX, HMIN, HAVG
     INTEGER                                        :: STAT_SWAP
     REAL(KIND=FP), ALLOCATABLE                     :: htarget(:)
 
@@ -210,15 +210,17 @@ contains
             0 )
        ! .................. <<
 
-       ! Eliminate edges that are too short
-       call contract_small_edges( &
+      IF ( .true. ) THEN
+         ! Eliminate edges that are too short
+         call contract_small_edges( &
             brep, &
             hypergraph%hyperedges(1:hypergraph%nhe), &
             hypergraph%nhe, &
             mesh, &
             0.25_fp*options%hmin )
+      END IF
 
-      IF ( .TRUE. ) THEN ! **********************
+      IF ( .false. ) THEN ! **********************
          options%hmin = 0.5_FP*options%hmin     !
       END IF ! **********************************
 
@@ -237,6 +239,29 @@ contains
        call make_halfedges( &
             mesh )
        !END IF
+      IF ( .true. ) THEN
+         IF ( .false. ) THEN
+            if ( .not.allocated(mesh%hTargetV) ) allocate(mesh%hTargetV(mesh%nv))
+            call target_edge_lengths( &
+               mesh, &
+               options%hmin, &
+               options%hmax, &
+               mesh%hTargetV, &
+               adapt_scale_opt=.false., &
+               brep=brep )
+         ELSE
+            call set_hTargetV( &
+               mesh, &
+               options%hmin, &
+               options%hmax, &
+               opt_tolchord=options%chord_err, &
+               opt_adaptScale=.false., &
+               opt_brep=brep, &
+               opt_fractionPrevious=0._fp )
+         END IF
+         !PRINT *, mesh%hTargetV(1:mesh%nv)
+         !PAUSE
+      END IF
 
        ! debugging >> ..................
        call write_mesh_files( &
@@ -332,12 +357,16 @@ contains
          !   mesh, &
          !   ihedg, &
          !   stat_swap )
-         call surface_mesh_optimization( &
-            mesh, &
-            brep, &
-            hypergraph, &
-            options%hmin, &
-            options%hmax )
+         IF ( .true. ) THEN
+            call statistics_edge_lengths(mesh, hmin, hmax, havg)
+            call surface_mesh_optimization( &
+               mesh, &
+               brep, &
+               hypergraph, &
+               options%hmin, &
+               options%hmax, &
+               options%chord_err )
+         END IF
       END IF
 
       call write_gmsh_mesh( &
@@ -345,7 +374,22 @@ contains
          '../debug/split_edge_after.msh' )
 
 
-       
+       allocate(htarget(mesh%nv))
+       !call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep, 0)
+       call set_hTargetV( &
+         mesh, &
+         options%hmin, &
+         options%hmax, &
+         opt_tolchord=options%chord_err, &
+         opt_adaptScale=.true., &
+         opt_brep=brep, &
+         opt_fractionPrevious=0._fp )
+       call write_vtk_mesh_sol( &
+         mesh, &
+         trim(dir) // 'mesh/init_hve.vtk', &
+         solv=htarget, &
+         solv_label='hTarget' )
+       deallocate(htarget)
 
        PAUSE
 
@@ -360,6 +404,7 @@ contains
        !      end if
        !   end do
        !END IF
+       
 
        ! Mesh smoothing
        call optim_jiao( &

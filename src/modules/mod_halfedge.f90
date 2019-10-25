@@ -29,6 +29,8 @@ module mod_halfedge
      module procedure get_dest_mesh, get_dest_brep
   end interface get_dest
 
+  integer, parameter :: PARAM_max_cycles_around_mesh_vertex = 100
+
 contains
   
   function get_prev_mesh( &

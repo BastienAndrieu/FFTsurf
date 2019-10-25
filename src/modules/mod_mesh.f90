@@ -27,6 +27,8 @@ module mod_mesh
      integer, allocatable         :: ihf(:)
      integer                      :: npaths = 0
      type(type_path), allocatable :: paths(:)
+
+     real(kind=fp), allocatable   :: hTargetV(:)
   end type type_surface_mesh
 
 
@@ -679,7 +681,7 @@ if ( present(filepaths) ) then
     real(kind=fp),           intent(in)    :: uv(2,2,nv)
     integer,                 intent(in)    :: ids(nv)
     integer,                 intent(in)    :: typ(nv)
-    real(kind=fp), allocatable             :: xyztmp(:,:), uvtmp(:,:,:)
+    real(kind=fp), allocatable             :: xyztmp(:,:), uvtmp(:,:,:), htmp(:)
     integer, allocatable                   :: itmp(:)
 
     if ( allocated(mesh%xyz) ) then ! <----------------------------+
@@ -725,6 +727,18 @@ if ( present(filepaths) ) then
     else ! --------------------------------------------------------+
        allocate(mesh%typ(nv + MESH_xtra_nv))                       !
     end if ! <-----------------------------------------------------+
+
+    if ( allocated(mesh%hTargetV) ) then ! <----------------------+
+      if ( size(mesh%hTargetV) < mesh%nv + nv ) then ! <-------+  !
+         call move_alloc(from=mesh%hTargetV, to=htmp)          !  !
+         allocate(mesh%hTargetV(mesh%nv + nv + MESH_xtra_nv))  !  !
+         mesh%hTargetV(1:mesh%nv) = htmp(1:mesh%nv)            !  !
+         deallocate(htmp)                                      !  !
+      end if ! <-----------------------------------------------+  !
+   else ! --------------------------------------------------------+
+      allocate(mesh%hTargetV(nv + MESH_xtra_nv))                  !
+   end if ! <-----------------------------------------------------+
+
 
     mesh%xyz(1:3,mesh%nv+1:mesh%nv+nv) = xyz(1:3,1:nv)
     mesh%uv(1:2,1:2,mesh%nv+1:mesh%nv+nv) = uv(1:2,1:2,1:nv)

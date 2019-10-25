@@ -311,6 +311,13 @@ program fftsurf
 
            nf_old = brep_new%nf
            !PAUSE
+           IF ( .TRUE. ) THEN
+            PRINT *,'CHECK INTERSECTION POLYINES SPLITS'
+            DO I = 1,interdata_new%nc
+               PRINT *,'CURVE #', I, ', POLYLINE%NP =', interdata_new%curves(i)%polyline%np
+               PRINT *,'    SPLITS:', interdata_new%curves(i)%isplit(2,1:interdata_new%curves(i)%nsplit)
+            END DO
+           END IF
 
            !xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
            call write_tecplot_mesh( &
@@ -433,6 +440,7 @@ program fftsurf
               !PAUSE
            END IF
 
+
            ! Mesh optimization
            call optim_jiao( &
                 brep_new, &
@@ -446,7 +454,7 @@ program fftsurf
                 PARAM_passmax, &
                 options%hmin, &
                 options%hmax, &
-                .true. )
+                continuous_opt=.true. )
 
            call write_tecplot_mesh( &
                 mesh, &
@@ -465,7 +473,11 @@ program fftsurf
                !   htarget, &
                !   2._fp, &
                !   10 )
-               call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep_new)
+               IF ( .FALSE. ) THEN
+                  call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep_new)
+               ELSE
+                  htarget = mesh%hTargetV
+               END IF
                !call write_vtk_mesh_solv( &
                !   mesh, &
                !   htarget, &
@@ -1147,6 +1159,7 @@ contains
        END IF
        ihype = mesh%paths(ipath)%hyperedge
 
+       kvert = 0
        do jvert = 1,mesh%paths(ipath)%nv
           ivert = mesh%paths(ipath)%verts(jvert)
           IF ( DEBUG ) THEN
@@ -1162,7 +1175,7 @@ contains
           elseif ( mesh%typ(ivert) == 1 ) then
 
              ! find closest polyline point
-             IF ( JVERT == 1 ) THEN
+             IF ( kvert < 1 ) THEN
                 dist_min = huge(1._fp)
                 do iedge = 1,hypg%hyperedges(ihype)%ne
                    call distance_from_edge( &

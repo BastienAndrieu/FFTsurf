@@ -700,6 +700,10 @@ contains
        xyztarget = xyztmp + dxyztmp
 
        p = real((-1)**sens, kind=fp) * curve%param_vector
+       IF ( ifirst < 0 .OR. ifirst > size(polyline%xyz,2) .or. &
+         ilast < 0 .OR. ilast > size(polyline%xyz,2) ) THEN
+         PRINT *,'BREP EDGE#', iedgetmp, ', POLYLINE HEAD, TAIL:', ifirst, ilast
+       END IF
        wfirst = dot_product(p, polyline%xyz(:,ifirst))
        wlast  = dot_product(p, polyline%xyz(:,ilast))
        w = dot_product(p, xyztarget)

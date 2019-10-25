@@ -603,11 +603,20 @@ contains
             !   hve, &
             !   2._fp, &
             !   10 )
-            if ( continuous ) then
-               call target_edge_lengths(mesh, hmin, hmax, hve, .true., brep)
-            else
-               call target_edge_lengths(mesh, hmin, hmax, hve, .true. )
-            end if
+            IF ( .TRUE. ) THEN
+               if ( continuous ) then
+                  call set_hTargetV(mesh, hmin, hmax, 1._fp, opt_adaptScale=.true., opt_brep=brep, opt_fractionPrevious=0.5_fp)
+               else
+                  call set_hTargetV(mesh, hmin, hmax, 1._fp, opt_adaptScale=.true., opt_fractionPrevious=0.5_fp )
+               end if
+               hve(1:mesh%nv) = mesh%hTargetV(1:mesh%nv)
+            ELSE
+               if ( continuous ) then
+                  call target_edge_lengths(mesh, hmin, hmax, hve, .true., brep)
+               else
+                  call target_edge_lengths(mesh, hmin, hmax, hve, .true. )
+               end if
+            END IF
           ELSE
             hve = hve/minval(hve)
             hve = min(hmax/hmin, hve)
@@ -2024,6 +2033,7 @@ contains
 ! cf. "Mesh gradation control", Borouchaki et al. (1998)
    use mod_mesh
 implicit none
+LOGICAL, parameter :: DEBUG = .TRUE.
 type(type_surface_mesh), intent(in)    :: mesh
 real(kind=fp),           intent(inout) :: htarget(mesh%nv)
 real(kind=fp),           intent(in)    :: gradation_max
@@ -2031,10 +2041,12 @@ integer,                 intent(in)    :: npassmax
 integer                                :: ipass, k, nedg
 logical                                :: changes
 real(kind=fp)                          :: gradation, norm_len, scale
+real(kind=fp)                          :: MAXGRAD
 integer                                :: it, ie, iv,jv
 
 nedg = 3*mesh%nt
 outer: do ipass = 1,npassmax
+   IF ( DEBUG ) MAXGRAD = 0._FP
    k = 0
    changes = .false.
    do it = 1,mesh%nt
@@ -2053,6 +2065,7 @@ outer: do ipass = 1,npassmax
             end if
 
             gradation = max(htarget(iv)/htarget(jv), htarget(jv)/htarget(iv))**(1._fp/norm_len)
+            IF ( DEBUG ) MAXGRAD = MAX(MAXGRAD, gradation)
 
             if ( gradation > gradation_max ) then
                scale = (gradation_max/gradation)**norm_len
@@ -2066,9 +2079,14 @@ outer: do ipass = 1,npassmax
       end do
    end do
 
-   if ( .not.changes ) return
+   IF ( DEBUG ) PRINT *,'Hc_correction: pass#', ipass, '/', npassmax, &
+   ', max. grad =', MAXGRAD
+   !IF ( DEBUG ) PAUSE
+   if ( .not.changes ) exit outer
    if ( ipass == 1 ) nedg = k
 end do outer
+
+IF ( DEBUG ) PRINT *,'Hc_correction: performed', ipass, ' passes'
 
 end subroutine Hc_correction
 
@@ -2104,6 +2122,7 @@ subroutine statistics_edge_lengths(mesh, hmin, hmax, havg)
    end do
 
    havg = havg/real(k, kind=fp)
+   PRINT *,'STATS EDGE LENGTHS: MIN, AVG, MAX =', HMIN, HAVG, HMAX
 
 end subroutine statistics_edge_lengths
 
@@ -2119,20 +2138,22 @@ subroutine target_edge_lengths( &
    hmax0, &
    htarget, &
    adapt_scale_opt, &
-   brep &
-   )
+   brep, &
+   npass_gradation )
    use mod_mesh
    use mod_types_brep
    implicit none
    real(kind=fp), parameter               :: gradation_max = 2._fp
-   integer, parameter                     :: npassHc = 10
+   !integer, parameter                     :: npassHc = 10
    type(type_surface_mesh),   intent(in)  :: mesh
    real(kind=fp),             intent(in)  :: hmin0
    real(kind=fp),             intent(in)  :: hmax0
    real(kind=fp),             intent(out) :: htarget(mesh%nv)
    logical, optional,         intent(in)  :: adapt_scale_opt
    type(type_brep), optional, intent(in)  :: brep
+   integer, optional,         intent(in)  :: npass_gradation
    logical                                :: adapt_scale
+   integer                                :: npassHc
    real(kind=fp)                          :: hmin, hmax, havg
 
    if ( present(adapt_scale_opt) ) then
@@ -2141,12 +2162,19 @@ subroutine target_edge_lengths( &
       adapt_scale = .true.
    end if
 
+   if ( present(npass_gradation) ) then
+      npassHc = npass_gradation
+   else
+      npassHc = 10
+   end if
+
    if ( present(brep) ) then
       PRINT *,'target_edge_lengths: USE BREP'
       call continuous_minimum_curvature_radius(mesh, brep, htarget)
    else
       call discrete_minimum_curvature_radius(mesh, htarget)
    end if
+   PRINT *, 'RAW TARGET EDGE LENGTHS MIN,MAX =', minval(htarget), maxval(htarget)
 
    IF ( adapt_scale ) then
       call statistics_edge_lengths(mesh, hmin, hmax, havg)
@@ -2155,14 +2183,126 @@ subroutine target_edge_lengths( &
       htarget = min(max(htarget, hmin0), hmax0)
    end if
 
-   call Hc_correction( &
-      mesh, &
-      htarget, &
-      gradation_max, &
-      npassHc )
+   if ( npassHc > 0 ) then
+      call Hc_correction( &
+         mesh, &
+         htarget, &
+         gradation_max, &
+         npassHc )
+   end if
 
 end subroutine target_edge_lengths
 
+
+
+subroutine set_hTargetV( &
+   mesh, &
+   hmin0, &
+   hmax0, &
+   opt_tolchord, &
+   opt_adaptScale, &
+   opt_brep, &
+   opt_nPassesGradation, &
+   opt_gradationMax, &
+   opt_fractionPrevious )
+   use mod_mesh
+   use mod_types_brep
+   implicit none
+   integer, parameter                       :: param_nPassesGradation = 15
+   real(kind=fp), parameter                 :: param_gradationMax = 2._fp
+   real(kind=fp), parameter                 :: param_fractionPrevious = 0._fp
+   type(type_surface_mesh),   intent(inout) :: mesh
+   real(kind=fp),             intent(in)    :: hmin0
+   real(kind=fp),             intent(in)    :: hmax0
+   real(kind=fp), optional,   intent(in)    :: opt_tolchord
+   logical, optional,         intent(in)    :: opt_adaptScale
+   type(type_brep), optional, intent(in)    :: opt_brep
+   integer, optional,         intent(in)    :: opt_nPassesGradation
+   real(kind=fp), optional,   intent(in)    :: opt_gradationMax
+   real(kind=fp), optional,   intent(in)    :: opt_fractionPrevious
+   logical                                  :: adaptScale
+   integer                                  :: nPassesGradation
+   real(kind=fp)                            :: gradationMax
+   real(kind=fp)                            :: fractionPrevious
+   real(kind=fp)                            :: fracR
+   real(kind=fp)                            :: htarget(mesh%nv)
+   real(kind=fp)                            :: hmin, hmax, havg
+
+   if ( present(opt_tolchord) ) then
+      fracR = 2._fp*sqrt(opt_tolchord*(2._fp - opt_tolchord))
+   else
+      fracR = 1._fp
+   end if
+
+
+   if ( present(opt_adaptScale) ) then
+      adaptScale = opt_adaptScale
+   else
+      adaptScale = .true.
+   end if
+
+   if ( present(opt_nPassesGradation) ) then
+      nPassesGradation = opt_nPassesGradation
+   else
+      nPassesGradation = param_nPassesGradation
+   end if
+
+   if ( present(opt_gradationMax) ) then
+      gradationMax = max(1.1_fp, opt_gradationMax)
+   else
+      gradationMax = param_gradationMax
+   end if
+
+   if ( present(opt_fractionPrevious) ) then
+      fractionPrevious = max(0._fp, opt_fractionPrevious)
+   else
+      fractionPrevious = param_fractionPrevious
+   end if
+
+
+   if ( allocated(mesh%hTargetV) ) then
+      if ( size(mesh%hTargetV) < mesh%nv ) deallocate(mesh%hTargetV)
+   end if
+   if ( .not. allocated(mesh%hTargetV) ) then
+      allocate(mesh%hTargetV(mesh%nv))
+      fractionPrevious = 0._fp
+   end if
+
+
+   if ( present(opt_brep) ) then
+      PRINT *,'target_edge_lengths: USE BREP'
+      call continuous_minimum_curvature_radius(mesh, opt_brep, htarget)
+   else
+      call discrete_minimum_curvature_radius(mesh, htarget)
+   end if
+   htarget = fracR*htarget
+   
+   PRINT *, 'RAW TARGET EDGE LENGTHS MIN,MAX =', minval(htarget), maxval(htarget)
+
+   IF ( adaptScale ) then
+      call statistics_edge_lengths(mesh, hmin, hmax, havg)
+      htarget = min(htarget, (hmax0/hmin0)*minval(htarget))
+   else
+      htarget = min(max(htarget, hmin0), hmax0)
+   end if
+
+   if ( fractionPrevious > EPSfp ) then
+      mesh%hTargetV(1:mesh%nv) = fractionPrevious*mesh%hTargetV(1:mesh%nv) + &
+         (1._fp - fractionPrevious)*htarget(1:mesh%nv)
+   else
+      mesh%hTargetV(1:mesh%nv) = htarget(1:mesh%nv)
+   end if
+
+
+   if ( nPassesGradation > 0 ) then
+      call Hc_correction( &
+         mesh, &
+         mesh%hTargetV(1:mesh%nv), &
+         gradationMax, &
+         nPassesGradation )
+   end if
+
+end subroutine set_hTargetV
 
 
 
@@ -2221,7 +2361,8 @@ subroutine continuous_minimum_curvature_radius(mesh, brep, r)
          call eval_minimum_curvature_radius( &
             brep%faces(mesh%ids(iv))%surface, &
             mesh%uv(1:2,1,iv), &
-            r(iv) )
+            rtmp )
+         r(iv) = min(r(iv), rtmp)
       end select
    end do
 

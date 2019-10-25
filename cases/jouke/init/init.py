@@ -1,34 +1,75 @@
-ROOT = '/d/bandrieu/'#'/home/bastien/'
+ROOT = '/d/bandrieu/'#'/home/bastien/'#
 
 import bpy
 
 import numpy
+from numpy.polynomial.chebyshev import chebgrid2d, chebval2d
 from numpy import pi, sin, cos, arcsin
 import sys
 sys.path.append(ROOT + 'GitHub/Code/Python/')
 import lib_blender_util as lbu
+import lib_blender_edit as lbe
 import lib_cadcheb as lcad
+import lib_chebyshev as lcheb
 
-
-def add_primitive(xyz, name='primitive'):
+def add_primitive(xyz, name='primitive', m=None):
+    if m is not None:
+        u = numpy.linspace(-1,1,m)
+        x = xyz.copy()
+        xyz = numpy.zeros((3,m,m))
+        for i in range(3):
+            c = lcheb.fcht(lcheb.fcht(x[i]).T).T
+            xyz[i] = chebgrid2d(u, u, c)
     v, f = lbu.tensor_product_mesh_vf(xyz[0], xyz[1], xyz[2])
     obj = lbu.pydata_to_mesh(
         v,
         f,
         name=name
     )
+    if m is None:
+        obj.show_wire = True
+        obj.show_all_edges = True
+    else:
+        lbe.set_smooth(obj)
+    return obj
+
+
+def add_topological_rep(brep):
+    # patch centers
+    v = []
+    x = numpy.zeros(3)
+    for Pa in brep.patches:
+        for i in range(3):
+            c = lcheb.fcht(lcheb.fcht(Pa.xyz[i]).T).T
+            x[i] = chebval2d(0, 0, c)
+        v.append(x.copy())
+    # edges
+    e = []
+    np = len(brep.patches)
+    for i in range(np-1):
+        for j in range(i+1,np):
+            if brep.G1adjmat[i][j]: e.append([i, j])
+    #
+    obj = lbu.pydata_to_mesh(
+        v,
+        faces=[],
+        edges=e,
+        name='topo_rep'
+    )
     obj.show_wire = True
     obj.show_all_edges = True
     return obj
+
 
 
 #############################################
 n = 16
 offset = 2.0
 scale = 1e-2
-tolchord = 1e-3
-hmin = 8e-3
-hmax = 1e-2
+scale_h = 0.9#0.8
+tolchord = scale_h*1e-3
+hmin = scale_h*8e-3
+hmax = scale_h*1e-2
 #############################################
 
 
@@ -187,7 +228,6 @@ n_percc = last_percc - first_percc + 1
 for k in range(1,nrepcc):
     a = k*anglecc
     for i in range(n_percc):
-        #j = first_percc + k*n_percc + i
         iPa = first_percc + i
         xyz = BREP.patches[iPa].xyz.copy()
         adj = BREP.patches[iPa].adj.copy()
@@ -197,10 +237,8 @@ for k in range(1,nrepcc):
         xyz[1] = y
         xyz[2] = z
 
-        #l = find(adj >= first_percc & adj <= last_percc)
-        #adj(l) = (k-1)*n_percc + adj(l);
         for l in range(len(adj)):
-            if adj[l] >= first_percc and adj[l] <= last_percc: adj[l] += (k-1)*n_percc
+            if adj[l] >= first_percc and adj[l] <= last_percc: adj[l] += k*n_percc
         BREP.patches.append(
             lcad.Patch_t(
                 xyz,
@@ -244,7 +282,7 @@ xyz = lcad.rectangle_cgl(c_o, lp, 2*w, base, m, n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+1,npa+5]
+        adj=[npa+i-1 for i in [2,6]]
     )
 )
 
@@ -258,7 +296,7 @@ xyz = lcad.cylinder_cgl(c,r_CC1+offset,-2*w,base,0,beta-pi,m,n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+0,npa+2,npa+6]
+        adj=[npa+i-1 for i in [1,3,7]]
     )
 )
 
@@ -272,7 +310,7 @@ xyz = lcad.rectangle_cgl(c_o, pD[0]-pC[0], 2*w, base, m, n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+1,npa+4,npa+7]
+        adj=[npa+i-1 for i in [2,4,8]]
     )
 )
 
@@ -284,7 +322,7 @@ xyz = lcad.cylinder_cgl(c,r_CC2+offset,2*w,base,0,0.5*pi,m,n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+2,npa+4,npa+8]
+        adj=[npa+i-1 for i in [3,5,9]]
     )
 )
 
@@ -299,7 +337,7 @@ xyz = lcad.rectangle_cgl(c_o, pE[1]-pF[1], 2*w, base, m, n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+3,npa+9]
+        adj=[npa+i-1 for i in [4,10]]
     )
 )
 
@@ -320,7 +358,7 @@ xyz = lcad.cylinder_cgl(c,r_f+offset,lp,base,0,0.5*pi,m,n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa,npa+6,npa+10]
+        adj=[npa+i-1 for i in [1,7,11]]
     )
 )
 
@@ -417,32 +455,29 @@ xyz = lcad.bilinear_cgl(pL, pG, pO, pP, m, n)
 BREP.patches.append(
     lcad.Patch_t(
         xyz,
-        adj=[npa+i-1 for i in [6,7,8,9,10]]
+        adj=[]#redundant...npa+i-1 for i in [6,7,8,9,10]]
     )
 )
                  
-isideplanes = [npa + 10]
+isideplanes = [len(BREP.patches)-1]
 
 # Symmetry FIN
 first_sym = npa+5
 last_sym = npa+10
 n_sym = last_sym - first_sym + 1
 for i in range(n_sym):
-    j = last_sym + i + 1
     iPa = first_sym + i
     xyz = lcad.symmetry(BREP.patches[iPa].xyz, iaxe=1)
     adj = BREP.patches[iPa].adj.copy()
-    #l = find(adj >= first_sym & adj <= last_sym);
-    #adj(l) = adj(l) + n_sym;
-    #BREP.Pa(j).adj = adj;
+    for l in range(len(adj)):
+            if adj[l] >= first_sym and adj[l] <= last_sym: adj[l] += n_sym
     BREP.patches.append(
         lcad.Patch_t(
             xyz,
             adj
         )
-    )
-    
-    if iPa == isideplanes[0]: isideplanes.append(j)
+    )   
+    if iPa in isideplanes: isideplanes.append(len(BREP.patches)-1)
 
 #  Periodicite FIN
 first_perfin = first_sym - 5
@@ -451,7 +486,6 @@ n_perfin = last_perfin - first_perfin + 1
 for k in range(1,nrepfin):
     a = k*anglefin
     for i in range(n_perfin):
-        #j = first_perfin - 1 + (k-1)*n_perfin + i;
         iPa = first_perfin + i
         xyz = BREP.patches[iPa].xyz.copy()
         adj = BREP.patches[iPa].adj.copy()
@@ -462,7 +496,7 @@ for k in range(1,nrepfin):
         xyz[2] = z
         
         for l in range(len(adj)):
-            if adj[l] >= first_perfin and adj[l] <= last_perfin: adj[l] += (k-1)*n_perfin
+            if adj[l] >= first_perfin and adj[l] <= last_perfin: adj[l] += k*n_perfin
         
         BREP.patches.append(
             lcad.Patch_t(
@@ -470,60 +504,128 @@ for k in range(1,nrepfin):
                 adj
             )
         )
-        #if ~isempty(intersect(first_perfin - 1 + i, isideplanes))
-        #    isideplanes = [isideplanes, j];
-
-
+        if iPa in isideplanes: isideplanes.append(len(BREP.patches)-1)
 
 # Tags
 for Pa in BREP.patches:
     Pa.tag = 1
 
-"""
-# ********* Topologie *********
-BREP.G1_continuity = zeros(length(BREP.Pa));
-for i = 1:length(BREP.Pa)
-    for j = BREP.Pa(i).adj
-        BREP = add_edge(BREP, i, j, 1 );
-    end
-end
-"""
+
+# ********* Topology *********
+BREP.make_G1_adjacency_matrix()
         
 # Scaling
 for Pa in BREP.patches:
     Pa.xyz = scale*Pa.xyz
 
-"""
-# tangential intersection curves (--> smooth edges)
-nfaces = length(BREP.Pa);
-tgc_faces = [];
-for i = 1:nfaces-1
-    for j = i+1:nfaces
-        if BREP.G1_continuity(i,j)
-            tgc_faces = [tgc_faces;[i,j]];
-        end
-    end
-end
-"""
-
-iplanes = [1,2,isideplanes];
-
-curves = trace_tangential_intersection_curves( ...
-        BREP, tgc_faces, iplanes, hmin, hmax, tolchord );
 
 
 
-
-
-
-
-
-
-
+iplanes = [0,1] + isideplanes
 
     
 lbu.clear_scene(True, True, True)
 
 
 for iPa, Pa in enumerate(BREP.patches):
-    add_primitive(Pa.xyz, 'patch_'+format(iPa, '03'))
+    Pa.index = iPa
+    add_primitive(Pa.xyz, 'patch_'+format(iPa, '03'), m=50)
+
+BREP.trace_tangential_intersection_curves(iplanes, hmin, hmax, tolchord)
+
+# check curve coincidence
+curvesWrong = []
+for curve in BREP.curves:
+    c = [lcad.cht_xyz(Pa.xyz) for Pa in curve.patches]
+    x = [chebval2d(curve.uv[i,0], curve.uv[i,1], c[i]) for i in range(2)]
+    r = [x[0] - x[1], x[0] - curve.xyz, x[1] - curve.xyz]
+    e = numpy.array([numpy.amax(numpy.sqrt(numpy.sum(a**2, axis=0))) for a in r])
+    if numpy.amax(e) > 1.e-9:
+        curvesWrong.append(curve)
+        print([Pa.index for Pa in curve.patches], e)
+        r = x[0] - x[1][::-1]
+        e = numpy.amax(numpy.sqrt(numpy.sum(r**2, axis=0)))
+        print('\t%s' % e)
+
+
+
+
+#########################################################
+# genere fichier *.opt
+case_name = 'jouke'
+proplaw = 1
+timestep = 1.25e-3
+timespan = 7.5e-2
+mode = 2
+
+case_dir = ROOT + '/GitHub/FFTsurf/cases/' + case_name + '/'
+f = open(case_dir + case_name + '.opt', 'w')
+f.write('# pas de temps\ntimestep\n%s\n\n' % timestep)
+f.write('# duree totale\ntimespan\n%s\n\n' % timespan)
+f.write('# chemin\ndirectory\n%s\n\n' % case_dir)
+f.write('# loi de propagation\npropagation\n%d\n\n' % proplaw)
+f.write('# mode\nmode\n%d\n' % mode)
+f.write('# chordal error\nchord\n%s\n' % tolchord)
+f.write('# hmin\nhmin\n%s\n' % hmin)
+f.write('# hmax\nhmax\n%s\n' % hmax)
+f.close()
+
+# export surface coeffs and tags
+f = open(case_dir + 'init/surftag.dat', 'w')
+f.write('%d\n' % len(BREP.patches))
+for Pa in BREP.patches:
+    c = lcad.cht_xyz(Pa.xyz)
+    lcheb.write_polynomial2(c, '%s/init/coef/c_%3.3d.cheb' % (case_dir, Pa.index+1))
+    f.write('%d\n' % Pa.tag)
+f.close()
+
+# write tangent curves
+f = open(case_dir + 'init/tangent_curves.dat', 'w')
+f.write('%d\n' % len(BREP.curves))
+for curve in BREP.curves:
+    f.write('%d %d\n' % (curve.patches[0].index+1, curve.patches[1].index+1))
+    f.write('%d\n' % curve.xyz.shape[1])
+    for i in range(curve.xyz.shape[1]):
+        f.write('%s %s %s\n' % (curve.xyz[0,i], curve.xyz[1,i], curve.xyz[2,i]))
+    for i in range(curve.xyz.shape[1]):
+        f.write('%s %s %s %s\n' % (
+            curve.uv[0,0,i],
+            curve.uv[0,1,i],
+            curve.uv[1,0,i],
+            curve.uv[1,1,i]
+        ))
+f.close()
+#########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+print('%d curve(s)' % len(BREP.curves))
+print('(%d wrong)' % len(curvesWrong))
+for curve in BREP.curves:#curvesWrong:#
+    obj = lbu.pydata_to_mesh(
+        verts=curve.xyz.T,
+        faces=[],
+        edges=[(i, i+1) for i in range(curve.xyz.shape[1]-1)]
+    )
+    obj.layers[1] = True
+    
+toporep = add_topological_rep(BREP)
+toporep.layers[2] = True
+toporep.layers[0] = False
