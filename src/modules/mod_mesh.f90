@@ -1038,5 +1038,67 @@ if ( present(filepaths) ) then
     
   end subroutine free_mesh
 
+
+
+
+
+
+
+
+
+
+   subroutine write_feature_paths_vtk(mesh, filename)
+      use mod_util
+      implicit none
+      type(type_surface_mesh), intent(in) :: mesh
+      character(*),            intent(in) :: filename
+      integer                             :: fid, i, j, ne
+
+      call get_free_unit(fid)
+      open(unit=fid, file=filename, action='write')
+
+      write (fid,'(A26)') '# vtk DataFile Version 2.0'
+      write (fid,*) filename    
+      write (fid,'(A5)') 'ASCII'
+      write (fid,'(A25)') 'DATASET UNSTRUCTURED_GRID'
+      write (fid,'(A6,1x,I0,1x,A6)') 'POINTS', mesh%nv, 'double'
+      do j = 1,mesh%nv
+         do i = 1,3
+            write (fid,'(ES22.15,1x)', advance='no') mesh%xyz(i,j)
+         end do
+         write (fid,*)
+      end do
+
+      ne = 0
+      do i = 1,mesh%npaths
+         ne = ne + mesh%paths(i)%nv
+      end do
+
+      write (fid,'(A5,1x,I0,1x,I0)') 'CELLS', ne, 3*ne
+      do i = 1,mesh%npaths
+         do j = 1,mesh%paths(i)%nv
+            write (fid,'(I0,1x,I0,1x,I0)') 2, &
+            mesh%paths(i)%verts(j)-1, &
+            mesh%paths(i)%verts(1+mod(j,mesh%paths(i)%nv))-1
+         end do
+      end do
+
+      write (fid,'(A10,1x,I0)') 'CELL_TYPES', ne
+      do j = 1,ne
+         write (fid,'(I1)') 3
+      end do
+
+      write (fid,'(A9,1x,I0)') 'CELL_DATA', ne
+      write (fid,*) 'SCALARS ipath int'
+      write (fid,'(A20)') 'LOOKUP_TABLE default'
+      do i = 1,mesh%npaths
+         do j = 1,mesh%paths(i)%nv
+            write (fid,'(i0)') i
+         end do
+      end do
+
+      close(fid)   
+
+   end subroutine write_feature_paths_vtk
   
 end module mod_mesh

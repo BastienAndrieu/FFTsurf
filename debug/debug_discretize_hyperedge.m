@@ -43,8 +43,8 @@ plot3(xnew(:,1), xnew(:,2), xnew(:,3), 'r.-');
 
 % plot3(verts(v,1), verts(v,2), verts(v,3), 'r*');
 
-quiver3(xold(:,1), xold(:,2), xold(:,3), ...
-    xnew(:,1) - xold(:,1), xnew(:,2) - xold(:,2), xnew(:,3) - xold(:,3), 0, 'g' );
+% quiver3(xold(:,1), xold(:,2), xold(:,3), ...
+%     xnew(:,1) - xold(:,1), xnew(:,2) - xold(:,2), xnew(:,3) - xold(:,3), 0, 'g' );
 
 axis equal% vis3d
 view(3)

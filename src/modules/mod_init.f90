@@ -49,9 +49,7 @@ contains
     logical, allocatable                           :: feat_edge(:), feat_vert(:)
     integer                                        :: isurf, icurv, i, j
     !
-    INTEGER                                        :: IT, IE, IHEDG(2), JHEDG(2), IV, JV
-    REAL(KIND=FP)                                  :: H, HMAX, HMIN, HAVG
-    INTEGER                                        :: STAT_SWAP
+    REAL(KIND=FP)                                  :: HMAX, HMIN, HAVG
     REAL(KIND=FP), ALLOCATABLE                     :: htarget(:)
 
     ! Read options file
@@ -212,6 +210,8 @@ contains
 
       IF ( .true. ) THEN
          ! Eliminate edges that are too short
+         ! ---> IMPROVE DISCRETIZATION OF INTERSECTION CURVES
+         ! (current implementation generates small segments at endpoints)
          call contract_small_edges( &
             brep, &
             hypergraph%hyperedges(1:hypergraph%nhe), &
@@ -309,74 +309,23 @@ contains
          mesh, &
          '../debug/split_edge_before.msh' )
 
-       hmax = 0._fp
-       hmin = huge(1._fp)
-       ihedg = [0,0]
-       jhedg = [0,0]
-       do it = 1,mesh%nt
-         do ie = 1,3
-            iv = mesh%tri(ie,it)
-            jv = mesh%tri(1+mod(ie,3),it)
-            h = sum((mesh%xyz(1:3,iv) - mesh%xyz(1:3,jv))**2)
-            if ( h > hmax ) then
-               hmax = h
-               ihedg(1) = ie
-               ihedg(2) = it
-            end if
-            !
-            if ( h < hmin ) then
-               if ( mesh%typ(iv) == 0 .and. mesh%typ(jv) == 0 ) cycle
-               if ( mesh%typ(iv) == 1 .and. mesh%typ(jv) == 1 ) then
-                  if ( brep%edges(mesh%ids(iv))%hyperedge /= brep%edges(mesh%ids(jv))%hyperedge ) cycle
 
-                  hmin = h
-                  jhedg(1) = ie
-                  jhedg(2) = it
-               end if
-            end if
-         end do
-      end do
-
-      IF ( .false. ) THEN
-         IF ( .false. ) THEN
-            call collapse_edge( &
-               mesh, &
-               brep, &
-               hypergraph, &
-               jhedg, &
-               stat_swap )
-         ELSE
-            call split_edge( &
-               mesh, &
-               brep, &
-               hypergraph, &
-               ihedg )
-         END IF
-      ELSE
-         !call flip_edge( &
-         !   mesh, &
-         !   ihedg, &
-         !   stat_swap )
-         IF ( .true. ) THEN
-            call statistics_edge_lengths(mesh, hmin, hmax, havg)
-            call surface_mesh_optimization( &
-               mesh, &
-               brep, &
-               hypergraph, &
-               options%hmin, &
-               options%hmax, &
-               options%chord_err )
-         END IF
+      IF ( .true. ) THEN
+         call statistics_edge_lengths(mesh, hmin, hmax, havg)
+         call surface_mesh_optimization( &
+            mesh, &
+            brep, &
+            hypergraph, &
+            options%hmin, &
+            options%hmax, &
+            options%chord_err )
       END IF
 
       call write_gmsh_mesh( &
          mesh, &
          '../debug/split_edge_after.msh' )
 
-
-       allocate(htarget(mesh%nv))
-       !call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep, 0)
-       call set_hTargetV( &
+      call set_hTargetV( &
          mesh, &
          options%hmin, &
          options%hmax, &
@@ -384,12 +333,11 @@ contains
          opt_adaptScale=.true., &
          opt_brep=brep, &
          opt_fractionPrevious=0._fp )
-       call write_vtk_mesh_sol( &
+      call write_vtk_mesh_sol( &
          mesh, &
          trim(dir) // 'mesh/init_hve.vtk', &
-         solv=htarget, &
+         solv=mesh%hTargetV, &
          solv_label='hTarget' )
-       deallocate(htarget)
 
        PAUSE
 

@@ -133,6 +133,7 @@ contains
     integer                                :: ih, jh, it, iv
     integer                                :: stat_proj
     integer                                :: order(2), cavity(4)
+    integer                                :: ihype, ipath, jv
 
     verts(1) = get_orig(mesh, ihedg)
     verts(2) = get_dest(mesh, ihedg)
@@ -314,6 +315,29 @@ contains
     !  END IF
     !END DO
 
+    ! possibly insert in path
+    if ( all(mesh%typ(verts) < 2) ) then
+      if ( mesh%typ(order(2)) == 1 ) then
+         ihype = brep%edges(mesh%ids(verts(2)))%hyperedge
+         loop_paths: do ipath = 1,mesh%npaths
+            do iv = 1,mesh%paths(ipath)%nv
+               jv = 1 + mod(iv,mesh%paths(ipath)%nv)
+               if ( (mesh%paths(ipath)%verts(iv) == verts(1) .and. &
+                    mesh%paths(ipath)%verts(jv) == verts(2)) .or. &
+                    (mesh%paths(ipath)%verts(iv) == verts(2) .and. &
+                    mesh%paths(ipath)%verts(jv) == verts(1)) ) then
+                  call insert_after( &
+                     mesh%paths(ipath)%verts, &
+                     mesh%paths(ipath)%nv, &
+                     mesh%nv, & ! new vertex's id
+                     iv )
+                  exit loop_paths
+               end if
+            end do
+         end do loop_paths
+      end if
+    end if
+
   end subroutine split_edge
 
 
@@ -424,7 +448,6 @@ contains
     ! new vertex resulting from collapse
     i_new_vert = minval(verts)
     i_removed_vert = maxval(verts)
-    ! uv, typ, ids, xyz***!****
     if ( is_boundary_vertex(mesh, verts(2)) .and. &
          .not.is_boundary_vertex(mesh, verts(1)) ) then
        mesh%xyz(1:3,i_new_vert) = mesh%xyz(1:3,verts(2))
@@ -575,7 +598,7 @@ contains
     vert_id_new(i_removed_vert) = i_new_vert
     vert_id_new(i_removed_vert+1:mesh%nv) = [(i, i=i_removed_vert,mesh%nv-1)]
 
-    ! apply re-ordering
+    ! apply renumbering
     do it = 1,mesh%nt
        mesh%tri(1:3,it) = vert_id_new(mesh%tri(1:3,it))
        do iv = 1,3
@@ -586,6 +609,11 @@ contains
     end do
 
     ! remove vertex
+    if ( mesh%typ(i_removed_vert) < 2 ) then
+      ihype = brep%edges(mesh%ids(i_removed_vert))%hyperedge
+    else
+      ihype = -1
+    end if
     mesh%typ(i_removed_vert:mesh%nv-1) = mesh%typ(i_removed_vert+1:mesh%nv)
     mesh%ids(i_removed_vert:mesh%nv-1) = mesh%ids(i_removed_vert+1:mesh%nv)
     mesh%uv(1:2,1:2,i_removed_vert:mesh%nv-1) = mesh%uv(1:2,1:2,i_removed_vert+1:mesh%nv)
@@ -607,18 +635,18 @@ contains
        mesh%v2h(2,iv) = face_id_new(mesh%v2h(2,iv))
     end do
     ! possibly remove from path
-    if ( mesh%typ(i_removed_vert) == 1 ) then
-      ihype = brep%edges(mesh%ids(i_removed_vert))%hyperedge
-      do ipath = 1,mesh%npaths
-         if ( mesh%paths(ipath)%hyperedge == ihype ) then
-            call remove_from_list( &
-                 i_removed_vert, &
-                 mesh%paths(ipath)%verts, &
-                 mesh%paths(ipath)%nv )
-            exit
-         end if
+   do ipath = 1,mesh%npaths
+      if ( mesh%paths(ipath)%hyperedge == ihype ) then
+         call remove_from_list( &
+               i_removed_vert, &
+               mesh%paths(ipath)%verts, &
+               mesh%paths(ipath)%nv )
+      end if
+      ! apply vertex renumbering
+      do iv = 1,mesh%paths(ipath)%nv
+         mesh%paths(ipath)%verts(iv) = vert_id_new(mesh%paths(ipath)%verts(iv))
       end do
-    end if
+   end do
 
     if ( present(resulting_vertex) ) resulting_vertex = i_new_vert
 
@@ -640,11 +668,13 @@ contains
     use mod_types_brep
     use mod_hypergraph
     use mod_optimmesh
+    ! cf. "Surface Mesh Optimization, Adaption, 
+    ! and Untangling with High-Order Accuracy", Clark et al. (2012)
     implicit none
     integer, parameter :: min_valence = 5, max_valence = 7, npass = 10
-    real(kind=fp), parameter :: tolH = 0.25_fp
-    real(kind=fp), parameter :: tolHMax = (1._fp + tolH)**2!2._fp!
-    real(kind=fp), parameter :: tolHMin = (1._fp - tolH)**2!0.5_fp!
+    real(kind=fp), parameter :: tolH = 0.3_fp
+    real(kind=fp), parameter :: tolHMax = 2._fp!(1._fp + tolH)**2!
+    real(kind=fp), parameter :: tolHMin = 0.5_fp!(1._fp - tolH)**2!
     LOGICAL :: ALLOW_SPLIT     = .true.
     LOGICAL :: ALLOW_COLLAPSE  = .true.
     LOGICAL :: ALLOW_FLIP      = .true.
@@ -669,7 +699,7 @@ contains
 
     PRINT *, 'PRESCRIBED H MIN, MAX =', HMIN, HMAX
     nt0 = mesh%nt
-    do ipass = 1,npass
+    do ipass = 1,npass+1
       ! 1) split long edges/collapse short edges
       split_count = 0
       collapse_count = 0
@@ -681,37 +711,33 @@ contains
             tolchord, &
             opt_adaptScale=.false., &
             opt_brep=brep, &
-            !opt_nPassesGradation=20, &
-            !opt_gradationMax=1.5_fp, &
             opt_fractionPrevious=0._fp )
          htarget(1:mesh%nv) = mesh%hTargetV(1:mesh%nv)
          PRINT *,'HTARGET MIN,MAX =', MINVAL(htarget(1:mesh%nv)), MAXVAL(htarget(1:mesh%nv))
-         !PAUSE
       end if
 
       IF ( DEBUG ) THEN
          write (strnum, '(i3.3)') ipass-1
+         call write_feature_paths_vtk( &
+            mesh, &
+            '../debug/surface_mesh_optimization/paths_'//strnum//'.vtk' )
          if ( allocated(mesh%hTargetV) ) then
             call write_vtk_mesh_sol( &
                mesh, &
                '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
-               solv=mesh%hTargetV(1:mesh%nv), &
-               solv_label='hTarget' )
+               solv=real(mesh%typ(1:mesh%nv), kind=fp), &
+               solv_label='typ' )
+               !solv=mesh%hTargetV(1:mesh%nv), &
+               !solv_label='hTarget' )
          else
             call write_vtk_mesh( &
                mesh, &
                '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
          end if
       END IF
+      if ( ipass > npass ) exit
 
       edge_splits_collapses : do
-         !call target_edge_lengths( &
-         !   mesh, &
-         !   hmin, &
-         !   hmax, &
-         !   htarget(1:mesh%nv), &
-         !   .false., &
-         !   brep )
          IF ( split_count > 3*nt0 ) EXIT edge_splits_collapses
          IF ( mesh%nt < 5 ) EXIT edge_splits_collapses
          visited(1:3,1:mesh%nt) = .false.
@@ -876,28 +902,28 @@ contains
 
     end do
 
-    IF ( DEBUG ) THEN
-      write (strnum, '(i3.3)') ipass-1
-      call set_hTargetV( &
-         mesh, &
-         hmin, &
-         hmax, &
-         tolchord, &
-         opt_adaptScale=.false., &
-         opt_brep=brep, &
-         opt_fractionPrevious=0._fp )
-      if ( allocated(mesh%hTargetV) ) then
-         call write_vtk_mesh_sol( &
-            mesh, &
-            '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
-            solv=mesh%hTargetV(1:mesh%nv), &
-            solv_label='hTarget' )
-      else
-         call write_vtk_mesh( &
-            mesh, &
-            '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
-      end if
-   END IF
+   !  IF ( DEBUG ) THEN
+   !    write (strnum, '(i3.3)') ipass-1
+   !    call set_hTargetV( &
+   !       mesh, &
+   !       hmin, &
+   !       hmax, &
+   !       tolchord, &
+   !       opt_adaptScale=.false., &
+   !       opt_brep=brep, &
+   !       opt_fractionPrevious=0._fp )
+   !    if ( allocated(mesh%hTargetV) ) then
+   !       call write_vtk_mesh_sol( &
+   !          mesh, &
+   !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
+   !          solv=mesh%hTargetV(1:mesh%nv), &
+   !          solv_label='hTarget' )
+   !    else
+   !       call write_vtk_mesh( &
+   !          mesh, &
+   !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
+   !    end if
+   ! END IF
 
   end subroutine surface_mesh_optimization
 

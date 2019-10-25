@@ -288,13 +288,13 @@ program fftsurf
            if ( brep_new%nf /= nf_old ) then
               stat_corresp = 1
            else
-              call update_mesh_correspondance( &
-                   brep_old, &
-                   brep_new, &
-                   hypergraph_old, &
-                   hypergraph_new, &
-                   mesh, &
-                   stat_corresp )
+               call update_mesh_correspondance( &
+                  brep_old, &
+                  brep_new, &
+                  hypergraph_old, &
+                  hypergraph_new, &
+                  mesh, &
+                  stat_corresp )
            end if
 
            if ( stat_corresp > 0 ) then
@@ -311,7 +311,7 @@ program fftsurf
 
            nf_old = brep_new%nf
            !PAUSE
-           IF ( .TRUE. ) THEN
+           IF ( .false. ) THEN
             PRINT *,'CHECK INTERSECTION POLYINES SPLITS'
             DO I = 1,interdata_new%nc
                PRINT *,'CURVE #', I, ', POLYLINE%NP =', interdata_new%curves(i)%polyline%np
@@ -1282,6 +1282,9 @@ contains
                 WRITE (FID,*) xyz_min
              END IF
 
+          else
+            PRINT *,'new_regen_paths: typ =', mesh%typ(ivert)
+            PAUSE
           end if
        end do
 
