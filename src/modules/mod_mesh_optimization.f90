@@ -12,9 +12,9 @@ contains
        mesh, &
        ihedg, &
        stat )
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-       ! TO DO: CHECK IF FLIPPING EDGE DOESN'T MAKE INVERTED NEW TRIANGLES
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! TO DO: CHECK IF FLIPPING EDGE DOESN'T MAKE INVERTED NEW TRIANGLES
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     implicit none
     LOGICAL :: DEBUG = .true.
     real(kind=fp), parameter               :: EPSflip = 0.05_fp
@@ -57,21 +57,21 @@ contains
 
     ! check if edge flip produces (near-)degenerate triangles
     do ih = 1,2
-      it = halfedges(2,ih)
-      aBefore = cross( &
-         mesh%xyz(1:3,mesh%tri(2,it)) - mesh%xyz(1:3,mesh%tri(1,it)), &
-         mesh%xyz(1:3,mesh%tri(3,it)) - mesh%xyz(1:3,mesh%tri(1,it)) )
-      !
-      jh = 1 + mod(ih,2)
-      aAfter = cross( &
-         mesh%xyz(1:3,opposite_vert(jh)) - mesh%xyz(1:3,mesh%tri(ijk(1,ih),it)), &
-         mesh%xyz(1:3,mesh%tri(ijk(3,ih),it)) - mesh%xyz(1:3,mesh%tri(ijk(1,ih),it)) )
-      !
-      if ( sign(1._fp, dot_product(aAfter, aBefore)) * &
-         sqrt(sum(aAfter**2)/sum(aBefore**2)) < EPSflip ) then
-         stat = 2
-         return
-      end if
+       it = halfedges(2,ih)
+       aBefore = cross( &
+            mesh%xyz(1:3,mesh%tri(2,it)) - mesh%xyz(1:3,mesh%tri(1,it)), &
+            mesh%xyz(1:3,mesh%tri(3,it)) - mesh%xyz(1:3,mesh%tri(1,it)) )
+       !
+       jh = 1 + mod(ih,2)
+       aAfter = cross( &
+            mesh%xyz(1:3,opposite_vert(jh)) - mesh%xyz(1:3,mesh%tri(ijk(1,ih),it)), &
+            mesh%xyz(1:3,mesh%tri(ijk(3,ih),it)) - mesh%xyz(1:3,mesh%tri(ijk(1,ih),it)) )
+       !
+       if ( sign(1._fp, dot_product(aAfter, aBefore)) * &
+            sqrt(sum(aAfter**2)/sum(aBefore**2)) < EPSflip ) then
+          stat = 2
+          return
+       end if
     end do
     stat = 0
 
@@ -162,10 +162,10 @@ contains
     end do
     n_new_faces = count(faces > 0)
     IF ( DEBUG ) THEN
-      PRINT *,'FACES =',FACES
-      DO IT = 1,2
-         PRINT *, FACES(IT), '  VERTS:', MESH%TRI(1:3,FACES(IT))
-      END DO
+       PRINT *,'FACES =',FACES
+       DO IT = 1,2
+          PRINT *, FACES(IT), '  VERTS:', MESH%TRI(1:3,FACES(IT))
+       END DO
     END IF
 
     ! insert new triangles
@@ -188,9 +188,9 @@ contains
     ! 1) sort verts in descending typ order
     !if ( mesh%typ(verts(1)) <  mesh%typ(verts(2))) verts = verts([2,1])
     if ( mesh%typ(verts(1)) <  mesh%typ(verts(2))) then
-      order = [2,1]
+       order = [2,1]
     else
-      order = [1,2]
+       order = [1,2]
     end if
     !dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
     typ_new = mesh%typ(verts(order(1)))
@@ -198,49 +198,49 @@ contains
     ! 2) find midpoint
     select case ( mesh%typ(verts(order(1))) ) 
     case (1)
-      call get_midpoint_hyperedge( &
-         mesh, &
-         verts(order), &
-         brep, &
-         hypg, &
-         stat_proj, &
-         ids_new, &
-         uv_new, &
-         xyz_new )
-      if ( stat_proj > 0 ) then
-         print *,'split_edge: failed to project on hyperedge'
-         PAUSE
-      end if
-      !
-    case (2)
-      IF ( .TRUE. ) THEN
-         cavity(1:2) = verts(order(1:2))
-         cavity(3) = mesh%tri(ijk(3,1),faces(1))
-         cavity(4) = mesh%tri(ijk(3,2),faces(2))
-         call get_centroid_hyperface( &
-            mesh, &
-            cavity, &
-            4, &
-            brep, &
-            stat_proj, &
-            ids_new, &
-            uv_new(1:2,1), &
-            xyz_new )
-      ELSE
-         call get_midpoint_hyperface( &
+       call get_midpoint_hyperedge( &
             mesh, &
             verts(order), &
             brep, &
+            hypg, &
             stat_proj, &
             ids_new, &
-            uv_new(1:2,1), &
+            uv_new, &
             xyz_new )
-      END IF
-      if ( stat_proj > 0 ) then
-         print *,'split_edge: failed to project on hyperface'
-         PAUSE
-      end if
-      !
+       if ( stat_proj > 0 ) then
+          print *,'split_edge: failed to project on hyperedge'
+          PAUSE
+       end if
+       !
+    case (2)
+       IF ( .TRUE. ) THEN
+          cavity(1:2) = verts(order(1:2))
+          cavity(3) = mesh%tri(ijk(3,1),faces(1))
+          cavity(4) = mesh%tri(ijk(3,2),faces(2))
+          call get_centroid_hyperface( &
+               mesh, &
+               cavity, &
+               4, &
+               brep, &
+               stat_proj, &
+               ids_new, &
+               uv_new(1:2,1), &
+               xyz_new )
+       ELSE
+          call get_midpoint_hyperface( &
+               mesh, &
+               verts(order), &
+               brep, &
+               stat_proj, &
+               ids_new, &
+               uv_new(1:2,1), &
+               xyz_new )
+       END IF
+       if ( stat_proj > 0 ) then
+          print *,'split_edge: failed to project on hyperface'
+          PAUSE
+       end if
+       !
     end select
 
     ! uv, typ, ids***
@@ -295,10 +295,10 @@ contains
          iv )
     !PRINT *, 'NEW VERT, V2H =', MESH%V2H(1:2,MESH%NV), ' (MESH%NT =', MESH%NT, ')'
     IF ( NV_TMP /= MESH%NV ) THEN
-      PRINT *,'split_edge: ERROR INSERT COLUMN V2H'
-      PAUSE
+       PRINT *,'split_edge: ERROR INSERT COLUMN V2H'
+       PAUSE
     END IF
-    
+
     !IF ( MESH%V2H(2,MESH%NV) > MESH%NT ) PAUSE
     do ih = 1,n_new_faces
        iv = verts(1+mod(ih,2))
@@ -317,25 +317,25 @@ contains
 
     ! possibly insert in path
     if ( all(mesh%typ(verts) < 2) ) then
-      if ( mesh%typ(order(2)) == 1 ) then
-         ihype = brep%edges(mesh%ids(verts(2)))%hyperedge
-         loop_paths: do ipath = 1,mesh%npaths
-            do iv = 1,mesh%paths(ipath)%nv
-               jv = 1 + mod(iv,mesh%paths(ipath)%nv)
-               if ( (mesh%paths(ipath)%verts(iv) == verts(1) .and. &
-                    mesh%paths(ipath)%verts(jv) == verts(2)) .or. &
-                    (mesh%paths(ipath)%verts(iv) == verts(2) .and. &
-                    mesh%paths(ipath)%verts(jv) == verts(1)) ) then
-                  call insert_after( &
-                     mesh%paths(ipath)%verts, &
-                     mesh%paths(ipath)%nv, &
-                     mesh%nv, & ! new vertex's id
-                     iv )
-                  exit loop_paths
-               end if
-            end do
-         end do loop_paths
-      end if
+       if ( mesh%typ(order(2)) == 1 ) then
+          ihype = brep%edges(mesh%ids(verts(2)))%hyperedge
+          loop_paths: do ipath = 1,mesh%npaths
+             do iv = 1,mesh%paths(ipath)%nv
+                jv = 1 + mod(iv,mesh%paths(ipath)%nv)
+                if ( (mesh%paths(ipath)%verts(iv) == verts(1) .and. &
+                     mesh%paths(ipath)%verts(jv) == verts(2)) .or. &
+                     (mesh%paths(ipath)%verts(iv) == verts(2) .and. &
+                     mesh%paths(ipath)%verts(jv) == verts(1)) ) then
+                   call insert_after( &
+                        mesh%paths(ipath)%verts, &
+                        mesh%paths(ipath)%nv, &
+                        mesh%nv, & ! new vertex's id
+                        iv )
+                   exit loop_paths
+                end if
+             end do
+          end do loop_paths
+       end if
     end if
 
   end subroutine split_edge
@@ -383,12 +383,12 @@ contains
     verts(2) = get_dest(mesh, ihedg)
 
     IF ( DEBUG ) THEN
-      PRINT *, ''
-      PRINT *, '--- COLLAPSE EDGE ---'
-      PRINT *, '   BEFORE COLLAPSE, MESH%NV, MESH%NT =', MESH%NV, MESH%NT
-      PRINT *, '   EDGE #', IHEDG(1), ' OF FACE #', IHEDG(2)
-      PRINT *, '   VERTS #', VERTS
-      PRINT *, '   XYZ_MID =', 0.5_FP*(MESH%XYZ(:,VERTS(1)) + MESH%XYZ(:,VERTS(2)))
+       PRINT *, ''
+       PRINT *, '--- COLLAPSE EDGE ---'
+       PRINT *, '   BEFORE COLLAPSE, MESH%NV, MESH%NT =', MESH%NV, MESH%NT
+       PRINT *, '   EDGE #', IHEDG(1), ' OF FACE #', IHEDG(2)
+       PRINT *, '   VERTS #', VERTS
+       PRINT *, '   XYZ_MID =', 0.5_FP*(MESH%XYZ(:,VERTS(1)) + MESH%XYZ(:,VERTS(2)))
     END IF
 
     ! prevent degenerate cases ---------------------------------------------+
@@ -439,10 +439,10 @@ contains
        end if
     end do
     IF ( DEBUG ) THEN
-      PRINT *,'FACES =',FACES
-      DO IT = 1,2
-         PRINT *, FACES(IT), '  VERTS:', MESH%TRI(1:3,FACES(IT))
-      END DO
+       PRINT *,'FACES =',FACES
+       DO IT = 1,2
+          PRINT *, FACES(IT), '  VERTS:', MESH%TRI(1:3,FACES(IT))
+       END DO
     END IF
 
     ! new vertex resulting from collapse
@@ -453,72 +453,72 @@ contains
        mesh%xyz(1:3,i_new_vert) = mesh%xyz(1:3,verts(2))
     else
        !mesh%xyz(1:3,i_new_vert) = 0.5_fp*(mesh%xyz(1:3,verts(1)) + mesh%xyz(1:3,verts(2))) !***
-      ! 1) sort verts in ascending typ order
-      if ( mesh%typ(verts(1)) > mesh%typ(verts(2)) ) verts = verts([2,1])
-      typ_new = mesh%typ(verts(1))
-      !
-      if ( mesh%typ(verts(1)) < mesh%typ(verts(2)) ) then
-         ids_new = mesh%ids(verts(1))
-         uv_new = mesh%uv(1:2,1:2,verts(1))
-         xyz_new = mesh%xyz(1:3,verts(1))
-      else ! mesh%typ(verts(1)) == mesh%typ(verts(2))
-         select case ( mesh%typ(verts(1)) )
-         case (0)
-            stat = 2
-            return
-         case (1)
-            call get_midpoint_hyperedge( &
-               mesh, &
-               verts, &
-               brep, &
-               hypg, &
-               stat_proj, &
-               ids_new, &
-               uv_new, &
-               xyz_new )
-            if ( stat_proj > 0 ) then
-               print *,'collapse_edge: failed to project on hyperedge'
-               stat = stat_proj
-               PAUSE
-               return
-            end if
-            !
-         case (2)
-            IF ( .TRUE. ) THEN
-               call get_cavity_verts_around_edge( &
+       ! 1) sort verts in ascending typ order
+       if ( mesh%typ(verts(1)) > mesh%typ(verts(2)) ) verts = verts([2,1])
+       typ_new = mesh%typ(verts(1))
+       !
+       if ( mesh%typ(verts(1)) < mesh%typ(verts(2)) ) then
+          ids_new = mesh%ids(verts(1))
+          uv_new = mesh%uv(1:2,1:2,verts(1))
+          xyz_new = mesh%xyz(1:3,verts(1))
+       else ! mesh%typ(verts(1)) == mesh%typ(verts(2))
+          select case ( mesh%typ(verts(1)) )
+          case (0)
+             stat = 2
+             return
+          case (1)
+             call get_midpoint_hyperedge( &
                   mesh, &
                   verts, &
-                  cavity, &
-                  ncavity )
+                  brep, &
+                  hypg, &
+                  stat_proj, &
+                  ids_new, &
+                  uv_new, &
+                  xyz_new )
+             if ( stat_proj > 0 ) then
+                print *,'collapse_edge: failed to project on hyperedge'
+                stat = stat_proj
+                PAUSE
+                return
+             end if
+             !
+          case (2)
+             IF ( .TRUE. ) THEN
+                call get_cavity_verts_around_edge( &
+                     mesh, &
+                     verts, &
+                     cavity, &
+                     ncavity )
 
-               call get_centroid_hyperface( &
-                  mesh, &
-                  cavity(1:ncavity), &
-                  ncavity, &
-                  brep, &
-                  stat_proj, &
-                  ids_new, &
-                  uv_new(1:2,1), &
-                  xyz_new )
-            ELSE
-               call get_midpoint_hyperface( &
-                  mesh, &
-                  verts, &
-                  brep, &
-                  stat_proj, &
-                  ids_new, &
-                  uv_new(1:2,1), &
-                  xyz_new )
-            END IF
-            if ( stat_proj > 0 ) then
-               print *,'collapse_edge: failed to project on hyperface'
-               stat = stat_proj
-               PAUSE
-               return
-            end if
-            !
-         end select
-      end if
+                call get_centroid_hyperface( &
+                     mesh, &
+                     cavity(1:ncavity), &
+                     ncavity, &
+                     brep, &
+                     stat_proj, &
+                     ids_new, &
+                     uv_new(1:2,1), &
+                     xyz_new )
+             ELSE
+                call get_midpoint_hyperface( &
+                     mesh, &
+                     verts, &
+                     brep, &
+                     stat_proj, &
+                     ids_new, &
+                     uv_new(1:2,1), &
+                     xyz_new )
+             END IF
+             if ( stat_proj > 0 ) then
+                print *,'collapse_edge: failed to project on hyperface'
+                stat = stat_proj
+                PAUSE
+                return
+             end if
+             !
+          end select
+       end if
     end if ! *******
 
     mesh%typ(i_new_vert) = typ_new
@@ -610,9 +610,9 @@ contains
 
     ! remove vertex
     if ( mesh%typ(i_removed_vert) < 2 ) then
-      ihype = brep%edges(mesh%ids(i_removed_vert))%hyperedge
+       ihype = brep%edges(mesh%ids(i_removed_vert))%hyperedge
     else
-      ihype = -1
+       ihype = -1
     end if
     mesh%typ(i_removed_vert:mesh%nv-1) = mesh%typ(i_removed_vert+1:mesh%nv)
     mesh%ids(i_removed_vert:mesh%nv-1) = mesh%ids(i_removed_vert+1:mesh%nv)
@@ -620,7 +620,7 @@ contains
     mesh%xyz(1:3,i_removed_vert:mesh%nv-1) = mesh%xyz(1:3,i_removed_vert+1:mesh%nv)
     mesh%v2h(1:2,i_removed_vert:mesh%nv-1) = mesh%v2h(1:2,i_removed_vert+1:mesh%nv)
     if ( allocated(mesh%hTargetV) ) then
-      mesh%hTargetV(i_removed_vert:mesh%nv-1) = mesh%hTargetV(i_removed_vert+1:mesh%nv)
+       mesh%hTargetV(i_removed_vert:mesh%nv-1) = mesh%hTargetV(i_removed_vert+1:mesh%nv)
     end if
 
     mesh%nv = mesh%nv - 1
@@ -628,25 +628,33 @@ contains
     ! apply re-ordering
     do iv = 1,mesh%nv
        IF ( mesh%v2h(2,iv) > mesh%nt+2 ) THEN
-         PRINT *, 'collapse_edge: v2h(2,', iv, '/', mesh%nv, ') =', &
-         mesh%v2h(2,iv), '> mesh%nt (=', mesh%nt, ')'
-         !PAUSE
+          PRINT *, 'collapse_edge: v2h(2,', iv, '/', mesh%nv, ') =', &
+               mesh%v2h(2,iv), '> mesh%nt (=', mesh%nt, ')'
+          !PAUSE
        END IF
        mesh%v2h(2,iv) = face_id_new(mesh%v2h(2,iv))
     end do
     ! possibly remove from path
-   do ipath = 1,mesh%npaths
-      if ( mesh%paths(ipath)%hyperedge == ihype ) then
-         call remove_from_list( &
+    do ipath = 1,mesh%npaths
+       if ( mesh%paths(ipath)%hyperedge == ihype ) then
+          if ( mesh%paths(ipath)%verts(1) == i_removed_vert .and. &
+               mesh%paths(ipath)%verts(mesh%paths(ipath)%nv) == i_removed_vert) then
+             call insert_after( &
+                  mesh%paths(ipath)%verts, &
+                  mesh%paths(ipath)%nv, &
+                  i_new_vert, &
+                  mesh%paths(ipath)%nv )
+          end if
+          call remove_from_list( &
                i_removed_vert, &
                mesh%paths(ipath)%verts, &
                mesh%paths(ipath)%nv )
-      end if
-      ! apply vertex renumbering
-      do iv = 1,mesh%paths(ipath)%nv
-         mesh%paths(ipath)%verts(iv) = vert_id_new(mesh%paths(ipath)%verts(iv))
-      end do
-   end do
+       end if
+       ! apply vertex renumbering
+       do iv = 1,mesh%paths(ipath)%nv
+          mesh%paths(ipath)%verts(iv) = vert_id_new(mesh%paths(ipath)%verts(iv))
+       end do
+    end do
 
     if ( present(resulting_vertex) ) resulting_vertex = i_new_vert
 
@@ -673,8 +681,8 @@ contains
     implicit none
     integer, parameter :: min_valence = 5, max_valence = 7, npass = 10
     real(kind=fp), parameter :: tolH = 0.3_fp
-    real(kind=fp), parameter :: tolHMax = 2._fp!(1._fp + tolH)**2!
-    real(kind=fp), parameter :: tolHMin = 0.5_fp!(1._fp - tolH)**2!
+    real(kind=fp), parameter :: tolHMax = 2.2_fp!(1._fp + tolH)**2!
+    real(kind=fp), parameter :: tolHMin = 0.45_fp!(1._fp - tolH)**2!
     LOGICAL :: ALLOW_SPLIT     = .true.
     LOGICAL :: ALLOW_COLLAPSE  = .true.
     LOGICAL :: ALLOW_FLIP      = .true.
@@ -700,101 +708,102 @@ contains
     PRINT *, 'PRESCRIBED H MIN, MAX =', HMIN, HMAX
     nt0 = mesh%nt
     do ipass = 1,npass+1
-      ! 1) split long edges/collapse short edges
-      split_count = 0
-      collapse_count = 0
-      if ( ALLOW_SPLIT .or. ALLOW_COLLAPSE ) then
-         call set_hTargetV( &
-            mesh, &
-            hmin, &
-            hmax, &
-            tolchord, &
-            opt_adaptScale=.false., &
-            opt_brep=brep, &
-            opt_fractionPrevious=0._fp )
-         htarget(1:mesh%nv) = mesh%hTargetV(1:mesh%nv)
-         PRINT *,'HTARGET MIN,MAX =', MINVAL(htarget(1:mesh%nv)), MAXVAL(htarget(1:mesh%nv))
-      end if
-
-      IF ( DEBUG ) THEN
-         write (strnum, '(i3.3)') ipass-1
-         call write_feature_paths_vtk( &
-            mesh, &
-            '../debug/surface_mesh_optimization/paths_'//strnum//'.vtk' )
-         if ( allocated(mesh%hTargetV) ) then
-            call write_vtk_mesh_sol( &
+       !PAUSE
+       ! 1) split long edges/collapse short edges
+       split_count = 0
+       collapse_count = 0
+       if ( ALLOW_SPLIT .or. ALLOW_COLLAPSE ) then
+          call set_hTargetV( &
                mesh, &
-               '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
-               solv=real(mesh%typ(1:mesh%nv), kind=fp), &
-               solv_label='typ' )
-               !solv=mesh%hTargetV(1:mesh%nv), &
-               !solv_label='hTarget' )
-         else
-            call write_vtk_mesh( &
+               hmin, &
+               hmax, &
+               tolchord, &
+               opt_adaptScale=.false., &
+               opt_brep=brep, &
+               opt_fractionPrevious=0._fp )
+          htarget(1:mesh%nv) = mesh%hTargetV(1:mesh%nv)
+          PRINT *,'HTARGET MIN,MAX =', MINVAL(htarget(1:mesh%nv)), MAXVAL(htarget(1:mesh%nv))
+       end if
+
+       IF ( DEBUG ) THEN
+          write (strnum, '(i3.3)') ipass-1
+          call write_feature_paths_vtk( &
                mesh, &
-               '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
-         end if
-      END IF
-      if ( ipass > npass ) exit
+               '../debug/surface_mesh_optimization/paths_'//strnum//'.vtk' )
+          if ( allocated(mesh%hTargetV) ) then
+             call write_vtk_mesh_sol( &
+                  mesh, &
+                  '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
+                  !solv=real(mesh%typ(1:mesh%nv), kind=fp), &
+                  !solv_label='typ' )
+             solv=mesh%hTargetV(1:mesh%nv), &
+             solv_label='hTarget' )
+          else
+             call write_vtk_mesh( &
+                  mesh, &
+                  '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
+          end if
+       END IF
+       if ( ipass > npass ) exit
 
-      edge_splits_collapses : do
-         IF ( split_count > 3*nt0 ) EXIT edge_splits_collapses
-         IF ( mesh%nt < 5 ) EXIT edge_splits_collapses
-         visited(1:3,1:mesh%nt) = .false.
-         do it = 1,mesh%nt
-            do ie = 1,3
-               if ( visited(ie,it) ) cycle
-               visited(ie,it) = .true.
-               ih = get_twin(mesh, [ie,it])
-               if ( ih(2) < 1 ) cycle
-               visited(ih(1),ih(2)) = .true.
+       edge_splits_collapses : do
+          IF ( split_count > 3*nt0 ) EXIT edge_splits_collapses
+          IF ( mesh%nt < 5 ) EXIT edge_splits_collapses
+          visited(1:3,1:mesh%nt) = .false.
+          do it = 1,mesh%nt
+             do ie = 1,3
+                if ( visited(ie,it) ) cycle
+                visited(ie,it) = .true.
+                ih = get_twin(mesh, [ie,it])
+                if ( ih(2) < 1 ) cycle
+                visited(ih(1),ih(2)) = .true.
 
-               verts(1) = mesh%tri(ie,it)
-               verts(2) = mesh%tri(1+mod(ie,3),it)
-               h = sum((mesh%xyz(1:3,verts(1)) - mesh%xyz(1:3,verts(2)))**2)
-               !if ( h > 4._fp*maxval(htarget(verts(1:2)))**2 .and. ALLOW_SPLIT ) then
-               if ( ALLOW_SPLIT .and. &
-                  h > tolHMax*maxval(htarget(verts(1:2)))**2  .and. &
-                  h > 4._fp*minval(htarget(verts(1:2)))**2 ) then
-                  !PRINT *, 'H = ', SQRT(H), ' | ', SQRT(tolHMax)*htarget(verts(1:2))
-                  call split_edge( &
-                     mesh, &
-                     brep, &
-                     hypg, &
-                     [ie,it] )
-                  stat_split = 0
-                  if ( stat_split == 0 ) then
-                     !PRINT *, '*** HNEW =', MESH%hTargetV(MESH%NV)
-                     split_count = split_count + 1
-                     if ( mesh%nt > size(visited,2) ) stop
-                     if ( mesh%nv > size(htarget) ) stop
-                     cycle edge_splits_collapses
-                  end if
-               !elseif ( h < 0.5_fp*minval(htarget(verts(1:2)))**2 .and. ALLOW_COLLAPSE ) then
-               elseif( ALLOW_COLLAPSE .and. h < tolHMin*minval(htarget(verts(1:2)))**2 ) then
-                  !PRINT *, 'H = ', SQRT(H), ' | ', SQRT(tolHMin)*htarget(verts(1:2))
-                  call collapse_edge( &
-                     mesh, &
-                     brep, &
-                     hypg, &
-                     [ie,it], &
-                     stat_collapse )
-                     if ( stat_collapse == 0 ) then
-                        !PRINT *, '*** HNEW =', MESH%hTargetV(MINVAL(VERTS(1:2)))
-                        collapse_count = collapse_count + 1
-                        cycle edge_splits_collapses
-                     end if
-               end if
-            end do
-         end do
+                verts(1) = mesh%tri(ie,it)
+                verts(2) = mesh%tri(1+mod(ie,3),it)
+                h = sum((mesh%xyz(1:3,verts(1)) - mesh%xyz(1:3,verts(2)))**2)
+                !if ( h > 4._fp*maxval(htarget(verts(1:2)))**2 .and. ALLOW_SPLIT ) then
+                if ( ALLOW_SPLIT .and. &
+                     h > tolHMax*maxval(htarget(verts(1:2)))**2  .and. &
+                     h > 4._fp*minval(htarget(verts(1:2)))**2 ) then
+                   !PRINT *, 'H = ', SQRT(H), ' | ', SQRT(tolHMax)*htarget(verts(1:2))
+                   call split_edge( &
+                        mesh, &
+                        brep, &
+                        hypg, &
+                        [ie,it] )
+                   stat_split = 0
+                   if ( stat_split == 0 ) then
+                      !PRINT *, '*** HNEW =', MESH%hTargetV(MESH%NV)
+                      split_count = split_count + 1
+                      if ( mesh%nt > size(visited,2) ) stop
+                      if ( mesh%nv > size(htarget) ) stop
+                      cycle edge_splits_collapses
+                   end if
+                   !elseif ( h < 0.5_fp*minval(htarget(verts(1:2)))**2 .and. ALLOW_COLLAPSE ) then
+                elseif( ALLOW_COLLAPSE .and. h < tolHMin*minval(htarget(verts(1:2)))**2 ) then
+                   !PRINT *, 'H = ', SQRT(H), ' | ', SQRT(tolHMin)*htarget(verts(1:2))
+                   call collapse_edge( &
+                        mesh, &
+                        brep, &
+                        hypg, &
+                        [ie,it], &
+                        stat_collapse )
+                   if ( stat_collapse == 0 ) then
+                      !PRINT *, '*** HNEW =', MESH%hTargetV(MINVAL(VERTS(1:2)))
+                      collapse_count = collapse_count + 1
+                      cycle edge_splits_collapses
+                   end if
+                end if
+             end do
+          end do
 
-         ! we get there if and only if no more edge splits/collapses are performed
-         exit edge_splits_collapses
-      end do edge_splits_collapses
+          ! we get there if and only if no more edge splits/collapses are performed
+          exit edge_splits_collapses
+       end do edge_splits_collapses
 
-      PRINT *, split_count, ' EDGE SPLIT(S) (mesh originally had', nt0, ' triangles)'
-      PRINT *, collapse_count, ' EDGE COLLAPSE(S) (mesh originally had', nt0, ' triangles)'
-      !PAUSE
+       PRINT *, split_count, ' EDGE SPLIT(S) (mesh originally had', nt0, ' triangles)'
+       PRINT *, collapse_count, ' EDGE COLLAPSE(S) (mesh originally had', nt0, ' triangles)'
+       !PAUSE
 
        ! 2) compute valence
        do iv = 1,mesh%nv
@@ -811,119 +820,119 @@ contains
 
        ! 3) valence improving edge flipping
        if ( ALLOW_FLIP ) then
-         flip_count = 0
-         valence_improving_flips : do 
-            IF ( FLIP_COUNT > 3*MESH%NT ) EXIT  valence_improving_flips
-            visited(1:3,1:mesh%nt) = .false.
-            do it = 1,mesh%nt
-               do ie = 1,3
-                  if ( visited(ie,it) ) cycle
-                  visited(ie,it) = .true.
-                  ih = get_twin(mesh, [ie,it])
-                  if ( ih(2) < 1 ) cycle
-                  visited(ih(1),ih(2)) = .true.
-                  ! edge vertices
-                  verts(1) = mesh%tri(ie,it)
-                  verts(2) = mesh%tri(1+mod(ie,3),it)
-                  if ( maxval(mesh%typ(verts(1:2))) < 2 ) cycle
-                  ! opposite vertices
-                  verts(3) = mesh%tri(1+mod(ie+1,3),it)
-                  verts(4) = mesh%tri(1+mod(ih(1)+1,3),ih(2))
-                  ! compute new valences if the edge gets flipped
-                  valence_tmp = valence(verts)
-                  valence_tmp(1:2) = valence_tmp(1:2) - 1
-                  valence_tmp(3:4) = valence_tmp(3:4) + 1
-                  ! compute min/max valence in pair of triangles
-                  valence_minmax(1,1:2) = 1000
-                  valence_minmax(2,1:2) = 0
-                  do iv = 1,4
-                     valence_minmax(1,1) = min(valence_minmax(1,1), valence(verts(iv)))
-                     valence_minmax(2,1) = max(valence_minmax(2,1), valence(verts(iv)))
-                     valence_minmax(1,2) = min(valence_minmax(1,2), valence_tmp(iv))
-                     valence_minmax(2,2) = max(valence_minmax(2,2), valence_tmp(iv))
-                  end do
-                  !
-                  if ( valence_minmax(1,1) >= min_valence .and. &
+          flip_count = 0
+          valence_improving_flips : do 
+             IF ( FLIP_COUNT > 3*MESH%NT ) EXIT  valence_improving_flips
+             visited(1:3,1:mesh%nt) = .false.
+             do it = 1,mesh%nt
+                do ie = 1,3
+                   if ( visited(ie,it) ) cycle
+                   visited(ie,it) = .true.
+                   ih = get_twin(mesh, [ie,it])
+                   if ( ih(2) < 1 ) cycle
+                   visited(ih(1),ih(2)) = .true.
+                   ! edge vertices
+                   verts(1) = mesh%tri(ie,it)
+                   verts(2) = mesh%tri(1+mod(ie,3),it)
+                   if ( maxval(mesh%typ(verts(1:2))) < 2 ) cycle
+                   ! opposite vertices
+                   verts(3) = mesh%tri(1+mod(ie+1,3),it)
+                   verts(4) = mesh%tri(1+mod(ih(1)+1,3),ih(2))
+                   ! compute new valences if the edge gets flipped
+                   valence_tmp = valence(verts)
+                   valence_tmp(1:2) = valence_tmp(1:2) - 1
+                   valence_tmp(3:4) = valence_tmp(3:4) + 1
+                   ! compute min/max valence in pair of triangles
+                   valence_minmax(1,1:2) = 1000
+                   valence_minmax(2,1:2) = 0
+                   do iv = 1,4
+                      valence_minmax(1,1) = min(valence_minmax(1,1), valence(verts(iv)))
+                      valence_minmax(2,1) = max(valence_minmax(2,1), valence(verts(iv)))
+                      valence_minmax(1,2) = min(valence_minmax(1,2), valence_tmp(iv))
+                      valence_minmax(2,2) = max(valence_minmax(2,2), valence_tmp(iv))
+                   end do
+                   !
+                   if ( valence_minmax(1,1) >= min_valence .and. &
                         valence_minmax(2,1) <= max_valence ) cycle
-                  ! check if edge flip would improve valence uniformity
-                  if ( valence_minmax(2,2) - valence_minmax(1,2) < &
+                   ! check if edge flip would improve valence uniformity
+                   if ( valence_minmax(2,2) - valence_minmax(1,2) < &
                         valence_minmax(2,1) - valence_minmax(1,1)) then
-                     PRINT *,'BEFORE: MIN/MAX VAL =', valence_minmax(1:2,1)
-                     PRINT *,'AFTER:  MIN/MAX VAL =', valence_minmax(1:2,2)
-                     ! flip egde
-                     call flip_edge( &
+                      PRINT *,'BEFORE: MIN/MAX VAL =', valence_minmax(1:2,1)
+                      PRINT *,'AFTER:  MIN/MAX VAL =', valence_minmax(1:2,2)
+                      ! flip egde
+                      call flip_edge( &
                            mesh, &
                            [ie,it], &
                            stat_flip )
-                     PRINT *,'STAT_FLIP =', STAT_FLIP
-                     PRINT *,''
-                     !PAUSE
-                     if ( stat_flip == 0 ) then
-                        flip_count = flip_count + 1
-                        do iv = 1,4
-                           valence(verts(iv)) = valence_tmp(iv)
-                        end do
-                        cycle valence_improving_flips
-                     end if
-                  end if
-               end do
-            end do
+                      PRINT *,'STAT_FLIP =', STAT_FLIP
+                      PRINT *,''
+                      !PAUSE
+                      if ( stat_flip == 0 ) then
+                         flip_count = flip_count + 1
+                         do iv = 1,4
+                            valence(verts(iv)) = valence_tmp(iv)
+                         end do
+                         cycle valence_improving_flips
+                      end if
+                   end if
+                end do
+             end do
 
-            ! we get there if and only if no more edge flips are performed
-            exit valence_improving_flips ! 
+             ! we get there if and only if no more edge flips are performed
+             exit valence_improving_flips ! 
 
-         end do valence_improving_flips
+          end do valence_improving_flips
 
-         PRINT *, flip_count, ' EDGE FLIP(S) (mesh contains', mesh%nt, ' triangles)'
-      end if
+          PRINT *, flip_count, ' EDGE FLIP(S) (mesh contains', mesh%nt, ' triangles)'
+       end if
 
        ! 4) variational mesh optimization
-      if ( ALLOW_SMOOTHING ) then
-       call optim_jiao( &
-            brep, &
-            hypg%hyperedges(1:hypg%nhe), &
-            hypg%nhe, &
-            mesh, &
-            1._fp, &
-            0.7_fp, &
-            2, &
-            4, &
-            6, &
-            hmin, &
-            hmax )
-      end if
-       
-      if ( ALLOW_SPLIT .and. split_count < 1 .and. &
-           ALLOW_COLLAPSE .and. collapse_count < 1 .and. & 
-           ALLOW_FLIP .and. flip_count < 1 ) then
-         exit
-      end if
+       if ( ALLOW_SMOOTHING ) then
+          call optim_jiao( &
+               brep, &
+               hypg%hyperedges(1:hypg%nhe), &
+               hypg%nhe, &
+               mesh, &
+               1._fp, &
+               0.7_fp, &
+               2, &
+               4, &
+               6, &
+               hmin, &
+               hmax )
+       end if
+
+       if ( ALLOW_SPLIT .and. split_count < 1 .and. &
+            ALLOW_COLLAPSE .and. collapse_count < 1 .and. & 
+            ALLOW_FLIP .and. flip_count < 1 ) then
+          exit
+       end if
        ! 3) energy reduction edge flipping
 
     end do
 
-   !  IF ( DEBUG ) THEN
-   !    write (strnum, '(i3.3)') ipass-1
-   !    call set_hTargetV( &
-   !       mesh, &
-   !       hmin, &
-   !       hmax, &
-   !       tolchord, &
-   !       opt_adaptScale=.false., &
-   !       opt_brep=brep, &
-   !       opt_fractionPrevious=0._fp )
-   !    if ( allocated(mesh%hTargetV) ) then
-   !       call write_vtk_mesh_sol( &
-   !          mesh, &
-   !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
-   !          solv=mesh%hTargetV(1:mesh%nv), &
-   !          solv_label='hTarget' )
-   !    else
-   !       call write_vtk_mesh( &
-   !          mesh, &
-   !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
-   !    end if
-   ! END IF
+    !  IF ( DEBUG ) THEN
+    !    write (strnum, '(i3.3)') ipass-1
+    !    call set_hTargetV( &
+    !       mesh, &
+    !       hmin, &
+    !       hmax, &
+    !       tolchord, &
+    !       opt_adaptScale=.false., &
+    !       opt_brep=brep, &
+    !       opt_fractionPrevious=0._fp )
+    !    if ( allocated(mesh%hTargetV) ) then
+    !       call write_vtk_mesh_sol( &
+    !          mesh, &
+    !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk', &
+    !          solv=mesh%hTargetV(1:mesh%nv), &
+    !          solv_label='hTarget' )
+    !    else
+    !       call write_vtk_mesh( &
+    !          mesh, &
+    !          '../debug/surface_mesh_optimization/pass_'//strnum//'.vtk' )
+    !    end if
+    ! END IF
 
   end subroutine surface_mesh_optimization
 
@@ -971,295 +980,295 @@ contains
   !  if ( present(nedg) ) nedg = k  
   !end subroutine compute_mesh_gradation
 
-subroutine get_midpoint_hyperedge( &
-   mesh, &
-   verts, &
-   brep, &
-   hypg, &
-   stat, &
-   ids_mid, &
-   uv_mid, &
-   xyz_mid )
-   use mod_types_brep
-   use mod_hypergraph
-   use mod_diffgeom
-   use mod_intersection
-   use mod_projection
-   implicit none
-   LOGICAL :: DEBUG_PROJ = .false.
-   type(type_surface_mesh), intent(in)  :: mesh
-   integer,                 intent(in)  :: verts(2)
-   type(type_brep),         intent(in)  :: brep
-   type(type_hypergraph),   intent(in)  :: hypg
-   integer,                 intent(out) :: stat
-   integer,                 intent(out) :: ids_mid
-   real(kind=fp),           intent(out) :: uv_mid(2,2)
-   real(kind=fp),           intent(out) :: xyz_mid(3)
-   integer                              :: iedge, ihype
-   real(kind=fp)                        :: duv_ds(2,2,2), dxyz_ds(3,2)
-   real(kind=fp)                        :: ds, duv(2,2), dxyz(3)
+  subroutine get_midpoint_hyperedge( &
+       mesh, &
+       verts, &
+       brep, &
+       hypg, &
+       stat, &
+       ids_mid, &
+       uv_mid, &
+       xyz_mid )
+    use mod_types_brep
+    use mod_hypergraph
+    use mod_diffgeom
+    use mod_intersection
+    use mod_projection
+    implicit none
+    LOGICAL :: DEBUG_PROJ = .false.
+    type(type_surface_mesh), intent(in)  :: mesh
+    integer,                 intent(in)  :: verts(2)
+    type(type_brep),         intent(in)  :: brep
+    type(type_hypergraph),   intent(in)  :: hypg
+    integer,                 intent(out) :: stat
+    integer,                 intent(out) :: ids_mid
+    real(kind=fp),           intent(out) :: uv_mid(2,2)
+    real(kind=fp),           intent(out) :: xyz_mid(3)
+    integer                              :: iedge, ihype
+    real(kind=fp)                        :: duv_ds(2,2,2), dxyz_ds(3,2)
+    real(kind=fp)                        :: ds, duv(2,2), dxyz(3)
 
-   dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+    dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
 
-   iedge = mesh%ids(verts(1))
-   ihype = brep%edges(iedge)%hyperedge
-   call diffgeom_intersection( &
-      brep%edges(iedge)%curve%surf, &
-      mesh%uv(1:2,1:2,verts(1)), &
-      duv_ds, &
-      dxyz_ds, &
-      stat )
-   if ( stat > 0 ) then
-      print *,'get_midpoint_hyperedge: not a tangential intersection curve'
-      return
-   end if
-   ds = dot_product(dxyz, dxyz_ds(1:3,1))
-   duv(1:2,1:2) = ds * duv_ds(1:2,1,1:2)
-   dxyz = ds * dxyz_ds(1:3,1)
-   !
-   call projection_hyperedge( &
-      brep, &
-      hypg%hyperedges(ihype), &
-      iedge, &
-      mesh%uv(1:2,1:2,verts(1)), &
-      mesh%xyz(1:3,verts(1)), &
-      duv, &
-      dxyz, &
-      ids_mid, &
-      uv_mid, &
-      xyz_mid, &
-      DEBUG_PROJ, &
-      stat )
-   if ( stat > 0 ) then
-      print *,'get_midpoint_hyperedge: failed to project on hyperedge'
-      return
-   end if
-
-end subroutine get_midpoint_hyperedge
-
-
-
-
-
-subroutine get_midpoint_hyperface( &
-   mesh, &
-   verts, &
-   brep, &
-   stat, &
-   ids_mid, &
-   uv_mid, &
-   xyz_mid )
-   use mod_types_brep
-   use mod_diffgeom
-   use mod_intersection
-   use mod_projection
-   implicit none
-   LOGICAL :: DEBUG_PROJ = .false.
-   type(type_surface_mesh), intent(in)  :: mesh
-   integer,                 intent(in)  :: verts(2)
-   type(type_brep),         intent(in)  :: brep
-   integer,                 intent(out) :: stat
-   integer,                 intent(out) :: ids_mid
-   real(kind=fp),           intent(out) :: uv_mid(2)
-   real(kind=fp),           intent(out) :: xyz_mid(3)
-   integer                              :: iface, ivar
-   real(kind=fp)                        :: dxyz_duv(3,2)
-   real(kind=fp)                        :: duv(2), dxyz(3)
-   logical                              :: singular
-
-   dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
-
-   iface = mesh%ids(verts(1))
-   do ivar = 1,2 ! <-------------------+
-      call evald1( &                   !
-         dxyz_duv(1:3,ivar), &         !
-         brep%faces(iface)%surface, &  !
-         mesh%uv(1:2,1,verts(1)), &    !
-         ivar )                        !
-   end do ! <--------------------------+
-   call solve_NxN( &
-      duv(1:2), &
-      matmul(transpose(dxyz_duv), dxyz_duv), &
-      matmul(transpose(dxyz_duv), dxyz), &
-      singular )
-   dxyz = matmul(dxyz_duv, duv(1:2))
-   !
-   call projection_hyperface( &
-      brep, &
-      iface, &
-      mesh%uv(1:2,1,verts(1)), &
-      mesh%xyz(1:3,verts(1)), &
-      duv, &
-      dxyz, &
-      ids_mid, &
-      uv_mid, &
-      DEBUG_PROJ, &
-      stat )
-   if ( stat > 0 ) then
-      print *,'get_midpoint_hyperface: failed to project on hyperedge'
-      return
-   else
-      call eval( &
+    iedge = mesh%ids(verts(1))
+    ihype = brep%edges(iedge)%hyperedge
+    call diffgeom_intersection( &
+         brep%edges(iedge)%curve%surf, &
+         mesh%uv(1:2,1:2,verts(1)), &
+         duv_ds, &
+         dxyz_ds, &
+         stat )
+    if ( stat > 0 ) then
+       print *,'get_midpoint_hyperedge: not a tangential intersection curve'
+       return
+    end if
+    ds = dot_product(dxyz, dxyz_ds(1:3,1))
+    duv(1:2,1:2) = ds * duv_ds(1:2,1,1:2)
+    dxyz = ds * dxyz_ds(1:3,1)
+    !
+    call projection_hyperedge( &
+         brep, &
+         hypg%hyperedges(ihype), &
+         iedge, &
+         mesh%uv(1:2,1:2,verts(1)), &
+         mesh%xyz(1:3,verts(1)), &
+         duv, &
+         dxyz, &
+         ids_mid, &
+         uv_mid, &
          xyz_mid, &
-         brep%faces(ids_mid)%surface, &
-         uv_mid ) 
-   end if
+         DEBUG_PROJ, &
+         stat )
+    if ( stat > 0 ) then
+       print *,'get_midpoint_hyperedge: failed to project on hyperedge'
+       return
+    end if
 
-end subroutine get_midpoint_hyperface
-
-
-
-
-
+  end subroutine get_midpoint_hyperedge
 
 
 
 
 
+  subroutine get_midpoint_hyperface( &
+       mesh, &
+       verts, &
+       brep, &
+       stat, &
+       ids_mid, &
+       uv_mid, &
+       xyz_mid )
+    use mod_types_brep
+    use mod_diffgeom
+    use mod_intersection
+    use mod_projection
+    implicit none
+    LOGICAL :: DEBUG_PROJ = .false.
+    type(type_surface_mesh), intent(in)  :: mesh
+    integer,                 intent(in)  :: verts(2)
+    type(type_brep),         intent(in)  :: brep
+    integer,                 intent(out) :: stat
+    integer,                 intent(out) :: ids_mid
+    real(kind=fp),           intent(out) :: uv_mid(2)
+    real(kind=fp),           intent(out) :: xyz_mid(3)
+    integer                              :: iface, ivar
+    real(kind=fp)                        :: dxyz_duv(3,2)
+    real(kind=fp)                        :: duv(2), dxyz(3)
+    logical                              :: singular
+
+    dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+
+    iface = mesh%ids(verts(1))
+    do ivar = 1,2 ! <-------------------+
+       call evald1( &                   !
+            dxyz_duv(1:3,ivar), &         !
+            brep%faces(iface)%surface, &  !
+            mesh%uv(1:2,1,verts(1)), &    !
+            ivar )                        !
+    end do ! <--------------------------+
+    call solve_NxN( &
+         duv(1:2), &
+         matmul(transpose(dxyz_duv), dxyz_duv), &
+         matmul(transpose(dxyz_duv), dxyz), &
+         singular )
+    dxyz = matmul(dxyz_duv, duv(1:2))
+    !
+    call projection_hyperface( &
+         brep, &
+         iface, &
+         mesh%uv(1:2,1,verts(1)), &
+         mesh%xyz(1:3,verts(1)), &
+         duv, &
+         dxyz, &
+         ids_mid, &
+         uv_mid, &
+         DEBUG_PROJ, &
+         stat )
+    if ( stat > 0 ) then
+       print *,'get_midpoint_hyperface: failed to project on hyperedge'
+       return
+    else
+       call eval( &
+            xyz_mid, &
+            brep%faces(ids_mid)%surface, &
+            uv_mid ) 
+    end if
+
+  end subroutine get_midpoint_hyperface
 
 
 
 
-subroutine get_centroid_hyperface( &
-   mesh, &
-   verts, &
-   nverts, &
-   brep, &
-   stat, &
-   ids_mid, &
-   uv_mid, &
-   xyz_mid )
-   use mod_types_brep
-   use mod_diffgeom
-   use mod_intersection
-   use mod_projection
-   implicit none
-   LOGICAL :: DEBUG_PROJ = .false.
-   type(type_surface_mesh), intent(in)  :: mesh
-   integer,                 intent(in)  :: nverts
-   integer,                 intent(in)  :: verts(nverts)
-   type(type_brep),         intent(in)  :: brep
-   integer,                 intent(out) :: stat
-   integer,                 intent(out) :: ids_mid
-   real(kind=fp),           intent(out) :: uv_mid(2)
-   real(kind=fp),           intent(out) :: xyz_mid(3)
-   integer                              :: ivert, iface, ivar
-   real(kind=fp)                        :: dxyz_duv(3,2)
-   real(kind=fp)                        :: duv(2), dxyz(3)
-   logical                              :: singular
-
-   xyz_mid(1:3) = 0._fp
-   do ivert = 1,nverts
-      xyz_mid(1:3) = xyz_mid(1:3) + mesh%xyz(1:3,verts(ivert))
-   end do
-   xyz_mid = xyz_mid/real(nverts, kind=fp)
-   !dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
-   dxyz = xyz_mid - mesh%xyz(1:3,verts(1))
-
-   iface = mesh%ids(verts(1))
-   do ivar = 1,2 ! <-------------------+
-      call evald1( &                   !
-         dxyz_duv(1:3,ivar), &         !
-         brep%faces(iface)%surface, &  !
-         mesh%uv(1:2,1,verts(1)), &    !
-         ivar )                        !
-   end do ! <--------------------------+
-   call solve_NxN( &
-      duv(1:2), &
-      matmul(transpose(dxyz_duv), dxyz_duv), &
-      matmul(transpose(dxyz_duv), dxyz), &
-      singular )
-   dxyz = matmul(dxyz_duv, duv(1:2))
-   !
-   call projection_hyperface( &
-      brep, &
-      iface, &
-      mesh%uv(1:2,1,verts(1)), &
-      mesh%xyz(1:3,verts(1)), &
-      duv, &
-      dxyz, &
-      ids_mid, &
-      uv_mid, &
-      DEBUG_PROJ, &
-      stat )
-   if ( stat > 0 ) then
-      print *,'get_midpoint_hyperface: failed to project on hyperedge'
-      return
-   else
-      call eval( &
-         xyz_mid, &
-         brep%faces(ids_mid)%surface, &
-         uv_mid ) 
-   end if
-
-end subroutine get_centroid_hyperface
 
 
 
-subroutine get_cavity_verts_around_edge( &
-   mesh, &
-   edge_verts, &
-   cavity, &
-   ncavity )
-   use mod_util
-   implicit none
-   type(type_surface_mesh), intent(in)    :: mesh
-   integer,                 intent(in)    :: edge_verts(2)
-   integer, allocatable,    intent(inout) :: cavity(:)
-   integer,                 intent(out)   :: ncavity
-   logical                                :: in_cavity
-   integer                                :: iv, jv, kv, it, ih(2)
-   INTEGER :: CNT
 
-   if ( allocated(cavity) ) then
-      if ( size(cavity) < 2 ) deallocate(cavity)
-   end if
-   allocate(cavity(6))
 
-   cavity(1:2) = edge_verts(1:2)
-   ncavity = 2
 
-   !PRINT *,'GET CAVITY AROUND EDGE (VERTS=', edge_verts, ')'
-   !PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
 
-   do iv = 1,2
-      ih = mesh%v2h(1:2,edge_verts(iv))
-      it = ih(2)
-      CNT = 0
-      adjacent_verts: do 
-         CNT = CNT + 1
-         IF ( CNT > PARAM_max_cycles_around_mesh_vertex ) THEN
-            PRINT *,'get_cavity_verts_around_edge: wrong cycling from vert#', edge_verts(iv)
-            PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
-            PRINT *,'XYZ =', MESH%XYZ(1:3,edge_verts(iv))
-            call write_vtk_mesh( &
-               mesh, &
-               '../debug/get_cavity_verts_around_edge.vtk' )
-            PAUSE
-         END IF
-         jv = get_dest(mesh, ih)
-         in_cavity = .false.
-         check_in_cavity: do kv = 1,ncavity
-            if ( cavity(kv) == jv ) then
-               in_cavity = .true.
-               exit check_in_cavity
-            end if
-         end do check_in_cavity
 
-         if ( .not. in_cavity ) then
-            call insert_after( &
-               cavity, &
-               ncavity, &
-               jv, &
-               ncavity )
-            !PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
-         end if
 
-         ih = get_twin(mesh, get_prev(ih))
-         if ( ih(2) == it .or. ih(2) < 1 ) exit adjacent_verts
-      end do adjacent_verts
-   end do
 
-end subroutine get_cavity_verts_around_edge
+  subroutine get_centroid_hyperface( &
+       mesh, &
+       verts, &
+       nverts, &
+       brep, &
+       stat, &
+       ids_mid, &
+       uv_mid, &
+       xyz_mid )
+    use mod_types_brep
+    use mod_diffgeom
+    use mod_intersection
+    use mod_projection
+    implicit none
+    LOGICAL :: DEBUG_PROJ = .false.
+    type(type_surface_mesh), intent(in)  :: mesh
+    integer,                 intent(in)  :: nverts
+    integer,                 intent(in)  :: verts(nverts)
+    type(type_brep),         intent(in)  :: brep
+    integer,                 intent(out) :: stat
+    integer,                 intent(out) :: ids_mid
+    real(kind=fp),           intent(out) :: uv_mid(2)
+    real(kind=fp),           intent(out) :: xyz_mid(3)
+    integer                              :: ivert, iface, ivar
+    real(kind=fp)                        :: dxyz_duv(3,2)
+    real(kind=fp)                        :: duv(2), dxyz(3)
+    logical                              :: singular
+
+    xyz_mid(1:3) = 0._fp
+    do ivert = 1,nverts
+       xyz_mid(1:3) = xyz_mid(1:3) + mesh%xyz(1:3,verts(ivert))
+    end do
+    xyz_mid = xyz_mid/real(nverts, kind=fp)
+    !dxyz = 0.5_fp*(mesh%xyz(1:3,verts(2)) - mesh%xyz(1:3,verts(1)))
+    dxyz = xyz_mid - mesh%xyz(1:3,verts(1))
+
+    iface = mesh%ids(verts(1))
+    do ivar = 1,2 ! <-------------------+
+       call evald1( &                   !
+            dxyz_duv(1:3,ivar), &         !
+            brep%faces(iface)%surface, &  !
+            mesh%uv(1:2,1,verts(1)), &    !
+            ivar )                        !
+    end do ! <--------------------------+
+    call solve_NxN( &
+         duv(1:2), &
+         matmul(transpose(dxyz_duv), dxyz_duv), &
+         matmul(transpose(dxyz_duv), dxyz), &
+         singular )
+    dxyz = matmul(dxyz_duv, duv(1:2))
+    !
+    call projection_hyperface( &
+         brep, &
+         iface, &
+         mesh%uv(1:2,1,verts(1)), &
+         mesh%xyz(1:3,verts(1)), &
+         duv, &
+         dxyz, &
+         ids_mid, &
+         uv_mid, &
+         DEBUG_PROJ, &
+         stat )
+    if ( stat > 0 ) then
+       print *,'get_midpoint_hyperface: failed to project on hyperedge'
+       return
+    else
+       call eval( &
+            xyz_mid, &
+            brep%faces(ids_mid)%surface, &
+            uv_mid ) 
+    end if
+
+  end subroutine get_centroid_hyperface
+
+
+
+  subroutine get_cavity_verts_around_edge( &
+       mesh, &
+       edge_verts, &
+       cavity, &
+       ncavity )
+    use mod_util
+    implicit none
+    type(type_surface_mesh), intent(in)    :: mesh
+    integer,                 intent(in)    :: edge_verts(2)
+    integer, allocatable,    intent(inout) :: cavity(:)
+    integer,                 intent(out)   :: ncavity
+    logical                                :: in_cavity
+    integer                                :: iv, jv, kv, it, ih(2)
+    INTEGER :: CNT
+
+    if ( allocated(cavity) ) then
+       if ( size(cavity) < 2 ) deallocate(cavity)
+    end if
+    allocate(cavity(6))
+
+    cavity(1:2) = edge_verts(1:2)
+    ncavity = 2
+
+    !PRINT *,'GET CAVITY AROUND EDGE (VERTS=', edge_verts, ')'
+    !PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
+
+    do iv = 1,2
+       ih = mesh%v2h(1:2,edge_verts(iv))
+       it = ih(2)
+       CNT = 0
+       adjacent_verts: do 
+          CNT = CNT + 1
+          IF ( CNT > PARAM_max_cycles_around_mesh_vertex ) THEN
+             PRINT *,'get_cavity_verts_around_edge: wrong cycling from vert#', edge_verts(iv)
+             PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
+             PRINT *,'XYZ =', MESH%XYZ(1:3,edge_verts(iv))
+             call write_vtk_mesh( &
+                  mesh, &
+                  '../debug/get_cavity_verts_around_edge.vtk' )
+             PAUSE
+          END IF
+          jv = get_dest(mesh, ih)
+          in_cavity = .false.
+          check_in_cavity: do kv = 1,ncavity
+             if ( cavity(kv) == jv ) then
+                in_cavity = .true.
+                exit check_in_cavity
+             end if
+          end do check_in_cavity
+
+          if ( .not. in_cavity ) then
+             call insert_after( &
+                  cavity, &
+                  ncavity, &
+                  jv, &
+                  ncavity )
+             !PRINT *,'CAVITY =', CAVITY(1:NCAVITY)
+          end if
+
+          ih = get_twin(mesh, get_prev(ih))
+          if ( ih(2) == it .or. ih(2) < 1 ) exit adjacent_verts
+       end do adjacent_verts
+    end do
+
+  end subroutine get_cavity_verts_around_edge
 
 end module mod_mesh_optimization

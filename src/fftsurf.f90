@@ -288,13 +288,13 @@ program fftsurf
            if ( brep_new%nf /= nf_old ) then
               stat_corresp = 1
            else
-               call update_mesh_correspondance( &
-                  brep_old, &
-                  brep_new, &
-                  hypergraph_old, &
-                  hypergraph_new, &
-                  mesh, &
-                  stat_corresp )
+              call update_mesh_correspondance( &
+                   brep_old, &
+                   brep_new, &
+                   hypergraph_old, &
+                   hypergraph_new, &
+                   mesh, &
+                   stat_corresp )
            end if
 
            if ( stat_corresp > 0 ) then
@@ -312,11 +312,11 @@ program fftsurf
            nf_old = brep_new%nf
            !PAUSE
            IF ( .false. ) THEN
-            PRINT *,'CHECK INTERSECTION POLYINES SPLITS'
-            DO I = 1,interdata_new%nc
-               PRINT *,'CURVE #', I, ', POLYLINE%NP =', interdata_new%curves(i)%polyline%np
-               PRINT *,'    SPLITS:', interdata_new%curves(i)%isplit(2,1:interdata_new%curves(i)%nsplit)
-            END DO
+              PRINT *,'CHECK INTERSECTION POLYINES SPLITS'
+              DO I = 1,interdata_new%nc
+                 PRINT *,'CURVE #', I, ', POLYLINE%NP =', interdata_new%curves(i)%polyline%np
+                 PRINT *,'    SPLITS:', interdata_new%curves(i)%isplit(2,1:interdata_new%curves(i)%nsplit)
+              END DO
            END IF
 
            !xyzprev(1:3,1:mesh%nv) = mesh%xyz(1:3,1:mesh%nv)
@@ -324,6 +324,12 @@ program fftsurf
                 mesh, &
                 '../debug/pre_deform0.dat', &
                 'avant' )
+
+           !call write_vtk_mesh_sol( &
+           !     mesh, &
+           !     '../debug/update_mesh_correspondance_0.vtk', &
+           !     solv=real(mesh%typ(1:mesh%nv), kind=fp), &
+           !     solv_label='typ' )
 
            ! Regenerate features mesh
            ! uv, ids
@@ -440,7 +446,18 @@ program fftsurf
               !PAUSE
            END IF
 
+           !call write_vtk_mesh_sol( &
+           !     mesh, &
+           !     '../debug/update_mesh_correspondance_1.vtk', &
+           !     solv=real(mesh%typ(1:mesh%nv), kind=fp), &
+           !     solv_label='typ' )
 
+           write (strnum, '(i3.3)') instant
+           call write_feature_paths_vtk( &
+                mesh, &
+                trim(options%directory) // 'output/debug/vtk/paths_'//strnum//'.vtk' )
+
+           !PAUSE
            ! Mesh optimization
            call optim_jiao( &
                 brep_new, &
@@ -461,36 +478,36 @@ program fftsurf
                 '../debug/pre_deform4.dat', &
                 'optimized' )
            !PAUSE
-            IF ( .TRUE. ) THEN
-               write (strnum, '(i3.3)') instant
-               !call discrete_minimum_curvature_radius( &
-               !   mesh, &
-               !   htarget )
-               !htarget = min(htarget, 10._fp*options%hmax)
-               !htarget = max(htarget, 0.1_fp*options%hmin)
-               !call Hc_correction( &
-               !   mesh, &
-               !   htarget, &
-               !   2._fp, &
-               !   10 )
-               IF ( .FALSE. ) THEN
-                  call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep_new)
-               ELSE
-                  htarget = mesh%hTargetV
-               END IF
-               !call write_vtk_mesh_solv( &
-               !   mesh, &
-               !   htarget, &
-               !   trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk' )
-               call compute_triangle_weights(mesh, 4._fp, 1._fp, tri_weights)
-               call write_vtk_mesh_sol( &
-                  mesh, &
-                  trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk', &
-                  tri_weights, &
-                  'weight', &
-                  htarget, &
-                  'hTarget' )
-            END IF
+           IF ( .TRUE. ) THEN
+              write (strnum, '(i3.3)') instant
+              !call discrete_minimum_curvature_radius( &
+              !   mesh, &
+              !   htarget )
+              !htarget = min(htarget, 10._fp*options%hmax)
+              !htarget = max(htarget, 0.1_fp*options%hmin)
+              !call Hc_correction( &
+              !   mesh, &
+              !   htarget, &
+              !   2._fp, &
+              !   10 )
+              IF ( .FALSE. ) THEN
+                 call target_edge_lengths(mesh, options%hmin, options%hmax, htarget, .true., brep_new)
+              ELSE
+                 htarget = mesh%hTargetV
+              END IF
+              !call write_vtk_mesh_solv( &
+              !   mesh, &
+              !   htarget, &
+              !   trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk' )
+              call compute_triangle_weights(mesh, 4._fp, 1._fp, tri_weights)
+              call write_vtk_mesh_sol( &
+                   mesh, &
+                   trim(options%directory) // 'output/debug/hve/instant_'//strnum//'.vtk', &
+                   tri_weights, &
+                   'weight', &
+                   htarget, &
+                   'hTarget' )
+           END IF
 
            ! Export new positions
            call write_xyz_positions( &
@@ -1079,29 +1096,31 @@ contains
              mesh%paths(ipath)%verts(1:nv) = &                   !  !  !
                   mesh%paths(ipath)%verts(nv:1:-1)               !  !  !
           end if ! <---------------------------------------------+  !  !
-          if ( hypg_old%hyperedges(ihype)%verts(1) == &             !  !
-               hypg_old%hyperedges(ihype)%verts(2) ) then ! <----+  !  !
-             ivert = 0                                           !  !  !
-             disti = huge(1._fp)                                 !  !  !
-             jvert = hypg_old%hyperedges(ihype)%verts(1)         !  !  !
-             xyzv = brep_old%verts(jvert)%point%xyz              !  !  !
-             do jvert = 1,mesh%paths(ipath)%nv-1 ! <----------+  !  !  !
-                kvert = mesh%paths(ipath)%verts(jvert)        !  !  !  !
-                distj = sum((mesh%xyz(1:3,kvert) - xyzv)**2)  !  !  !  !
-                if ( distj < disti ) then ! <---+             !  !  !  !
-                   ivert = jvert                !             !  !  !  !
-                   disti = distj                !             !  !  !  !
-                end if ! <----------------------+             !  !  !  !
-             end do ! <---------------------------------------+  !  !  !
-             kvert = mesh%paths(ipath)%verts(ivert)              !  !  !
-             call circular_permutation( &                        !  !  !
-                  mesh%paths(ipath)%verts(1:nv-1), &             !  !  !
-                  nv-1, &                                        !  !  !
-                  ivert )                                        !  !  !
-             mesh%paths(ipath)%verts(nv) = kvert                 !  !  !
-             !PRINT *,mesh%paths(ipath)%verts(1:nv)
-             !PAUSE
-          end if ! <---------------------------------------------+  !  !
+          IF ( .FALSE. ) THEN
+             if ( hypg_old%hyperedges(ihype)%verts(1) == &             !  !
+                  hypg_old%hyperedges(ihype)%verts(2) ) then ! <----+  !  !
+                ivert = 0                                           !  !  !
+                disti = huge(1._fp)                                 !  !  !
+                jvert = hypg_old%hyperedges(ihype)%verts(1)         !  !  !
+                xyzv = brep_old%verts(jvert)%point%xyz              !  !  !
+                do jvert = 1,mesh%paths(ipath)%nv-1 ! <----------+  !  !  !
+                   kvert = mesh%paths(ipath)%verts(jvert)        !  !  !  !
+                   distj = sum((mesh%xyz(1:3,kvert) - xyzv)**2)  !  !  !  !
+                   if ( distj < disti ) then ! <---+             !  !  !  !
+                      ivert = jvert                !             !  !  !  !
+                      disti = distj                !             !  !  !  !
+                   end if ! <----------------------+             !  !  !  !
+                end do ! <---------------------------------------+  !  !  !
+                kvert = mesh%paths(ipath)%verts(ivert)              !  !  !
+                call circular_permutation( &                        !  !  !
+                     mesh%paths(ipath)%verts(1:nv-1), &             !  !  !
+                     nv-1, &                                        !  !  !
+                     ivert )                                        !  !  !
+                mesh%paths(ipath)%verts(nv) = kvert                 !  !  !
+                !PRINT *,mesh%paths(ipath)%verts(1:nv)
+                !PAUSE
+             end if ! <---------------------------------------------+  !  !
+          END IF
        else ! ------------------------------------------------------+  !
           ! delete path and update ids & typ                        !  !
           ! ...   
@@ -1146,10 +1165,13 @@ contains
        IF ( DEBUG ) THEN
           PRINT *,''
           PRINT *,'PATH #', ipath
+          PRINT *,'VERTS:', MESH%PATHS(IPATH)%VERTS(1:MESH%PATHS(IPATH)%NV)
 
           CALL GET_FREE_UNIT(FID)
           OPEN(UNIT=FID, FILE='../debug/path_old.dat', ACTION='WRITE')
           DO IVERT = 1,mesh%paths(ipath)%nv
+             if ( ivert == mesh%paths(ipath)%nv .and. &
+                  mesh%paths(ipath)%verts(ivert) == mesh%paths(ipath)%verts(1) ) exit
              WRITE (FID,*) MESH%XYZ(:,MESH%PATHS(IPATH)%VERTS(IVERT))
           END DO
           CLOSE(FID)
@@ -1162,6 +1184,10 @@ contains
        kvert = 0
        do jvert = 1,mesh%paths(ipath)%nv
           ivert = mesh%paths(ipath)%verts(jvert)
+          if ( jvert == mesh%paths(ipath)%nv .and. ivert == mesh%paths(ipath)%verts(1) ) then
+             EXIT
+          end if
+
           IF ( DEBUG ) THEN
              PRINT *,''
              PRINT *,'VERT #', IVERT, '( TYP =', mesh%typ(ivert), ')'
@@ -1217,74 +1243,75 @@ contains
                 mesh%uv(1:2,1:2,ivert) = uv_min
                 mesh%ids(ivert) = iedge_min
              ELSE
-                call diffgeom_intersection( &
-                     brep%edges(iedge_min)%curve%surf, &
-                     uv_min, &
-                     duv_ds, &
-                     dxyz_ds, &
-                     stat_intersection )
-                if ( stat_intersection /= 0 ) then
-                   stat = 1
-                   PRINT *,'new_regen_paths: not a transversal intersection'
-                   PRINT *,'STAT =', STAT
-                   PAUSE
-                   return
-                else
-                   IF ( DEBUG ) THEN
-                      !PRINT *,'   DUV_DS  =', duv_ds(1:2,1,1:2)
-                      PRINT *,'         DXYZ_DS =', dxyz_ds(1:3,1)
-                      PRINT *,'   XYZ - XYZ_MIN =', mesh%xyz(1:3,ivert) - xyz_min
-                   END IF
-                end if
+                if ( .true. ) then!jvert /= mesh%paths(ipath)%nv .or. ivert /= mesh%paths(ipath)%verts(1) ) then
+                   call diffgeom_intersection( &
+                        brep%edges(iedge_min)%curve%surf, &
+                        uv_min, &
+                        duv_ds, &
+                        dxyz_ds, &
+                        stat_intersection )
+                   if ( stat_intersection /= 0 ) then
+                      stat = 1
+                      PRINT *,'new_regen_paths: not a transversal intersection'
+                      PRINT *,'STAT =', STAT
+                      PAUSE
+                      return
+                   else
+                      IF ( DEBUG ) THEN
+                         !PRINT *,'   DUV_DS  =', duv_ds(1:2,1,1:2)
+                         PRINT *,'         DXYZ_DS =', dxyz_ds(1:3,1)
+                         PRINT *,'   XYZ - XYZ_MIN =', mesh%xyz(1:3,ivert) - xyz_min
+                      END IF
+                   end if
 
-                ds = dot_product(dxyz_ds(1:3,1), mesh%xyz(1:3,ivert) - xyz_min)
-                duv = ds * duv_ds(1:2,1,1:2)
-                dxyz = ds * dxyz_ds(1:3,1)
-                IF ( DEBUG ) THEN
-                   PRINT *,'   |DS|   =', ABS(DS)
-                   PRINT *,'   |DUV|  =', NORM2(DUV(1:2,1)), NORM2(DUV(1:2,2))
-                   PRINT *,'   |DXYZ| =', NORM2(DXYZ)
+                   ds = dot_product(dxyz_ds(1:3,1), mesh%xyz(1:3,ivert) - xyz_min)
+                   duv = ds * duv_ds(1:2,1,1:2)
+                   dxyz = ds * dxyz_ds(1:3,1)
+                   IF ( DEBUG ) THEN
+                      PRINT *,'   |DS|   =', ABS(DS)
+                      PRINT *,'   |DUV|  =', NORM2(DUV(1:2,1)), NORM2(DUV(1:2,2))
+                      PRINT *,'   |DXYZ| =', NORM2(DXYZ)
+                   END IF
+
+                   !CYCLE
+                   call projection_hyperedge( &
+                        brep, &
+                        hypg%hyperedges(ihype), &
+                        iedge_min, &
+                        uv_min, &
+                        xyz_min, &
+                        duv, &
+                        dxyz, &
+                        mesh%ids(ivert), &
+                        mesh%uv(1:2,1:2,ivert), &
+                        xyztmp, &
+                        .false., &
+                        stat_proj )
+                   if ( stat_proj /= 0 ) then
+                      stat = 2
+                      PRINT *,'new_regen_paths: failed to project onto hyperedge'
+                      PRINT *,'DXYZ =',dxyz
+                      CLOSE(FID)
+                      PAUSE
+                      return
+                   end if
                 END IF
 
-                !CYCLE
-                call projection_hyperedge( &
-                     brep, &
-                     hypg%hyperedges(ihype), &
-                     iedge_min, &
-                     uv_min, &
-                     xyz_min, &
-                     duv, &
-                     dxyz, &
-                     mesh%ids(ivert), &
-                     mesh%uv(1:2,1:2,ivert), &
-                     xyztmp, &
-                     .false., &
-                     stat_proj )
-                if ( stat_proj /= 0 ) then
-                   stat = 2
-                   PRINT *,'new_regen_paths: failed to project onto hyperedge'
-                   PRINT *,'DXYZ =',dxyz
-                   CLOSE(FID)
-                   PAUSE
-                   return
-                end if
-             END IF
+                IF ( DEBUG ) THEN
+                   PRINT *,'   IDS:', IEDGE_MIN, ' ->', mesh%ids(ivert)
+                   PRINT *,'   UV =', mesh%uv(1:2,1:2,ivert)
 
-             IF ( DEBUG ) THEN
-                PRINT *,'   IDS:', IEDGE_MIN, ' ->', mesh%ids(ivert)
-                PRINT *,'   UV =', mesh%uv(1:2,1:2,ivert)
-
-                xyz_min = xyztmp
-                !call eval( &
-                !     xyz_min, &
-                !     brep%edges(mesh%ids(ivert))%curve%surf(1)%ptr, &
-                !     mesh%uv(1:2,1,ivert) )
-                WRITE (FID,*) xyz_min
-             END IF
-
+                   xyz_min = xyztmp
+                   !call eval( &
+                   !     xyz_min, &
+                   !     brep%edges(mesh%ids(ivert))%curve%surf(1)%ptr, &
+                   !     mesh%uv(1:2,1,ivert) )
+                   WRITE (FID,*) xyz_min
+                END IF
+             end if
           else
-            PRINT *,'new_regen_paths: typ =', mesh%typ(ivert)
-            PAUSE
+             PRINT *,'new_regen_paths: typ =', mesh%typ(ivert)
+             PAUSE
           end if
        end do
 

@@ -12,6 +12,10 @@ xold = importdata('path_old.dat');
 xnew = importdata('path_new.dat');
 xhe = importdata('hyperedge.dat');
 
+xold = [xold; xold(1,:)];
+xnew = [xnew; xnew(1,:)];
+
+
 % i = 2;
 % x = [0.49999999999999956       -4.6259292692714853E-018   0.0000000000000000];
 % d = [2.1494334547362480E-015   8.9430006720017195E-003  -0.0000000000000000];
@@ -26,7 +30,7 @@ figure;
 hold on
 
 plot3(xold(:,1), xold(:,2), xold(:,3), 'k.-');
-plot3(xhe(:,1), xhe(:,2), xhe(:,3), 'b.-');
+%plot3(xhe(:,1), xhe(:,2), xhe(:,3), 'b.-');
 % plot3(xhe(1,1), xhe(1,2), xhe(1,3), 'go');
 
 % plot3(xold(i,1), xold(i,2), xold(i,3), 'ko');
@@ -43,8 +47,10 @@ plot3(xnew(:,1), xnew(:,2), xnew(:,3), 'r.-');
 
 % plot3(verts(v,1), verts(v,2), verts(v,3), 'r*');
 
-% quiver3(xold(:,1), xold(:,2), xold(:,3), ...
-%     xnew(:,1) - xold(:,1), xnew(:,2) - xold(:,2), xnew(:,3) - xold(:,3), 0, 'g' );
+m = min(size(xold,1), size(xnew,1)) - 1;
+quiver3(xold(1:m,1), xold(1:m,2), xold(1:m,3), ...
+    xnew(1:m,1) - xold(1:m,1), xnew(1:m,2) - xold(1:m,2), xnew(1:m,3) - xold(1:m,3), ...
+    0, 'g' );
 
 axis equal% vis3d
 view(3)

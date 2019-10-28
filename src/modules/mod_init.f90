@@ -372,6 +372,13 @@ contains
       call write_gmsh_mesh( &
          mesh, &
          trim(dir) // 'mesh/initmesh_optim.msh' )
+         
+         call write_vtk_mesh( &
+               mesh, &
+               trim(dir) // 'mesh/initmesh.vtk' )
+         call write_feature_paths_vtk( &
+               mesh, &
+               trim(dir) // 'mesh/initmesh_paths.vtk' )
 
 
       IF ( .true. ) THEN
